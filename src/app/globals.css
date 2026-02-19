@@ -3,13 +3,13 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --bg: #ffffff;
+  --text: #0f172a; /* dark slate */
+  --muted: #6b7280;
+  --primary: #0f172a; /* used for buttons */
+  --danger: #dc2626;
+  --border: #e5e7eb;
+  --input-border: #cbd5e1;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -24,3 +24,79 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+html, body {
+  padding: 0;
+  margin: 0;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  background: var(--bg);
+  color: var(--text);
+}
+
+a { color: inherit; }
+
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.header {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+  background: var(--bg);
+}
+
+.nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.brand {
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+
+.btn {
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: white;
+  cursor: pointer;
+}
+
+.btn-ghost {
+  padding: 0.45rem 0.65rem;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid var(--input-border);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.btn-danger {
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--danger);
+  background: var(--danger);
+  color: white;
+  cursor: pointer;
+}
+
+.card {
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: white;
+}
+
+label { font-size: 12px; color: var(--text); }
+input, textarea { padding: 8px; border-radius: 6px; border: 1px solid var(--input-border); width: 100%; }
+
+small { color: var(--muted); }
+
+/* Improve accessibility focus states */
+.btn:focus, .btn-ghost:focus, .btn-danger:focus { outline: 2px solid rgba(15,23,42,0.15); outline-offset: 2px; }
