@@ -33,14 +33,15 @@ export default function RootLayout({
             <Link href="/" className="brand">
               Yomu
             </Link>
-            <div>
+            <div style={{display : "flex", gap: 8}}>
               <Link href="/forums">
                 <button className="btn">Forums</button>
               </Link>
+              <Link href="/reading">
+                <button className="btn">Reading</button>
+              </Link>
               <Link href="/users">
-                <button className="btn" style={{ marginLeft: 8 }}>
-                  Auth
-                </button>
+                <button className="btn" >Auth</button>
               </Link>
             </div>
           </div>
