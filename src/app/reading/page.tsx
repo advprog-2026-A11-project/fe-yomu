@@ -1,25 +1,20 @@
 import Link from "next/link";
 
-export default function AchievementPage() {
+export default function BacaanPage() {
     return (
         <div>
+
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <Link href="/" className="btn" style={{ background : "gold", color : "black"}}>
-                    Back to Home
+                <Link href="/create-bacaan" className="btn" style={{ background : "lightblue", color : "black"}}>
+                    + Create a reading exercise
                 </Link>
             </div>
+
             <div style={{ textAlign: "center", marginTop: "3rem" }}>
-                <h1>🏆 Achievement Gallery</h1>
-                <p>Welcome to your collection of honors!</p>
+                <h1>Welcome friendss!!</h1>
+                <h1>Let's get started to read our materials</h1>
             </div>
 
-            <div style={{ marginTop: "2rem", display: "grid", gap: "1rem" }}>
-                <div className="card">
-                    <h3>First Steps</h3>
-                    <p>Complete your first reading material.</p>
-                    <small>Milestone: 1</small>
-                </div>
-            </div>
         </div>
     );
 }
