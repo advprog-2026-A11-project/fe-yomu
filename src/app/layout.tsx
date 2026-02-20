@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
@@ -37,6 +37,11 @@ export default function RootLayout({
               <Link href="/forums">
                 <button className="btn">Forums</button>
               </Link>
+              <Link href="/users">
+                <button className="btn" style={{ marginLeft: 8 }}>
+                  Auth
+                </button>
+              </Link>
             </div>
           </div>
         </header>
@@ -52,9 +57,10 @@ export default function RootLayout({
             textAlign: "center",
           }}
         >
-          <small>© {new Date().getFullYear()} Yomu</small>
+          <small>(c) {new Date().getFullYear()} Yomu</small>
         </footer>
       </body>
     </html>
   );
 }
+
