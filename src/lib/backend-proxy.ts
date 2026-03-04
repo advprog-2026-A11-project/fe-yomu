@@ -1,50 +1,50 @@
-const BACKEND_URL_CANDIDATES = [
-  process.env.BACKEND_URL,
-  process.env.NEXT_PUBLIC_BACKEND_URL,
-  "http://localhost:8080",
-  "http://127.0.0.1:8080",
-  "http://host.docker.internal:8080",
-  "http://gateway.docker.internal:8080",
-  "http://host.containers.internal:8080",
-  "http://172.17.0.1:8080",
-  "http://be-forum-app-1:8080",
-  "http://app:8080",
-].filter((url): url is string => Boolean(url));
+export type BackendService = "forum" | "reading" | "clan" | "achievement" | "user";
 
-export function buildBackendUrl(path: string): string {
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return `${BACKEND_URL_CANDIDATES[0]}${normalizedPath}`;
+const SERVICE_BACKEND_URLS: Record<BackendService, string | undefined> = {
+  forum: process.env.FORUM_BACKEND_URL,
+  reading: process.env.READING_BACKEND_URL,
+  clan: process.env.CLAN_BACKEND_URL,
+  achievement: process.env.ACHIEVEMENT_BACKEND_URL,
+  user: process.env.USER_BACKEND_URL,
+};
+
+function getBackendUrl(service: BackendService): string {
+  const url = SERVICE_BACKEND_URLS[service];
+  if (!url) {
+    throw new Error(
+      `Backend URL not configured for service: ${service}. Set ${service.toUpperCase()}_BACKEND_URL environment variable.`
+    );
+  }
+  return url;
 }
 
-function buildBackendUrlWithBase(baseUrl: string, path: string): string {
+export function buildBackendUrl(service: BackendService, path: string): string {
+  const baseUrl = getBackendUrl(service);
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `${baseUrl}${normalizedPath}`;
 }
 
-async function fetchFromBackendCandidates(
+async function fetchFromBackend(
+  service: BackendService,
   backendPath: string,
   init: RequestInit
 ): Promise<Response> {
-  let lastError: unknown;
-
-  for (const baseUrl of BACKEND_URL_CANDIDATES) {
-    try {
-      return await fetch(buildBackendUrlWithBase(baseUrl, backendPath), init);
-    } catch (error) {
-      lastError = error;
-    }
+  const url = buildBackendUrl(service, backendPath);
+  try {
+    return await fetch(url, init);
+  } catch (error) {
+    throw new Error(
+      `Failed to reach ${service} backend at ${url}. Error: ${String(error)}`
+    );
   }
-
-  throw new Error(
-    `Failed to reach backend using: ${BACKEND_URL_CANDIDATES.join(", ")}. Last error: ${String(lastError)}`
-  );
 }
 
 export async function proxyToBackend(
+  service: BackendService,
   backendPath: string,
   init: RequestInit = {}
 ): Promise<Response> {
-  const response = await fetchFromBackendCandidates(backendPath, {
+  const response = await fetchFromBackend(service, backendPath, {
     ...init,
     cache: "no-store",
   });

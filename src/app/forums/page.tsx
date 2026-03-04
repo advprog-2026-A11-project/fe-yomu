@@ -37,7 +37,7 @@ export default function ForumsPage() {
   const createMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
     try {
-      const payload = { content: formContent }; // no author when creating
+      const payload = { content: formContent };
       const res = await fetch(`/api/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

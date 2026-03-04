@@ -14,7 +14,7 @@ export async function PUT(request: Request, context: RouteContext) {
   try {
     const id = await getId(context);
     const body = await request.text();
-    return await proxyToBackend(`/api/messages/${encodeURIComponent(id)}`, {
+    return await proxyToBackend("forum", `/api/messages/${encodeURIComponent(id)}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body,
@@ -30,7 +30,7 @@ export async function PUT(request: Request, context: RouteContext) {
 export async function DELETE(_request: Request, context: RouteContext) {
   try {
     const id = await getId(context);
-    return await proxyToBackend(`/api/messages/${encodeURIComponent(id)}`, {
+    return await proxyToBackend("forum", `/api/messages/${encodeURIComponent(id)}`, {
       method: "DELETE",
     });
   } catch (error) {
