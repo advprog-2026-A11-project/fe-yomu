@@ -13,7 +13,7 @@ export default function EditMemberPage() {
         await fetch(`http://localhost:8080/api/clan/${id}/edit-member/${index}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(score)
+            body: JSON.stringify({ score: score })
         });
         router.push(`/clan/detail/${id}`);
     };
