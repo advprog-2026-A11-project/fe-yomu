@@ -59,7 +59,7 @@ const EMOJI_REACTIONS: EmojiReactionDescriptor[] = [
 function createAnonymousUserId(): string {
   const browserWindow = globalThis.window;
   if (browserWindow === undefined) {
-    return "forum-user-anonymous";
+    throw new Error("createAnonymousUserId must run in a browser context");
   }
 
   const existing = browserWindow.localStorage.getItem(USER_ID_STORAGE_KEY);
@@ -67,9 +67,7 @@ function createAnonymousUserId(): string {
     return existing;
   }
 
-  const generated =
-    globalThis.crypto?.randomUUID?.() ?? `forum-user-${Math.random().toString(36).slice(2, 10)}`;
-
+  const generated = globalThis.crypto.randomUUID();
   browserWindow.localStorage.setItem(USER_ID_STORAGE_KEY, generated);
   return generated;
 }
