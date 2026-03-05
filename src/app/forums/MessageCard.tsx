@@ -44,6 +44,7 @@ type EmojiReactionDescriptor = Readonly<{
 }>;
 
 type ReactionCounts = Record<ReactionType, number>;
+type SubmitEvent = React.FormEvent | undefined;
 
 const USER_ID_STORAGE_KEY = "forum-user-id";
 const ACTIVE_REACTION_COLOR = "#f97316";
@@ -119,6 +120,124 @@ async function sendReactionMutation(
   if (method === "DELETE" && !res.ok && res.status !== 404) {
     throw new Error(`Remove reaction failed: ${res.status} ${await res.text()}`);
   }
+}
+
+function getMessageEndpoint(message: Message, isTopLevel: boolean): string {
+  return isTopLevel
+    ? `/api/messages/${message.id}`
+    : `/api/messages/${message.parentId}/replies/${message.id}`;
+}
+
+async function createReplyRequest(messageId: string, content: string): Promise<void> {
+  const res = await fetch(`/api/messages/${messageId}/replies`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+  if (!res.ok) {
+    throw new Error(`Reply failed: ${res.status} ${await res.text()}`);
+  }
+}
+
+async function updateMessageRequest(endpoint: string, content: string): Promise<void> {
+  const res = await fetch(endpoint, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+  if (!res.ok) {
+    throw new Error(`Update failed: ${res.status} ${await res.text()}`);
+  }
+}
+
+async function deleteMessageRequest(endpoint: string): Promise<void> {
+  const res = await fetch(endpoint, { method: "DELETE" });
+  if (!res.ok) {
+    throw new Error(`Delete failed: ${res.status} ${await res.text()}`);
+  }
+}
+
+function useMessageComposer(params: Readonly<{
+  message: Message;
+  isTopLevel: boolean;
+  onReload: () => void;
+  onError: (err: string) => void;
+}>) {
+  const { message, isTopLevel, onReload, onError } = params;
+  const [showReplyForm, setShowReplyForm] = useState(false);
+  const [replyContent, setReplyContent] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [editContent, setEditContent] = useState(message.content);
+  const [collapsed, setCollapsed] = useState(false);
+
+  const runWithErrorHandling = async (operation: () => Promise<void>) => {
+    try {
+      await operation();
+    } catch (err) {
+      onError(String(err));
+    }
+  };
+
+  const createReply = (event?: SubmitEvent) => {
+    event?.preventDefault();
+    void runWithErrorHandling(async () => {
+      await createReplyRequest(message.id, replyContent);
+      setReplyContent("");
+      setShowReplyForm(false);
+      onReload();
+    });
+  };
+
+  const updateMessage = (event?: SubmitEvent) => {
+    event?.preventDefault();
+    const endpoint = getMessageEndpoint(message, isTopLevel);
+    void runWithErrorHandling(async () => {
+      await updateMessageRequest(endpoint, editContent);
+      setEditing(false);
+      onReload();
+    });
+  };
+
+  const deleteMessage = () => {
+    const confirmMsg = isTopLevel ? "Delete this message?" : "Delete this reply?";
+    if (!confirm(confirmMsg)) {
+      return;
+    }
+
+    const endpoint = getMessageEndpoint(message, isTopLevel);
+    void runWithErrorHandling(async () => {
+      await deleteMessageRequest(endpoint);
+      onReload();
+    });
+  };
+
+  const beginEditing = () => {
+    setEditing(true);
+    setEditContent(message.content);
+  };
+
+  const cancelReply = () => {
+    setShowReplyForm(false);
+    setReplyContent("");
+  };
+
+  return {
+    showReplyForm,
+    setShowReplyForm,
+    replyContent,
+    setReplyContent,
+    editing,
+    setEditing,
+    editContent,
+    setEditContent,
+    collapsed,
+    setCollapsed,
+    createReply,
+    updateMessage,
+    deleteMessage,
+    beginEditing,
+    cancelReply,
+  };
 }
 
 function useMessageReactions(messageId: string, onError: (err: string) => void) {
@@ -271,11 +390,28 @@ export function MessageCard({
   onReload,
   onError,
 }: Readonly<MessageCardProps>) {
-  const [showReplyForm, setShowReplyForm] = useState(false);
-  const [replyContent, setReplyContent] = useState("");
-  const [editing, setEditing] = useState(false);
-  const [editContent, setEditContent] = useState(message.content);
-  const [collapsed, setCollapsed] = useState(false);
+  const isTopLevel = depth === 0;
+  const hasReplies = message.replies && message.replies.length > 0;
+  const replyCount = message.replies?.length || 0;
+  const maxIndent = 10;
+
+  const {
+    showReplyForm,
+    setShowReplyForm,
+    replyContent,
+    setReplyContent,
+    editing,
+    setEditing,
+    editContent,
+    setEditContent,
+    collapsed,
+    setCollapsed,
+    createReply,
+    updateMessage,
+    deleteMessage,
+    beginEditing,
+    cancelReply,
+  } = useMessageComposer({ message, isTopLevel, onReload, onError });
 
   const {
     emojiPickerOpen,
@@ -287,62 +423,6 @@ export function MessageCard({
     reactionButtonEnabled,
     handleReactionClick,
   } = useMessageReactions(message.id, onError);
-
-  const isTopLevel = depth === 0;
-  const hasReplies = message.replies && message.replies.length > 0;
-  const replyCount = message.replies?.length || 0;
-  const maxIndent = 10;
-
-  const createReply = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    try {
-      const res = await fetch(`/api/messages/${message.id}/replies`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: replyContent }),
-      });
-      if (!res.ok) throw new Error(`Reply failed: ${res.status} ${await res.text()}`);
-      setReplyContent("");
-      setShowReplyForm(false);
-      onReload();
-    } catch (err) {
-      onError(String(err));
-    }
-  };
-
-  const updateMessage = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    try {
-      const endpoint = isTopLevel
-        ? `/api/messages/${message.id}`
-        : `/api/messages/${message.parentId}/replies/${message.id}`;
-      const res = await fetch(endpoint, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: editContent }),
-      });
-      if (!res.ok) throw new Error(`Update failed: ${res.status} ${await res.text()}`);
-      setEditing(false);
-      onReload();
-    } catch (err) {
-      onError(String(err));
-    }
-  };
-
-  const deleteMessage = async () => {
-    const confirmMsg = isTopLevel ? "Delete this message?" : "Delete this reply?";
-    if (!confirm(confirmMsg)) return;
-    try {
-      const endpoint = isTopLevel
-        ? `/api/messages/${message.id}`
-        : `/api/messages/${message.parentId}/replies/${message.id}`;
-      const res = await fetch(endpoint, { method: "DELETE" });
-      if (!res.ok) throw new Error(`Delete failed: ${res.status} ${await res.text()}`);
-      onReload();
-    } catch (err) {
-      onError(String(err));
-    }
-  };
 
   const containerStyle: React.CSSProperties = isTopLevel
     ? { marginBottom: "1rem" }
@@ -516,8 +596,7 @@ export function MessageCard({
               <button
                 type="button"
                 onClick={() => {
-                  setEditing(true);
-                  setEditContent(message.content);
+                  beginEditing();
                 }}
                 className="btn"
                 style={{ fontSize: smallFontSize, padding: buttonPadding }}
@@ -583,10 +662,7 @@ export function MessageCard({
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setShowReplyForm(false);
-                  setReplyContent("");
-                }}
+                onClick={cancelReply}
                 className="btn-ghost"
                 style={{ fontSize: smallFontSize, padding: buttonPadding }}
               >
