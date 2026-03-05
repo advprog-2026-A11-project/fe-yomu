@@ -4,9 +4,9 @@
   --background: #ffffff;
   --foreground: #171717;
   --bg: #ffffff;
-  --text: #0f172a; /* dark slate */
+  --text: #0f172a;
   --muted: #6b7280;
-  --primary: #0f172a; /* used for buttons */
+  --primary: #0f172a;
   --danger: #dc2626;
   --border: #e5e7eb;
   --input-border: #cbd5e1;
@@ -98,5 +98,16 @@ input, textarea { padding: 8px; border-radius: 6px; border: 1px solid var(--inpu
 
 small { color: var(--muted); }
 
-/* Improve accessibility focus states */
 .btn:focus, .btn-ghost:focus, .btn-danger:focus { outline: 2px solid rgba(15,23,42,0.15); outline-offset: 2px; }
+
+.message-card .emoji-trigger {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+}
+
+.message-card:hover .emoji-trigger,
+.message-card .emoji-trigger.emoji-trigger-open {
+  opacity: 1;
+  pointer-events: auto;
+}

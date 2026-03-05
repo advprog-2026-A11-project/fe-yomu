@@ -1,14 +1,5 @@
 const BACKEND_URL_CANDIDATES = [
-  process.env.BACKEND_URL,
-  process.env.NEXT_PUBLIC_BACKEND_URL,
-  "http://localhost:8080",
-  "http://127.0.0.1:8080",
-  "http://host.docker.internal:8080",
-  "http://gateway.docker.internal:8080",
-  "http://host.containers.internal:8080",
-  "http://172.17.0.1:8080",
-  "http://be-forum-app-1:8080",
-  "http://app:8080",
+  process.env.FORUM_BACKEND_URL
 ].filter((url): url is string => Boolean(url));
 
 export function buildBackendUrl(path: string): string {
