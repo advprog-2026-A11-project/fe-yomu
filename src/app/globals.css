@@ -99,3 +99,15 @@ input, textarea { padding: 8px; border-radius: 6px; border: 1px solid var(--inpu
 small { color: var(--muted); }
 
 .btn:focus, .btn-ghost:focus, .btn-danger:focus { outline: 2px solid rgba(15,23,42,0.15); outline-offset: 2px; }
+
+.message-card .emoji-trigger {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+}
+
+.message-card:hover .emoji-trigger,
+.message-card .emoji-trigger.emoji-trigger-open {
+  opacity: 1;
+  pointer-events: auto;
+}

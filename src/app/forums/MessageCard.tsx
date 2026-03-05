@@ -28,17 +28,27 @@ type Reaction = {
   createdAt?: string | null;
 };
 
-type MessageCardProps = {
+type MessageCardProps = Readonly<{
   message: Message;
   depth?: number;
   onReload: () => void;
   onError: (err: string) => void;
-};
+}>;
+
+type IconProps = Readonly<{ active: boolean }>;
+
+type EmojiReactionDescriptor = Readonly<{
+  type: EmojiReactionType;
+  emoji: string;
+  label: string;
+}>;
+
+type ReactionCounts = Record<ReactionType, number>;
 
 const USER_ID_STORAGE_KEY = "forum-user-id";
 const ACTIVE_REACTION_COLOR = "#f97316";
 
-const EMOJI_REACTIONS: Array<{ type: EmojiReactionType; emoji: string; label: string }> = [
+const EMOJI_REACTIONS: EmojiReactionDescriptor[] = [
   { type: "FIRE", emoji: "🔥", label: "Fire" },
   { type: "ROCKET", emoji: "🚀", label: "Rocket" },
   { type: "LAUGH", emoji: "😂", label: "Laugh" },
@@ -47,89 +57,78 @@ const EMOJI_REACTIONS: Array<{ type: EmojiReactionType; emoji: string; label: st
 ];
 
 function createAnonymousUserId(): string {
-  if (typeof window === "undefined") {
+  const browserWindow = globalThis.window;
+  if (browserWindow === undefined) {
     return "forum-user-anonymous";
   }
 
-  const existing = window.localStorage.getItem(USER_ID_STORAGE_KEY);
+  const existing = browserWindow.localStorage.getItem(USER_ID_STORAGE_KEY);
   if (existing) {
     return existing;
   }
 
   const generated =
-    typeof window.crypto !== "undefined" && typeof window.crypto.randomUUID === "function"
-      ? window.crypto.randomUUID()
-      : `forum-user-${Math.random().toString(36).slice(2, 10)}`;
+    globalThis.crypto?.randomUUID?.() ?? `forum-user-${Math.random().toString(36).slice(2, 10)}`;
 
-  window.localStorage.setItem(USER_ID_STORAGE_KEY, generated);
+  browserWindow.localStorage.setItem(USER_ID_STORAGE_KEY, generated);
   return generated;
 }
 
-function UpvoteIcon({ active }: { active: boolean }) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M12 4L4.5 12H9.5V20H14.5V12H19.5L12 4Z"
-        fill={active ? "currentColor" : "none"}
-        stroke="currentColor"
-        strokeWidth="1.6"
-      />
-    </svg>
-  );
+function buildReactionCounts(reactions: Reaction[]): ReactionCounts {
+  const counts: ReactionCounts = {
+    UPVOTE: 0,
+    DOWNVOTE: 0,
+    FIRE: 0,
+    ROCKET: 0,
+    LAUGH: 0,
+    PARTY: 0,
+    THINKING: 0,
+  };
+
+  for (const reaction of reactions) {
+    counts[reaction.reactionType] += 1;
+  }
+
+  return counts;
 }
 
-function DownvoteIcon({ active }: { active: boolean }) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M12 20L19.5 12H14.5V4H9.5V12H4.5L12 20Z"
-        fill={active ? "currentColor" : "none"}
-        stroke="currentColor"
-        strokeWidth="1.6"
-      />
-    </svg>
-  );
+async function fetchMessageReactions(messageId: string): Promise<Reaction[]> {
+  const res = await fetch(`/api/messages/${messageId}/reactions`, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Reaction load failed: ${res.status} ${await res.text()}`);
+  }
+
+  const data: unknown = await res.json();
+  return Array.isArray(data) ? (data as Reaction[]) : [];
 }
 
-function EmojiPickerIcon({ active }: { active: boolean }) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
-      <circle cx="9" cy="10" r="1" fill="currentColor" />
-      <circle cx="15" cy="10" r="1" fill="currentColor" />
-      <path
-        d="M8.5 14.5C9.3 15.8 10.6 16.5 12 16.5C13.4 16.5 14.7 15.8 15.5 14.5"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-      {active && <circle cx="19" cy="5" r="2.5" fill="currentColor" />}
-    </svg>
-  );
+async function sendReactionMutation(
+  messageId: string,
+  userId: string,
+  reactionType: ReactionType,
+  method: "POST" | "DELETE"
+): Promise<void> {
+  const res = await fetch(`/api/messages/${messageId}/reactions`, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, reactionType }),
+  });
+
+  if (method === "POST" && !res.ok && res.status !== 409) {
+    throw new Error(`Add reaction failed: ${res.status} ${await res.text()}`);
+  }
+
+  if (method === "DELETE" && !res.ok && res.status !== 404) {
+    throw new Error(`Remove reaction failed: ${res.status} ${await res.text()}`);
+  }
 }
 
-export function MessageCard({
-  message,
-  depth = 0,
-  onReload,
-  onError,
-}: MessageCardProps) {
-  const [showReplyForm, setShowReplyForm] = useState(false);
-  const [replyContent, setReplyContent] = useState("");
-  const [editing, setEditing] = useState(false);
-  const [editContent, setEditContent] = useState(message.content);
-  const [collapsed, setCollapsed] = useState(false);
+function useMessageReactions(messageId: string, onError: (err: string) => void) {
   const [reactions, setReactions] = useState<Reaction[]>([]);
   const [reactionBusy, setReactionBusy] = useState(false);
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement | null>(null);
-
-  const isTopLevel = depth === 0;
-  const hasReplies = message.replies && message.replies.length > 0;
-  const replyCount = message.replies?.length || 0;
-  const maxIndent = 10;
 
   useEffect(() => {
     setUserId(createAnonymousUserId());
@@ -138,14 +137,11 @@ export function MessageCard({
   useEffect(() => {
     let cancelled = false;
 
-    const loadReactions = async () => {
+    const load = async () => {
       try {
-        const res = await fetch(`/api/messages/${message.id}/reactions`, { cache: "no-store" });
-        if (!res.ok) throw new Error(`Reaction load failed: ${res.status} ${await res.text()}`);
-
-        const data: unknown = await res.json();
+        const next = await fetchMessageReactions(messageId);
         if (!cancelled) {
-          setReactions(Array.isArray(data) ? (data as Reaction[]) : []);
+          setReactions(next);
         }
       } catch (err) {
         if (!cancelled) {
@@ -154,12 +150,12 @@ export function MessageCard({
       }
     };
 
-    loadReactions();
+    void load();
 
     return () => {
       cancelled = true;
     };
-  }, [message.id, onError]);
+  }, [messageId, onError]);
 
   useEffect(() => {
     if (!emojiPickerOpen) {
@@ -190,83 +186,25 @@ export function MessageCard({
     );
   }, [reactions, userId]);
 
-  const reactionCounts = useMemo<Record<ReactionType, number>>(() => {
-    const counts: Record<ReactionType, number> = {
-      UPVOTE: 0,
-      DOWNVOTE: 0,
-      FIRE: 0,
-      ROCKET: 0,
-      LAUGH: 0,
-      PARTY: 0,
-      THINKING: 0,
-    };
+  const reactionCounts = useMemo(() => buildReactionCounts(reactions), [reactions]);
 
-    for (const reaction of reactions) {
-      counts[reaction.reactionType] += 1;
-    }
-
-    return counts;
-  }, [reactions]);
-
-  const visibleEmojiCounts = EMOJI_REACTIONS.filter(
-    ({ type }) => reactionCounts[type] > 0
+  const visibleEmojiCounts = useMemo(
+    () => EMOJI_REACTIONS.filter(({ type }) => reactionCounts[type] > 0),
+    [reactionCounts]
   );
 
-  const refreshReactions = async () => {
-    const res = await fetch(`/api/messages/${message.id}/reactions`, { cache: "no-store" });
-    if (!res.ok) {
-      throw new Error(`Reaction refresh failed: ${res.status} ${await res.text()}`);
-    }
+  const reactionButtonEnabled = Boolean(userId) && !reactionBusy;
 
-    const data: unknown = await res.json();
-    setReactions(Array.isArray(data) ? (data as Reaction[]) : []);
-  };
-
-  const addReaction = async (reactionType: ReactionType) => {
-    if (!userId) {
-      return;
-    }
-
-    const res = await fetch(`/api/messages/${message.id}/reactions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, reactionType }),
-    });
-
-    if (!res.ok && res.status !== 409) {
-      throw new Error(`Add reaction failed: ${res.status} ${await res.text()}`);
-    }
-  };
-
-  const removeReaction = async (reactionType: ReactionType) => {
-    if (!userId) {
-      return;
-    }
-
-    const res = await fetch(`/api/messages/${message.id}/reactions`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, reactionType }),
-    });
-
-    if (!res.ok && res.status !== 404) {
-      throw new Error(`Remove reaction failed: ${res.status} ${await res.text()}`);
-    }
-  };
-
-  const handleVoteClick = async (reactionType: "UPVOTE" | "DOWNVOTE") => {
+  const handleReactionClick = async (reactionType: ReactionType) => {
     if (!userId || reactionBusy) {
       return;
     }
 
     setReactionBusy(true);
     try {
-      if (userReactionTypes.has(reactionType)) {
-        await removeReaction(reactionType);
-      } else {
-        await addReaction(reactionType);
-      }
-      await refreshReactions();
+      const method = userReactionTypes.has(reactionType) ? "DELETE" : "POST";
+      await sendReactionMutation(messageId, userId, reactionType, method);
+      setReactions(await fetchMessageReactions(messageId));
     } catch (err) {
       onError(String(err));
     } finally {
@@ -274,25 +212,88 @@ export function MessageCard({
     }
   };
 
-  const handleEmojiClick = async (reactionType: EmojiReactionType) => {
-    if (!userId || reactionBusy) {
-      return;
-    }
-
-    setReactionBusy(true);
-    try {
-      if (userReactionTypes.has(reactionType)) {
-        await removeReaction(reactionType);
-      } else {
-        await addReaction(reactionType);
-      }
-      await refreshReactions();
-    } catch (err) {
-      onError(String(err));
-    } finally {
-      setReactionBusy(false);
-    }
+  return {
+    emojiPickerOpen,
+    setEmojiPickerOpen,
+    emojiPickerRef,
+    reactionCounts,
+    userReactionTypes,
+    visibleEmojiCounts,
+    reactionButtonEnabled,
+    handleReactionClick,
   };
+}
+
+function UpvoteIcon({ active }: IconProps) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 4L4.5 12H9.5V20H14.5V12H19.5L12 4Z"
+        fill={active ? "currentColor" : "none"}
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+    </svg>
+  );
+}
+
+function DownvoteIcon({ active }: IconProps) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 20L19.5 12H14.5V4H9.5V12H4.5L12 20Z"
+        fill={active ? "currentColor" : "none"}
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+    </svg>
+  );
+}
+
+function EmojiPickerIcon({ active }: IconProps) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="9" cy="10" r="1" fill="currentColor" />
+      <circle cx="15" cy="10" r="1" fill="currentColor" />
+      <path
+        d="M8.5 14.5C9.3 15.8 10.6 16.5 12 16.5C13.4 16.5 14.7 15.8 15.5 14.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      {active && <circle cx="19" cy="5" r="2.5" fill="currentColor" />}
+    </svg>
+  );
+}
+
+export function MessageCard({
+  message,
+  depth = 0,
+  onReload,
+  onError,
+}: Readonly<MessageCardProps>) {
+  const [showReplyForm, setShowReplyForm] = useState(false);
+  const [replyContent, setReplyContent] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [editContent, setEditContent] = useState(message.content);
+  const [collapsed, setCollapsed] = useState(false);
+
+  const {
+    emojiPickerOpen,
+    setEmojiPickerOpen,
+    emojiPickerRef,
+    reactionCounts,
+    userReactionTypes,
+    visibleEmojiCounts,
+    reactionButtonEnabled,
+    handleReactionClick,
+  } = useMessageReactions(message.id, onError);
+
+  const isTopLevel = depth === 0;
+  const hasReplies = message.replies && message.replies.length > 0;
+  const replyCount = message.replies?.length || 0;
+  const maxIndent = 10;
 
   const createReply = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -359,7 +360,6 @@ export function MessageCard({
   const fontSize = isTopLevel ? "1rem" : "0.9rem";
   const smallFontSize = isTopLevel ? "0.85rem" : "0.8rem";
   const buttonPadding = isTopLevel ? "4px 8px" : "2px 6px";
-  const reactionButtonEnabled = Boolean(userId) && !reactionBusy;
 
   const reactionButtonStyle = (active: boolean): React.CSSProperties => ({
     display: "inline-flex",
@@ -376,16 +376,9 @@ export function MessageCard({
     opacity: reactionButtonEnabled ? 1 : 0.6,
   });
 
-  const emojiTriggerVisible = isHovered || emojiPickerOpen;
-
   return (
     <div style={containerStyle}>
-      <div
-        className={isTopLevel ? "card" : ""}
-        style={cardStyle}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-      >
+      <div className={`${isTopLevel ? "card " : ""}message-card`} style={cardStyle}>
         {!editing ? (
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div style={{ flex: 1 }}>
@@ -401,7 +394,7 @@ export function MessageCard({
                 <button
                   type="button"
                   onClick={() => {
-                    void handleVoteClick("UPVOTE");
+                    void handleReactionClick("UPVOTE");
                   }}
                   style={reactionButtonStyle(userReactionTypes.has("UPVOTE"))}
                   disabled={!reactionButtonEnabled}
@@ -415,7 +408,7 @@ export function MessageCard({
                 <button
                   type="button"
                   onClick={() => {
-                    void handleVoteClick("DOWNVOTE");
+                    void handleReactionClick("DOWNVOTE");
                   }}
                   style={reactionButtonStyle(userReactionTypes.has("DOWNVOTE"))}
                   disabled={!reactionButtonEnabled}
@@ -436,7 +429,7 @@ export function MessageCard({
                           key={type}
                           type="button"
                           onClick={() => {
-                            void handleEmojiClick(type);
+                            void handleReactionClick(type);
                           }}
                           disabled={!reactionButtonEnabled}
                           aria-label={label}
@@ -462,12 +455,10 @@ export function MessageCard({
                 <button
                   type="button"
                   onClick={() => setEmojiPickerOpen((current) => !current)}
+                  className={`emoji-trigger ${emojiPickerOpen ? "emoji-trigger-open" : ""}`}
                   style={{
                     ...reactionButtonStyle(false),
                     padding: isTopLevel ? "4px" : "3px",
-                    opacity: emojiTriggerVisible ? 1 : 0,
-                    pointerEvents: emojiTriggerVisible ? "auto" : "none",
-                    transition: "opacity 140ms ease",
                   }}
                   aria-label="Open emoji reactions"
                   title="Emoji reactions"
@@ -500,7 +491,7 @@ export function MessageCard({
                           key={type}
                           type="button"
                           onClick={() => {
-                            void handleEmojiClick(type);
+                            void handleReactionClick(type);
                           }}
                           style={reactionButtonStyle(active)}
                           disabled={!reactionButtonEnabled}
