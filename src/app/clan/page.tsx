@@ -35,6 +35,17 @@ export default function ClanListPage() {
         }
     };
 
+    const getTierColor = (tier: string) => {
+        switch (tier) {
+            case 'Diamond': return 'text-cyan-500 font-bold';
+            case 'Platinum': return 'text-teal-400 font-bold';
+            case 'Gold': return 'text-yellow-500 font-bold';
+            case 'Silver': return 'text-gray-400 font-bold';
+            case 'Bronze': return 'text-orange-600 font-bold';
+            default: return 'text-gray-700';
+        }
+    };
+
     if (isLoading) {
         return <div className="p-4">Loading Clan Data...</div>;
     }
@@ -54,6 +65,7 @@ export default function ClanListPage() {
                     <tr className="bg-gray-100">
                         <th className="border p-2 text-left">Clan Name</th>
                         <th className="border p-2 text-left">Total Score</th>
+                        <th className="border p-2 text-left">Rank Tier</th>
                         <th className="border p-2 text-left">Actions</th>
                     </tr>
                     </thead>
@@ -62,6 +74,7 @@ export default function ClanListPage() {
                         <tr key={clan.clanId}>
                             <td className="border p-2">{clan.clanName}</td>
                             <td className="border p-2">{clan.clanScore}</td>
+                            <td className={`border p-2 ${getTierColor(clan.rankTier)}`}>{clan.rankTier}</td>
                             <td className="border p-2 space-x-2">
                                 <Link href={`/clan/detail/${clan.clanId}`} className="text-green-600">View</Link>
                                 <Link href={`/clan/edit/${clan.clanId}`} className="text-blue-600">Edit</Link>
