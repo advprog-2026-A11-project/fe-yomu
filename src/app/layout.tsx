@@ -43,9 +43,12 @@ export default function RootLayout({
               <Link href="/users">
                 <button className="btn" >Auth</button>
               </Link>
-                <Link href="/achievement">
-                    <button className="btn" >Achievement</button>
-                </Link>
+              <Link href="/achievement">
+                  <button className="btn" >Achievement</button>
+              </Link>
+              <Link href="/clan">
+                <button className="btn" >League</button>
+              </Link>
             </div>
           </div>
         </header>
