@@ -11,7 +11,10 @@ type AuthResponse = {
 };
 
 function normalizeApiBase(): string {
-  const base = process.env.NEXT_PUBLIC_AUTH_API_URL || "http://18.233.113.253:8081/api";
+  const base = process.env.NEXT_PUBLIC_AUTH_API_URL;
+  if (!base) {
+    throw new Error("NEXT_PUBLIC_AUTH_API_URL is not set");
+  }
   return base.replace(/\/$/, "");
 }
 
