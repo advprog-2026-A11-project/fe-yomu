@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { proxyToBackend } from "@/proxy/backend-proxy";
+import { proxyToBackend } from "@/lib/backend-proxy";
 
 export async function GET() {
   try {
-    return await proxyToBackend("forum", "/api/messages");
+    return await proxyToBackend("/api/messages");
   } catch (error) {
     return NextResponse.json(
       { error: `Unable to reach backend: ${String(error)}` },
@@ -15,7 +15,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.text();
-    return await proxyToBackend("forum", "/api/messages", {
+    return await proxyToBackend("/api/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body,
