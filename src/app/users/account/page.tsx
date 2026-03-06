@@ -20,11 +20,14 @@ type MeResponse = {
 };
 
 function normalizeApiBase(): string {
-  const base = process.env.NEXT_PUBLIC_AUTH_API_URL;
-  if (!base) {
-    throw new Error("NEXT_PUBLIC_AUTH_API_URL is not set");
+  const configured = process.env.NEXT_PUBLIC_AUTH_API_URL;
+  if (!configured) {
+    return "/api/auth-proxy";
   }
-  return base.replace(/\/$/, "");
+  if (typeof window !== "undefined" && window.location.protocol === "https:" && configured.startsWith("http://")) {
+    return "/api/auth-proxy";
+  }
+  return configured.replace(/\/$/, "");
 }
 
 export default function AccountPage() {
