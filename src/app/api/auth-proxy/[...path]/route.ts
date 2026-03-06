@@ -30,6 +30,10 @@ async function forward(request: NextRequest, context: RouteContext): Promise<Nex
   const headers = new Headers(request.headers);
   headers.delete("host");
   headers.delete("content-length");
+  headers.delete("origin");
+  headers.delete("referer");
+  headers.delete("access-control-request-method");
+  headers.delete("access-control-request-headers");
 
   const init: RequestInit = {
     method: request.method,
