@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { proxyToBackend } from "@/lib/backend-proxy";
 
+const FORUM_BACKEND_OPTIONS = { backendService: "forum" as const };
+
 type RouteContext = {
   params: { id: string } | Promise<{ id: string }>;
 };
@@ -15,6 +17,7 @@ export async function PUT(request: Request, context: RouteContext) {
     const id = await getId(context);
     const body = await request.text();
     return await proxyToBackend(`/api/messages/${encodeURIComponent(id)}`, {
+      ...FORUM_BACKEND_OPTIONS,
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body,
@@ -31,6 +34,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
   try {
     const id = await getId(context);
     return await proxyToBackend(`/api/messages/${encodeURIComponent(id)}`, {
+      ...FORUM_BACKEND_OPTIONS,
       method: "DELETE",
     });
   } catch (error) {
