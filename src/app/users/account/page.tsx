@@ -9,12 +9,15 @@ type MeResponse = {
   role?: string;
   exp?: string;
   profile?: {
-    id?: number;
+    id?: string;
     supabaseUserId?: string;
     username?: string;
     email?: string;
+    phone?: string;
     displayName?: string;
     role?: string;
+    authProvider?: string;
+    googleSub?: string;
     isActive?: boolean;
   } | null;
 };
@@ -37,6 +40,12 @@ export default function AccountPage() {
   const [account, setAccount] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [editUsername, setEditUsername] = useState("");
+  const [editDisplayName, setEditDisplayName] = useState("");
+  const [updating, setUpdating] = useState(false);
+  const [updateMsg, setUpdateMsg] = useState<string | null>(null);
+  const [updateError, setUpdateError] = useState(false);
 
   const fetchMe = useCallback(async (currentToken: string) => {
     const response = await fetch(authMeUrl, {
@@ -63,6 +72,10 @@ export default function AccountPage() {
     }
 
     setAccount(typeof payload === "string" ? { email: payload } : payload);
+    if (typeof payload !== "string" && payload.profile) {
+      setEditUsername(payload.profile.username || "");
+      setEditDisplayName(payload.profile.displayName || "");
+    }
   }, [authMeUrl]);
 
   useEffect(() => {
@@ -100,6 +113,48 @@ export default function AccountPage() {
     router.replace("/users");
   }
 
+  async function handleUpdateProfile(e: React.FormEvent) {
+    e.preventDefault();
+    if (!token) return;
+    
+    setUpdating(true);
+    setUpdateMsg(null);
+    setUpdateError(false);
+    
+    try {
+      const res = await fetch(`${normalizeApiBase()}/users/me`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          username: editUsername.trim() || undefined,
+          displayName: editDisplayName.trim() || undefined,
+        }),
+      });
+      
+      const raw = await res.text();
+      let data: Record<string, string> = {};
+      if (raw) {
+        try { data = JSON.parse(raw); } catch { data = { message: raw }; }
+      }
+      
+      if (!res.ok) {
+        setUpdateError(true);
+        setUpdateMsg(data.message || `Error ${res.status}`);
+      } else {
+        setUpdateMsg(data.message || "Profile updated");
+        await fetchMe(token);
+      }
+    } catch (err) {
+      setUpdateError(true);
+      setUpdateMsg(String(err));
+    } finally {
+      setUpdating(false);
+    }
+  }
+
   return (
     <section className="account-shell">
       <div className="account-card">
@@ -130,15 +185,50 @@ export default function AccountPage() {
               <strong>Display Name:</strong> {account.profile?.displayName || "-"}
             </p>
             <p>
+              <strong>Phone:</strong> {account.profile?.phone || "-"}
+            </p>
+            <p>
               <strong>Role:</strong> {account.profile?.role || account.role || "-"}
             </p>
             <p>
               <strong>Active:</strong> {account.profile?.isActive ? "true" : "false"}
             </p>
             <p>
+              <strong>Auth Provider:</strong> {account.profile?.authProvider || "-"}
+            </p>
+            <p>
               <strong>Sub:</strong> {account.sub || account.profile?.supabaseUserId || "-"}
             </p>
+            <p>
+              <strong>Profile ID:</strong> {account.profile?.id || "-"}
+            </p>
           </div>
+        )}
+
+        {!loading && !error && account && (
+          <form onSubmit={(e) => void handleUpdateProfile(e)} className="edit-form">
+            <h3>Edit Profile</h3>
+            <label htmlFor="username">Username</label>
+            <input
+              id="username"
+              type="text"
+              value={editUsername}
+              onChange={(e) => setEditUsername(e.target.value)}
+              placeholder="Username"
+            />
+            <label htmlFor="displayName">Display Name</label>
+            <input
+              id="displayName"
+              type="text"
+              value={editDisplayName}
+              onChange={(e) => setEditDisplayName(e.target.value)}
+              placeholder="Display Name"
+            />
+            <button type="submit" disabled={updating}>
+              {updating ? "Saving..." : "Save Profile"}
+            </button>
+            {updateMsg && <p className={updateError ? "error" : "success"}>{updateMsg}</p>}
+          </form>
         )}
       </div>
 
@@ -203,6 +293,55 @@ export default function AccountPage() {
 
         .error {
           color: #dc2626;
+        }
+
+        .edit-form {
+          margin-top: 20px;
+          padding: 16px;
+          border: 1px solid #e2e8f0;
+          border-radius: 10px;
+          background: #f8fafc;
+        }
+
+        .edit-form h3 {
+          margin: 0 0 12px;
+          font-size: 1.2rem;
+        }
+
+        .edit-form label {
+          display: block;
+          margin: 8px 0 4px;
+          font-weight: 600;
+          font-size: 0.875rem;
+        }
+
+        .edit-form input {
+          width: 100%;
+          padding: 8px 12px;
+          border: 1px solid #cbd5e1;
+          border-radius: 6px;
+          font-size: 1rem;
+        }
+
+        .edit-form button {
+          margin-top: 12px;
+          padding: 8px 16px;
+          border: 1px solid #2563eb;
+          background: #2563eb;
+          color: #fff;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: 600;
+        }
+
+        .edit-form button:disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
+        }
+
+        .success {
+          color: #16a34a;
+          margin-top: 8px;
         }
       `}</style>
     </section>

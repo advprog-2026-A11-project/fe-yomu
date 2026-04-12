@@ -6,6 +6,11 @@ import { useRouter } from "next/navigation";
 type AuthResponse = {
   accessToken?: string;
   access_token?: string;
+  refreshToken?: string;
+  tokenType?: string;
+  expiresIn?: number;
+  userId?: string;
+  role?: string;
   authorizationUrl?: string;
   message?: string;
 };
