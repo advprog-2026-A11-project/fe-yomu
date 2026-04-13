@@ -30,6 +30,23 @@ type SsoCallbackResponse = {
   message?: string;
 };
 
+type AdminPingResponse = {
+  message?: string;
+  userId?: string;
+};
+
+type AdminUser = {
+  id?: string;
+  username?: string;
+  email?: string;
+  supabaseUserId?: string;
+  displayName?: string;
+  role?: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 function normalizeApiBase(): string {
   const configured = process.env.NEXT_PUBLIC_AUTH_API_URL;
   if (!configured) {
@@ -57,6 +74,13 @@ export default function AccountPage() {
   const [updateError, setUpdateError] = useState(false);
 
   const [handlingSso, setHandlingSso] = useState(false);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminMessage, setAdminMessage] = useState<string | null>(null);
+  const [adminError, setAdminError] = useState<string | null>(null);
+  const [adminEditDisplayName, setAdminEditDisplayName] = useState<Record<string, string>>({});
+
+  const isAdmin = (account?.profile?.role || account?.role) === "ADMIN";
 
   const fetchMe = useCallback(async (currentToken: string) => {
     const response = await fetch(authMeUrl, {
@@ -88,6 +112,42 @@ export default function AccountPage() {
       setEditDisplayName(payload.profile.displayName || "");
     }
   }, [authMeUrl]);
+
+  const fetchAdminUsers = useCallback(async (currentToken: string) => {
+    const response = await fetch(`${normalizeApiBase()}/users`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${currentToken}`,
+      },
+      cache: "no-store",
+    });
+
+    const raw = await response.text();
+    let payload: AdminUser[] | Record<string, unknown> | string = [];
+    if (raw) {
+      try {
+        payload = JSON.parse(raw) as AdminUser[] | Record<string, unknown>;
+      } catch {
+        payload = raw;
+      }
+    }
+
+    if (!response.ok) {
+      const detail = typeof payload === "string" ? payload : JSON.stringify(payload);
+      throw new Error(`${response.status} ${detail}`);
+    }
+
+    const users = Array.isArray(payload) ? payload : [];
+    setAdminUsers(users);
+    setAdminEditDisplayName(
+      users.reduce<Record<string, string>>((acc, user) => {
+        if (user.id) {
+          acc[user.id] = user.displayName || "";
+        }
+        return acc;
+      }, {}),
+    );
+  }, []);
 
   useEffect(() => {
     async function handleSsoCallback(code: string, state: string) {
@@ -175,6 +235,22 @@ export default function AccountPage() {
       .finally(() => setLoading(false));
   }, [fetchMe, router, searchParams]);
 
+  useEffect(() => {
+    if (!token || !isAdmin) {
+      setAdminUsers([]);
+      setAdminError(null);
+      return;
+    }
+
+    setAdminLoading(true);
+    setAdminError(null);
+    void fetchAdminUsers(token)
+      .catch((err) => {
+        setAdminError(String(err));
+      })
+      .finally(() => setAdminLoading(false));
+  }, [fetchAdminUsers, isAdmin, token]);
+
   async function refresh() {
     if (!token) {
       return;
@@ -193,6 +269,128 @@ export default function AccountPage() {
   function logout() {
     window.localStorage.removeItem("yomu_auth_access_token");
     router.replace("/users");
+  }
+
+  async function handleAdminPing() {
+    if (!token) {
+      return;
+    }
+
+    setAdminLoading(true);
+    setAdminMessage(null);
+    setAdminError(null);
+    try {
+      const response = await fetch(`${normalizeApiBase()}/admin/ping`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const raw = await response.text();
+      let payload: AdminPingResponse | Record<string, unknown> | string = {};
+      if (raw) {
+        try {
+          payload = JSON.parse(raw) as AdminPingResponse | Record<string, unknown>;
+        } catch {
+          payload = raw;
+        }
+      }
+
+      if (!response.ok) {
+        const detail = typeof payload === "string" ? payload : JSON.stringify(payload);
+        throw new Error(`${response.status} ${detail}`);
+      }
+
+      const data = typeof payload === "string" ? { message: payload } : payload;
+      setAdminMessage(`${data.message || "Admin ping ok"} (${data.userId || "-"})`);
+    } catch (err) {
+      setAdminError(String(err));
+    } finally {
+      setAdminLoading(false);
+    }
+  }
+
+  async function handleAdminRefreshUsers() {
+    if (!token) {
+      return;
+    }
+
+    setAdminLoading(true);
+    setAdminMessage(null);
+    setAdminError(null);
+    try {
+      await fetchAdminUsers(token);
+      setAdminMessage("User list refreshed");
+    } catch (err) {
+      setAdminError(String(err));
+    } finally {
+      setAdminLoading(false);
+    }
+  }
+
+  async function handleAdminDeleteUser(userId: string) {
+    if (!token) {
+      return;
+    }
+
+    setAdminLoading(true);
+    setAdminMessage(null);
+    setAdminError(null);
+    try {
+      const response = await fetch(`${normalizeApiBase()}/users/${userId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const raw = await response.text();
+        throw new Error(`${response.status} ${raw}`);
+      }
+
+      await fetchAdminUsers(token);
+      setAdminMessage(`User ${userId} soft deleted`);
+    } catch (err) {
+      setAdminError(String(err));
+    } finally {
+      setAdminLoading(false);
+    }
+  }
+
+  async function handleAdminUpdateDisplayName(userId: string) {
+    if (!token) {
+      return;
+    }
+
+    setAdminLoading(true);
+    setAdminMessage(null);
+    setAdminError(null);
+    try {
+      const response = await fetch(`${normalizeApiBase()}/users/${userId}/displayName`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          displayName: adminEditDisplayName[userId] || "",
+        }),
+      });
+
+      const raw = await response.text();
+      if (!response.ok) {
+        throw new Error(`${response.status} ${raw}`);
+      }
+
+      await fetchAdminUsers(token);
+      setAdminMessage(`Display name updated for ${userId}`);
+    } catch (err) {
+      setAdminError(String(err));
+    } finally {
+      setAdminLoading(false);
+    }
   }
 
   async function handleUpdateProfile(e: React.FormEvent) {
@@ -312,6 +510,73 @@ export default function AccountPage() {
             {updateMsg && <p className={updateError ? "error" : "success"}>{updateMsg}</p>}
           </form>
         )}
+
+        {!loading && !error && account && isAdmin && (
+          <section className="admin-panel">
+            <div className="admin-panel-header">
+              <h3>Admin Tools</h3>
+              <div className="admin-panel-actions">
+                <button type="button" onClick={() => void handleAdminPing()} disabled={adminLoading}>
+                  Ping Admin
+                </button>
+                <button type="button" onClick={() => void handleAdminRefreshUsers()} disabled={adminLoading}>
+                  Refresh Users
+                </button>
+              </div>
+            </div>
+
+            {adminMessage && <p className="success">{adminMessage}</p>}
+            {adminError && <p className="error">{adminError}</p>}
+            {adminLoading && <p>Loading admin tools...</p>}
+
+            <div className="admin-users">
+              {adminUsers.map((user) => (
+                <div key={user.id || user.supabaseUserId} className="admin-user-card">
+                  <p><strong>Profile ID:</strong> {user.id || "-"}</p>
+                  <p><strong>Supabase User ID:</strong> {user.supabaseUserId || "-"}</p>
+                  <p><strong>Email:</strong> {user.email || "-"}</p>
+                  <p><strong>Username:</strong> {user.username || "-"}</p>
+                  <p><strong>Role:</strong> {user.role || "-"}</p>
+                  <p><strong>Active:</strong> {user.isActive ? "true" : "false"}</p>
+
+                  <label htmlFor={`display-name-${user.id}`}>Display Name</label>
+                  <input
+                    id={`display-name-${user.id}`}
+                    type="text"
+                    value={user.id ? (adminEditDisplayName[user.id] || "") : ""}
+                    onChange={(event) => {
+                      if (!user.id) {
+                        return;
+                      }
+                      setAdminEditDisplayName((current) => ({
+                        ...current,
+                        [user.id!]: event.target.value,
+                      }));
+                    }}
+                  />
+
+                  <div className="admin-user-actions">
+                    <button
+                      type="button"
+                      onClick={() => user.id && void handleAdminUpdateDisplayName(user.id)}
+                      disabled={adminLoading || !user.id}
+                    >
+                      Update Display Name
+                    </button>
+                    <button
+                      type="button"
+                      className="danger-btn"
+                      onClick={() => user.id && void handleAdminDeleteUser(user.id)}
+                      disabled={adminLoading || !user.id || user.id === account.profile?.id}
+                    >
+                      Soft Delete User
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
 
       <style jsx>{`
@@ -424,6 +689,88 @@ export default function AccountPage() {
         .success {
           color: #16a34a;
           margin-top: 8px;
+        }
+
+        .admin-panel {
+          margin-top: 20px;
+          padding: 16px;
+          border: 1px solid #dbeafe;
+          border-radius: 10px;
+          background: #eff6ff;
+        }
+
+        .admin-panel-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 12px;
+        }
+
+        .admin-panel-header h3 {
+          margin: 0;
+          font-size: 1.2rem;
+        }
+
+        .admin-panel-actions {
+          display: flex;
+          gap: 8px;
+        }
+
+        .admin-panel-actions button,
+        .admin-user-actions button {
+          border: 1px solid #2563eb;
+          background: #2563eb;
+          color: #fff;
+          border-radius: 6px;
+          padding: 8px 12px;
+          cursor: pointer;
+          font-weight: 600;
+        }
+
+        .admin-users {
+          display: grid;
+          gap: 12px;
+          margin-top: 12px;
+        }
+
+        .admin-user-card {
+          border: 1px solid #bfdbfe;
+          border-radius: 8px;
+          background: #fff;
+          padding: 12px;
+        }
+
+        .admin-user-card p {
+          margin: 4px 0;
+          word-break: break-word;
+        }
+
+        .admin-user-card label {
+          display: block;
+          margin: 10px 0 4px;
+          font-weight: 600;
+          font-size: 0.875rem;
+        }
+
+        .admin-user-card input {
+          width: 100%;
+          padding: 8px 12px;
+          border: 1px solid #93c5fd;
+          border-radius: 6px;
+          font-size: 1rem;
+        }
+
+        .admin-user-actions {
+          display: flex;
+          gap: 8px;
+          margin-top: 10px;
+          flex-wrap: wrap;
+        }
+
+        .danger-btn {
+          border-color: #dc2626 !important;
+          background: #dc2626 !important;
         }
       `}</style>
     </section>
