@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type MeResponse = {
   sub?: string;
@@ -22,6 +22,14 @@ type MeResponse = {
   } | null;
 };
 
+type SsoCallbackResponse = {
+  accessToken?: string;
+  refreshToken?: string;
+  userId?: string;
+  isLinked?: boolean;
+  message?: string;
+};
+
 function normalizeApiBase(): string {
   const configured = process.env.NEXT_PUBLIC_AUTH_API_URL;
   if (!configured) {
@@ -35,6 +43,7 @@ function normalizeApiBase(): string {
 
 export default function AccountPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const authMeUrl = useMemo(() => `${normalizeApiBase()}/auth/me`, []);
   const [token, setToken] = useState<string>("");
   const [account, setAccount] = useState<MeResponse | null>(null);
@@ -46,6 +55,8 @@ export default function AccountPage() {
   const [updating, setUpdating] = useState(false);
   const [updateMsg, setUpdateMsg] = useState<string | null>(null);
   const [updateError, setUpdateError] = useState(false);
+
+  const [handlingSso, setHandlingSso] = useState(false);
 
   const fetchMe = useCallback(async (currentToken: string) => {
     const response = await fetch(authMeUrl, {
@@ -79,6 +90,77 @@ export default function AccountPage() {
   }, [authMeUrl]);
 
   useEffect(() => {
+    async function handleSsoCallback(code: string, state: string) {
+      setHandlingSso(true);
+      setLoading(true);
+      try {
+        const res = await fetch(`${normalizeApiBase()}/auth/sso/google/callback`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code, state }),
+        });
+
+        const raw = await res.text();
+        let data: SsoCallbackResponse = {};
+        if (raw) {
+          try { data = JSON.parse(raw); } catch { data = { message: raw }; }
+        }
+
+        if (!res.ok || !data.accessToken) {
+          const msg = data.message || `SSO failed: ${res.status}`;
+          setError(msg);
+          router.replace("/users");
+          return;
+        }
+
+        window.localStorage.setItem("yomu_auth_access_token", data.accessToken!);
+        setToken(data.accessToken!);
+        await fetchMe(data.accessToken!);
+        
+        if (data.isLinked) {
+          setUpdateMsg("Account linked with Google!");
+        } else {
+          setUpdateMsg("Google login successful!");
+        }
+      } catch (err) {
+        setError(String(err));
+        router.replace("/users");
+      } finally {
+        setHandlingSso(false);
+        setLoading(false);
+      }
+    }
+
+    const code = searchParams.get("code");
+    const appState = searchParams.get("app_state");
+    const state = searchParams.get("state");
+    const callbackState = appState || state;
+    const oauthError = searchParams.get("error");
+    const oauthErrorCode = searchParams.get("error_code");
+    const oauthErrorDescription = searchParams.get("error_description");
+
+    if (oauthError || oauthErrorCode || oauthErrorDescription) {
+      const parts = [
+        oauthErrorDescription,
+        oauthErrorCode,
+        oauthError,
+      ].filter(Boolean);
+      setError(parts.join(" | "));
+      setLoading(false);
+      return;
+    }
+
+    if (code && callbackState) {
+      void handleSsoCallback(code, callbackState);
+      return;
+    }
+
+    if (code && !callbackState) {
+      setError("Missing OAuth callback state");
+      setLoading(false);
+      return;
+    }
+
     const savedToken = window.localStorage.getItem("yomu_auth_access_token");
     if (!savedToken) {
       router.replace("/users");
@@ -91,7 +173,7 @@ export default function AccountPage() {
         setError(String(err));
       })
       .finally(() => setLoading(false));
-  }, [fetchMe, router]);
+  }, [fetchMe, router, searchParams]);
 
   async function refresh() {
     if (!token) {
