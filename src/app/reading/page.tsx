@@ -31,7 +31,7 @@ export default function BacaanPage() {
     const handleDelete = async (id: string) => {
         if (confirm("Are you sure you want to delete this material?")) {
             try {
-                const response = await fetch(`${API_BASE_URL}/{id}`, {
+                const response = await fetch(`${API_BASE_URL}/${id}`, {
                     method: "DELETE"
                 });
 
@@ -106,9 +106,11 @@ export default function BacaanPage() {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-3">
-                                                <button className="text-blue-600 hover:text-blue-900 text-sm font-bold">
+                                                <Link
+                                                    href={`/reading/create-bacaan?id=${item.id}`}
+                                                    className="!text-green-600 hover:!text-green-800 text-sm font-bold transition-colors">
                                                     Edit
-                                                </button>
+                                                </Link>
                                                 <button
                                                     onClick={() => handleDelete(item.id)}
                                                     className="text-red-500 hover:text-red-700 text-sm font-bold"
