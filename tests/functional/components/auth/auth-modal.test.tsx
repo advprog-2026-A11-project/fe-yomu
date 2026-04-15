@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, jest } from "@jest/globals";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import HomePage from "@/app/page";
@@ -15,7 +15,7 @@ function renderHomeWithProviders() {
 describe("AuthModal functional behavior", () => {
   beforeEach(() => {
     globalThis.localStorage.clear();
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     document.body.style.overflow = "";
   });
 
@@ -35,7 +35,7 @@ describe("AuthModal functional behavior", () => {
     expect(screen.getByText("or sign in with your account")).toBeInTheDocument();
     expect(document.body.style.overflow).toBe("hidden");
 
-    fireEvent.keyDown(globalThis, { key: "Escape" });
+    fireEvent.keyDown(globalThis.window, { key: "Escape" });
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(document.body.style.overflow).toBe("");

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, jest } from "@jest/globals";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import HomePage from "@/app/page";
@@ -35,7 +35,7 @@ function setAuthenticatedSnapshot() {
 describe("HomePage functional behavior", () => {
   beforeEach(() => {
     globalThis.localStorage.clear();
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("shows guest call-to-action and opens auth modal", async () => {
