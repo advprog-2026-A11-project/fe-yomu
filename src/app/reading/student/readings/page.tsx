@@ -100,7 +100,7 @@ function ReadingCard({ reading }: {reading: any}) {
 
             <div className="p-6 pt-0">
                 <Link
-                    href={`/student/reading/${reading.id}`}
+                    href={`/reading/student/readings/${reading.id}`}
                     className="w-full inline-flex justify-center items-center px-6 py-3 border border-transparent text-base font-medium rounded-xl text-white bg-orange-400 hover:bg-orange-500 transition-colors shadow-sm"
                 >
                     Start Reading
