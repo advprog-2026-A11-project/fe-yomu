@@ -56,7 +56,6 @@ export default function BacaanPage() {
                         <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Admin Dashboard</h1>
                         <p className="text-gray-500 mt-1">Manage reading materials and exercises</p>
                     </div>
-                    {/* Link disesuaikan ke folder yang benar */}
                     <Link
                         href="/reading/create-bacaan"
                         className="bg-blue-400 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-blue-200 flex items-center gap-2"

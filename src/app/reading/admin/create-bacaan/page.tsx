@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import CreateEditReading from "@/app/reading/create-bacaan/CreateEditReading";
+import CreateEditReading from "@/app/reading/admin/create-bacaan/CreateEditReading";
 
 export default function Page() {
     return (

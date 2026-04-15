@@ -37,7 +37,7 @@ export default function RootLayout({
               <Link href="/forums">
                 <button className="btn">Forums</button>
               </Link>
-              <Link href="/reading">
+              <Link href="/reading/student/readings">
                 <button className="btn">Reading</button>
               </Link>
               <Link href="/users">
