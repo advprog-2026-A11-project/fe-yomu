@@ -1,26 +1,75 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import Link from "next/link";
+import { useAuth } from "@/components/providers/auth-provider";
+
+const modules = [
+  {
+    title: "Reading",
+    href: "/reading",
+  },
+  {
+    title: "Forums",
+    href: "/forums",
+  },
+  {
+    title: "Achievement",
+    href: "/achievement",
+  },
+  {
+    title: "Clan",
+    href: "/clan",
+  },
+];
+
+export default function HomePage() {
+  const { isAuthenticated, openAuthModal, session, signOut } = useAuth();
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            Welcome to Yomu
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            A tiny forum frontend for the Be-Forum backend.
+    <main className="home-shell">
+      <section className="home-hero">
+        <div className="home-center">
+          <h1 className="home-title">Yomu</h1>
+          <p className="home-subtitle">
+            {isAuthenticated
+              ? `Signed in as ${session?.profile?.displayName || session?.profile?.username || session?.profile?.email || "Learner"}`
+              : "A calmer way to study, read, and keep your progress moving."}
           </p>
+
+          <div className="home-actions">
+            {isAuthenticated ? (
+              <>
+                <Link href="/dashboard" className="button button-primary">
+                  Dashboard
+                </Link>
+                <button type="button" className="button button-ghost" onClick={signOut}>
+                  Logout
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="button button-primary"
+                onClick={() => openAuthModal({ mode: "login", nextPath: "/" })}
+              >
+                Login / Register
+              </button>
+            )}
+          </div>
         </div>
-      </main>
-    </div>
+      </section>
+
+      {isAuthenticated ? (
+        <section className="home-modules">
+          <div className="module-grid module-grid-simple">
+            {modules.map((module) => (
+              <Link key={module.href} href={module.href} className="module-card module-card-simple">
+                <h2>{module.title}</h2>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </main>
   );
 }
