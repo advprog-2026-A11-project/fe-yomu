@@ -5,8 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 type MeResponse = {
   sub?: string;
-  email?: string;
-  role?: string;
   exp?: string;
   profile?: {
     id?: string;
@@ -80,7 +78,7 @@ export default function AccountPage() {
   const [adminError, setAdminError] = useState<string | null>(null);
   const [adminEditDisplayName, setAdminEditDisplayName] = useState<Record<string, string>>({});
 
-  const isAdmin = (account?.profile?.role || account?.role) === "ADMIN";
+  const isAdmin = account?.profile?.role === "ADMIN";
 
   const fetchMe = useCallback(async (currentToken: string) => {
     const response = await fetch(authMeUrl, {
@@ -106,7 +104,7 @@ export default function AccountPage() {
       throw new Error(`${response.status} ${detail}`);
     }
 
-    setAccount(typeof payload === "string" ? { email: payload } : payload);
+    setAccount(typeof payload === "string" ? {} : payload);
     if (typeof payload !== "string" && payload.profile) {
       setEditUsername(payload.profile.username || "");
       setEditDisplayName(payload.profile.displayName || "");
@@ -456,7 +454,7 @@ export default function AccountPage() {
         {!loading && !error && account && (
           <div className="details">
             <p>
-              <strong>Email:</strong> {account.profile?.email || account.email || "-"}
+              <strong>Email:</strong> {account.profile?.email || "-"}
             </p>
             <p>
               <strong>Username:</strong> {account.profile?.username || "-"}
@@ -468,7 +466,7 @@ export default function AccountPage() {
               <strong>Phone:</strong> {account.profile?.phone || "-"}
             </p>
             <p>
-              <strong>Role:</strong> {account.profile?.role || account.role || "-"}
+              <strong>Role:</strong> {account.profile?.role || "-"}
             </p>
             <p>
               <strong>Active:</strong> {account.profile?.isActive ? "true" : "false"}
