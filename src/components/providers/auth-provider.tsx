@@ -123,6 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(snapshot.token);
       setSession(snapshot.session);
       setStatus("authenticated");
+      persistAccessToken(snapshot.token);
     }
 
     if (!storedToken) {

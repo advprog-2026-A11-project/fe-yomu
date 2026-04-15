@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { IBM_Plex_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/components/providers/app-providers";
-import { RouteAccessShell } from "@/components/auth/route-access-shell";
 
 const jakartaSans = Plus_Jakarta_Sans({
   variable: "--font-plus-jakarta",
@@ -28,9 +27,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${jakartaSans.variable} ${plexMono.variable}`}>
-        <AppProviders>
-          <RouteAccessShell>{children}</RouteAccessShell>
-        </AppProviders>
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );

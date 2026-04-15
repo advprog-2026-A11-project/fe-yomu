@@ -10,6 +10,20 @@ import type {
 const ACCESS_TOKEN_KEY = "yomu.auth.access-token";
 const AUTH_SNAPSHOT_KEY = "yomu.auth.snapshot";
 const SESSION_REVALIDATE_MS = 60_000;
+const AUTH_COOKIE_KEY = "yomu-auth";
+
+function writeAuthPresenceCookie(token: string | null): void {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  if (!token) {
+    document.cookie = `${AUTH_COOKIE_KEY}=; Path=/; Max-Age=0; SameSite=Lax`;
+    return;
+  }
+
+  document.cookie = `${AUTH_COOKIE_KEY}=1; Path=/; Max-Age=2592000; SameSite=Lax`;
+}
 
 function getConfiguredAuthBase(): string | undefined {
   return process.env.NEXT_PUBLIC_AUTH_API_URL?.replace(/\/$/, "");
@@ -83,10 +97,12 @@ export function persistAccessToken(token: string | null): void {
 
   if (!token) {
     window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+    writeAuthPresenceCookie(null);
     return;
   }
 
   window.localStorage.setItem(ACCESS_TOKEN_KEY, token);
+  writeAuthPresenceCookie(token);
 }
 
 export function readAccessToken(): string | null {
