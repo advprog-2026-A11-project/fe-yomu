@@ -1,90 +1,49 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+// import { useAuth } from '@/hooks/useAuth'; // Replace with your actual auth hook
 
 export default function ClanListPage() {
     const [clans, setClans] = useState<any[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-
-    const fetchClans = () => {
-        setIsLoading(true);
-        fetch('http://localhost:8080/api/clan/list')
-            .then(res => {
-                if (!res.ok) throw new Error("Network response was not ok");
-                return res.json();
-            })
-            .then(data => {
-                setClans(data);
-                setIsLoading(false);
-            })
-            .catch(err => {
-                console.error("Fetch error:", err);
-                setClans([]);
-                setIsLoading(false);
-            });
-    };
+    // const { user, token } = useAuth(); // <--- YOUR_AUTH_LOGIC_HERE
+    const userId = "dummy-user-id"; // Replace with actual user ID
 
     useEffect(() => {
-        fetchClans();
+        fetch('http://localhost:8080/api/clan/list')
+            .then(res => res.json())
+            .then(data => setClans(data));
     }, []);
 
-    const deleteClan = async (id: string) => {
-        if (confirm("Are you sure you want to delete this clan?")) {
-            await fetch(`http://localhost:8080/api/clan/delete/${id}`, { method: 'DELETE' });
-            fetchClans(); // Refresh the list
-        }
-    };
-
-    const getTierColor = (tier: string) => {
-        switch (tier) {
-            case 'Diamond': return 'text-cyan-500 font-bold';
-            case 'Platinum': return 'text-teal-400 font-bold';
-            case 'Gold': return 'text-yellow-500 font-bold';
-            case 'Silver': return 'text-gray-400 font-bold';
-            case 'Bronze': return 'text-orange-600 font-bold';
-            default: return 'text-gray-700';
-        }
-    };
-
-    if (isLoading) {
-        return <div className="p-4">Loading Clan Data...</div>;
-    }
+    // Compute user status based on all clans
+    const isUserInAnyClan = clans.some(clan => clan.members?.some((m: any) => m.userId === userId));
+    const isUserApplying = clans.some(clan => clan.applicantIds?.includes(userId));
+    const canCreateClan = !isUserInAnyClan && !isUserApplying;
 
     return (
-        <div className="p-4">
-            <h2 className="text-xl font-bold">Clan List</h2>
-            <Link href="/clan/create" className="text-blue-500 underline inline-block my-2">
-                + Create New Clan
-            </Link>
+        <div className="p-8 max-w-5xl mx-auto">
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-3xl font-bold">Clan Leaderboard</h1>
+                {canCreateClan && (
+                    <Link href="/clan/create" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition">
+                        Create New Clan
+                    </Link>
+                )}
+            </div>
 
-            {clans.length === 0 ? (
-                <p className="mt-4 text-gray-500">No clans found. Try creating one!</p>
-            ) : (
-                <table className="w-full mt-4 border">
-                    <thead>
-                    <tr className="bg-gray-100">
-                        <th className="border p-2 text-left">Clan Name</th>
-                        <th className="border p-2 text-left">Total Score</th>
-                        <th className="border p-2 text-left">Rank Tier</th>
-                        <th className="border p-2 text-left">Actions</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    {clans.map(clan => (
-                        <tr key={clan.clanId}>
-                            <td className="border p-2">{clan.clanName}</td>
-                            <td className="border p-2">{clan.clanScore}</td>
-                            <td className={`border p-2 ${getTierColor(clan.rankTier)}`}>{clan.rankTier}</td>
-                            <td className="border p-2 space-x-2">
-                                <Link href={`/clan/detail/${clan.clanId}`} className="text-green-600">View</Link>
-                                <Link href={`/clan/edit/${clan.clanId}`} className="text-blue-600">Edit</Link>
-                                <button onClick={() => deleteClan(clan.clanId)} className="text-red-500">Delete</button>
-                            </td>
-                        </tr>
-                    ))}
-                    </tbody>
-                </table>
-            )}
+            <div className="grid gap-4">
+                {clans.map((clan, index) => (
+                    <div key={clan.clanId} className="border p-4 rounded-lg flex justify-between items-center bg-white shadow-sm hover:shadow-md transition">
+                        <div>
+                            <h2 className="text-xl font-semibold">#{index + 1} {clan.clanName}</h2>
+                            <p className="text-gray-600">Rank: {clan.rankTier} | Score: {clan.clanScore}</p>
+                            <p className="text-sm text-gray-500">Members: {clan.members?.length || 0}</p>
+                        </div>
+                        <Link href={`/clan/detail/${clan.clanId}`} className="text-blue-500 font-semibold hover:underline">
+                            View Details
+                        </Link>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 }
