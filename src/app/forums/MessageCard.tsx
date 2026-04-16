@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
-import { readAccessToken } from "@/lib/auth-client";
+import { getAuthHeaders } from "@/lib/auth-headers";
 
 export type Message = {
   id: string;
@@ -51,14 +51,6 @@ type SubmitEvent = React.FormEvent | undefined;
 
 const USER_ID_STORAGE_KEY = "forum-user-id";
 const ACTIVE_REACTION_COLOR = "#f97316";
-
-function getAuthHeaders(): HeadersInit {
-  const token = readAccessToken();
-  if (!token) {
-    return {};
-  }
-  return { Authorization: `Bearer ${token}` };
-}
 
 const EMOJI_REACTIONS: EmojiReactionDescriptor[] = [
   { type: "FIRE", emoji: "🔥", label: "Fire" },

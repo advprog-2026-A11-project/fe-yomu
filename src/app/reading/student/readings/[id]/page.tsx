@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import ReadingForum from "../../ReadingForum";
 
 const API_STUDENT = "http://localhost:8082/api/student/readings";
 
@@ -74,6 +75,9 @@ export default function ReadingView() {
                         Start Quiz
                     </button>
                 </div>
+
+                {/* Forum Section */}
+                {id && typeof id === 'string' && <ReadingForum readingId={id} />}
             </div>
         </div>
     );
