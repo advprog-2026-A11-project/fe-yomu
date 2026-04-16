@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useCurrentUser, canEditMessage, canDeleteMessage } from "@/lib/use-current-user";
+import { useAuth } from "@/components/providers/auth-provider";
 import { readAccessToken } from "@/lib/auth-client";
 
 export type Message = {
@@ -409,7 +409,11 @@ export function MessageCard({
   const replyCount = message.replies?.length || 0;
   const maxIndent = 10;
 
-  const { user } = useCurrentUser();
+  const { session, isAdmin } = useAuth();
+  const currentUserId = session?.profile?.id;
+
+  const canEdit = currentUserId === message.userId;
+  const canDelete = isAdmin || currentUserId === message.userId;
 
   const {
     showReplyForm,
@@ -610,7 +614,7 @@ export function MessageCard({
               >
                 Reply
               </button>
-              {canEditMessage(user, message.userId) && (
+              {canEdit && (
                 <button
                   type="button"
                   onClick={() => {
@@ -622,7 +626,7 @@ export function MessageCard({
                   Edit
                 </button>
               )}
-              {canDeleteMessage(user, message.userId) && (
+              {canDelete && (
                 <button
                   type="button"
                   onClick={deleteMessage}
