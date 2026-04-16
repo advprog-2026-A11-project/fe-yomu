@@ -11,6 +11,17 @@ async function getParams(context: RouteContext): Promise<{ id: string; replyId: 
   return await context.params;
 }
 
+function buildAuthHeaders(request: Request): HeadersInit {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  const authorization = request.headers.get("authorization");
+  if (authorization) {
+    headers.Authorization = authorization;
+  }
+  return headers;
+}
+
 export async function PUT(request: Request, context: RouteContext) {
   try {
     const { id, replyId } = await getParams(context);
@@ -20,7 +31,7 @@ export async function PUT(request: Request, context: RouteContext) {
       {
         ...FORUM_BACKEND_OPTIONS,
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: buildAuthHeaders(request),
         body,
       }
     );
@@ -32,7 +43,7 @@ export async function PUT(request: Request, context: RouteContext) {
   }
 }
 
-export async function DELETE(_request: Request, context: RouteContext) {
+export async function DELETE(request: Request, context: RouteContext) {
   try {
     const { id, replyId } = await getParams(context);
     return await proxyToBackend(
@@ -40,6 +51,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
       {
         ...FORUM_BACKEND_OPTIONS,
         method: "DELETE",
+        headers: { Authorization: request.headers.get("authorization") || "" },
       }
     );
   } catch (error) {

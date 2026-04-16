@@ -12,6 +12,17 @@ async function getId(context: RouteContext): Promise<string> {
   return params.id;
 }
 
+function buildAuthHeaders(request: Request): HeadersInit {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  const authorization = request.headers.get("authorization");
+  if (authorization) {
+    headers.Authorization = authorization;
+  }
+  return headers;
+}
+
 export async function GET(_request: Request, context: RouteContext) {
   try {
     const id = await getId(context);
@@ -34,7 +45,7 @@ export async function POST(request: Request, context: RouteContext) {
     return await proxyToBackend(`/api/messages/${encodeURIComponent(id)}/replies`, {
       ...FORUM_BACKEND_OPTIONS,
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: buildAuthHeaders(request),
       body,
     });
   } catch (error) {
