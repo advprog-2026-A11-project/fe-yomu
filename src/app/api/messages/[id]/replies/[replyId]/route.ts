@@ -1,7 +1,9 @@
-import { NextResponse } from "next/server";
 import { proxyToBackend } from "@/lib/backend-proxy";
-
-const FORUM_BACKEND_OPTIONS = { backendService: "forum" as const };
+import {
+  FORUM_BACKEND_OPTIONS,
+  buildAuthHeaders,
+  handleError,
+} from "@/app/api/messages/message-api-utils";
 
 type RouteContext = {
   params: { id: string; replyId: string } | Promise<{ id: string; replyId: string }>;
@@ -9,17 +11,6 @@ type RouteContext = {
 
 async function getParams(context: RouteContext): Promise<{ id: string; replyId: string }> {
   return await context.params;
-}
-
-function buildAuthHeaders(request: Request): HeadersInit {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  const authorization = request.headers.get("authorization");
-  if (authorization) {
-    headers.Authorization = authorization;
-  }
-  return headers;
 }
 
 export async function PUT(request: Request, context: RouteContext) {
@@ -31,15 +22,12 @@ export async function PUT(request: Request, context: RouteContext) {
       {
         ...FORUM_BACKEND_OPTIONS,
         method: "PUT",
-        headers: buildAuthHeaders(request),
+        headers: buildAuthHeaders(request, true),
         body,
       }
     );
   } catch (error) {
-    return NextResponse.json(
-      { error: `Unable to reach backend: ${String(error)}` },
-      { status: 502 }
-    );
+    return handleError(error);
   }
 }
 
@@ -51,13 +39,10 @@ export async function DELETE(request: Request, context: RouteContext) {
       {
         ...FORUM_BACKEND_OPTIONS,
         method: "DELETE",
-        headers: { Authorization: request.headers.get("authorization") || "" },
+        headers: buildAuthHeaders(request),
       }
     );
   } catch (error) {
-    return NextResponse.json(
-      { error: `Unable to reach backend: ${String(error)}` },
-      { status: 502 }
-    );
+    return handleError(error);
   }
 }
