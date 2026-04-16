@@ -88,7 +88,12 @@ export default function BacaanPage() {
                                 readings.map((item: any) => (
                                     <tr key={item.id} className="hover:bg-blue-50/30 transition-colors">
                                         <td className="px-6 py-4">
-                                            <div className="font-semibold text-gray-900">{item.title}</div>
+                                            <Link
+                                                href={`/reading/admin/reading/${item.id}`}
+                                                className="font-semibold text-gray-900 hover:text-blue-600 hover:underline transition-all cursor-pointer"
+                                            >
+                                                {item.title}
+                                            </Link>
                                         </td>
                                         <td className="px-6 py-4">
                                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
