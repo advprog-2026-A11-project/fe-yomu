@@ -2,16 +2,20 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function ClanDetailPage() {
     const { id } = useParams();
     const router = useRouter();
     const [clan, setClan] = useState<any>(null);
     const [allClans, setAllClans] = useState<any[]>([]);
-
-    // const { user, token } = useAuth(); // <--- YOUR_AUTH_LOGIC_HERE
-    const userId = "dummy-user-id";
-    const token = "dummy-token"; // Must be your Supabase Bearer token!
+    const [userId, setUserId] = useState<string | null>(null);
+    const [token, setToken] = useState<string | null>(null);
 
     const refresh = async () => {
         const clanRes = await fetch(`http://localhost:8080/api/clan/detail/${id}`);
@@ -23,7 +27,17 @@ export default function ClanDetailPage() {
         setAllClans(allData);
     };
 
-    useEffect(() => { refresh(); }, [id]);
+    useEffect(() => {
+        const fetchAuth = async () => {
+            const { data } = await supabase.auth.getSession();
+            if (data.session) {
+                setUserId(data.session.user.id);
+                setToken(data.session.access_token);
+            }
+        };
+        fetchAuth();
+        refresh();
+    }, [id]);
 
     if (!clan) return <div className="p-8 text-center">Loading Clan Details...</div>;
 
@@ -34,7 +48,7 @@ export default function ClanDetailPage() {
 
     const isUserInAnyClan = allClans.some(c => c.members?.some((m: any) => m.userId === userId));
     const isUserApplyingAnywhere = allClans.some(c => c.applicantIds?.includes(userId));
-    const canApply = !isUserInAnyClan && !isUserApplyingAnywhere;
+    const canApply = userId && !isUserInAnyClan && !isUserApplyingAnywhere;
 
     // --- Actions ---
     const handleAction = async (endpoint: string, method: string) => {
@@ -47,7 +61,7 @@ export default function ClanDetailPage() {
 
     const deleteClan = async () => {
         if (confirm("Are you sure you want to delete this clan?")) {
-            await handleAction('/delete', 'DELETE'); // Assuming your route is /api/clan/delete/{id}
+            await handleAction('/delete', 'DELETE');
             router.push('/clan');
         }
     };
@@ -86,7 +100,6 @@ export default function ClanDetailPage() {
                         <Link href={`/clan/detail/${id}/applicants`} className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
                             Manage Applicants ({clan.applicantIds?.length || 0})
                         </Link>
-                        <Link href={`/clan/edit/${id}`} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Edit Name</Link>
                         <button onClick={deleteClan} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Delete Clan</button>
                     </>
                 )}
@@ -111,7 +124,6 @@ export default function ClanDetailPage() {
                             <td className="p-4 flex items-center justify-between">
                                 <span>{member.userId === clan.leaderId ? "Leader" : "Member"}</span>
 
-                                {/* NEW: Kick Button (Only visible to leader, and not on themselves) */}
                                 {isLeader && member.userId !== clan.leaderId && (
                                     <button
                                         onClick={() => handleKick(member.userId)}
