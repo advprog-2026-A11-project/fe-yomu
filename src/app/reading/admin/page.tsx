@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 
-const API_BASE_URL = "http://localhost:8080/api/admin/readings";
+const API_BASE_URL = "http://localhost:8082/api/admin/readings";
 
 export default function BacaanPage() {
     const [readings, setReadings] = useState([]);
@@ -57,7 +57,7 @@ export default function BacaanPage() {
                         <p className="text-gray-500 mt-1">Manage reading materials and exercises</p>
                     </div>
                     <Link
-                        href="/reading/create-bacaan"
+                        href="/reading/admin/create-bacaan"
                         className="bg-blue-400 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-blue-200 flex items-center gap-2"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -106,7 +106,7 @@ export default function BacaanPage() {
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-3">
                                                 <Link
-                                                    href={`/reading/create-bacaan?id=${item.id}`}
+                                                    href={`/reading/admin/create-bacaan?id=${item.id}`}
                                                     className="!text-green-600 hover:!text-green-800 text-sm font-bold transition-colors">
                                                     Edit
                                                 </Link>

@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 
-const API_STUDENT = "http://localhost:8080/api/student/readings";
+const API_STUDENT = "http://localhost:8082/api/student/readings";
 
 export default function ReadingView() {
     const { id } = useParams();

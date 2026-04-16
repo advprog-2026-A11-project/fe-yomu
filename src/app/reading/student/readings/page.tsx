@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 
-const API_STUDENT = "http://localhost:8080/api/student/readings";
+const API_STUDENT = "http://localhost:8082/api/student/readings";
 const USER_ID = "user-123";     // hanya contoh, yg benar didapat dr Auth
 
 export default function StudentReadingPage() {

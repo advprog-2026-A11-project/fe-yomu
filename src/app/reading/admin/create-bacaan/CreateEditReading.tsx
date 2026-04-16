@@ -1,14 +1,16 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "@/components/providers/auth-provider";
 import Link from "next/link";
 
-const API_ADMIN = "http://localhost:8080/api/admin/readings";
+const API_ADMIN = "http://localhost:8082/api/admin/readings";
 
 export default function CreateEditReading() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const editId = searchParams.get("id"); // Cek jika ada ID untuk mode Edit
+    // const { token } = useAuth();
 
     const [formData, setFormData] = useState({
         title: "",
@@ -36,7 +38,7 @@ export default function CreateEditReading() {
                         });
                     }
                 } catch (error) {
-                    console.error("Gagal mengambil data lama:", error);
+                    console.error("Fetch the old data:", error);
                 } finally {
                     setLoading(false);
                 }
@@ -47,19 +49,36 @@ export default function CreateEditReading() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        console.log("Button push");
+
+        // if (!token) {
+        //     alert("No valid token");
+        //     console.log("TOKEN:", token);
+        //     return;
+        // }
+
         const url = editId ? `${API_ADMIN}/${editId}` : `${API_ADMIN}/create`;
         const method = editId ? "PUT" : "POST";
-
         try {
             const response = await fetch(url, {
                 method: method,
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    //Authorization: `Bearer ${token}`,
+                },
                 body: JSON.stringify(formData),
             });
 
+            if (!response.ok) {
+                const errorData = await response.text();
+                console.error("Detail Error Server:", response.status, errorData);
+                alert(`Failed to save: ${response.status} - ${errorData}`);
+                return;
+            }
+
             if (response.ok) {
                 alert(editId ? "Material updated!" : "Material created!");
-                router.push("/reading");
+                router.push("/reading/admin");
                 router.refresh();
             }
         } catch (error) {
@@ -121,7 +140,7 @@ export default function CreateEditReading() {
                 </div>
 
                 <div className="flex justify-end gap-3 pt-4">
-                    <Link href="/reading" className="px-4 py-2 text-gray-600 hover:underline">Cancel</Link>
+                    <Link href="/reading/admin" className="px-4 py-2 text-gray-600 hover:underline">Cancel</Link>
                     <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
                         {editId ? "Update" : "Save Material"}
                     </button>
