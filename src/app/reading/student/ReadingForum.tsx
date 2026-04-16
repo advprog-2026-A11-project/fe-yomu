@@ -3,19 +3,11 @@
 import { useEffect, useState } from "react";
 import { MessageCard, Message } from "@/app/forums/MessageCard";
 import { useAuth } from "@/components/providers/auth-provider";
-import { readAccessToken } from "@/lib/auth-client";
+import { getAuthHeaders } from "@/lib/auth-headers";
 
 type ReadingForumProps = Readonly<{
   readingId: string;
 }>;
-
-function getAuthHeaders(): HeadersInit {
-  const token = readAccessToken();
-  if (!token) {
-    return {};
-  }
-  return { Authorization: `Bearer ${token}` };
-}
 
 export default function ReadingForum({ readingId }: ReadingForumProps) {
   const [messages, setMessages] = useState<Message[] | null>(null);
