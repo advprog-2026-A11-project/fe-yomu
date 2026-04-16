@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useAuth } from "@/components/providers/auth-provider";
 
 const modules = [
   {
@@ -28,29 +29,41 @@ const modules = [
 ];
 
 export function ModuleNavigationGrid() {
-  return (
-    <section className="dashboard-section">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">Your modules</p>
-          <h2>Pick up where you want to continue</h2>
-        </div>
-        <p className="muted-copy">
-          Card-based navigation keeps the next action obvious whether you are on
-          desktop or mobile.
-        </p>
-      </div>
+  const { isAdmin } = useAuth();
 
-      <div className="module-grid">
-        {modules.map((module) => (
-          <Link key={module.href} href={module.href} className="module-card">
-            <span className="module-tag">{module.tag}</span>
-            <h3>{module.title}</h3>
-            <p>{module.description}</p>
-            <span className="module-link">Open module</span>
-          </Link>
-        ))}
-      </div>
-    </section>
+  return (
+      <section className="dashboard-section">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Your modules</p>
+            <h2>Pick up where you want to continue</h2>
+          </div>
+          <p className="muted-copy">
+            Card-based navigation keeps the next action obvious whether you are on
+            desktop or mobile.
+          </p>
+        </div>
+
+        <div className="module-grid">
+          {modules.map((module) => {
+            let href = module.href;
+
+            if (module.title === "Reading") {
+              href = isAdmin
+                  ? "/reading/admin"
+                  : "/reading/student/readings";
+            }
+
+            return (
+                <Link key={module.title} href={href} className="module-card">
+                  <span className="module-tag">{module.tag}</span>
+                  <h3>{module.title}</h3>
+                  <p>{module.description}</p>
+                  <span className="module-link">Open module</span>
+                </Link>
+            );
+          })}
+        </div>
+      </section>
   );
 }
