@@ -1,7 +1,9 @@
-import { NextResponse } from "next/server";
 import { proxyToBackend } from "@/lib/backend-proxy";
-
-const FORUM_BACKEND_OPTIONS = { backendService: "forum" as const };
+import {
+  FORUM_BACKEND_OPTIONS,
+  buildAuthHeaders,
+  handleError,
+} from "@/app/api/messages/message-api-utils";
 
 type RouteContext = {
   params: { id: string; replyId: string } | Promise<{ id: string; replyId: string }>;
@@ -20,19 +22,16 @@ export async function PUT(request: Request, context: RouteContext) {
       {
         ...FORUM_BACKEND_OPTIONS,
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: buildAuthHeaders(request, true),
         body,
       }
     );
   } catch (error) {
-    return NextResponse.json(
-      { error: `Unable to reach backend: ${String(error)}` },
-      { status: 502 }
-    );
+    return handleError(error);
   }
 }
 
-export async function DELETE(_request: Request, context: RouteContext) {
+export async function DELETE(request: Request, context: RouteContext) {
   try {
     const { id, replyId } = await getParams(context);
     return await proxyToBackend(
@@ -40,12 +39,10 @@ export async function DELETE(_request: Request, context: RouteContext) {
       {
         ...FORUM_BACKEND_OPTIONS,
         method: "DELETE",
+        headers: buildAuthHeaders(request),
       }
     );
   } catch (error) {
-    return NextResponse.json(
-      { error: `Unable to reach backend: ${String(error)}` },
-      { status: 502 }
-    );
+    return handleError(error);
   }
 }
