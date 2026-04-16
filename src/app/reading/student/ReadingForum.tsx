@@ -1,45 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { MessageCard, Message } from "@/app/forums/MessageCard";
 import { useAuth } from "@/components/providers/auth-provider";
 import { getAuthHeaders } from "@/lib/auth-headers";
+import { useMessages } from "@/app/hooks/useMessages";
 
 type ReadingForumProps = Readonly<{
   readingId: string;
 }>;
 
 export default function ReadingForum({ readingId }: ReadingForumProps) {
-  const [messages, setMessages] = useState<Message[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { messages, loading, error: messageError, load } = useMessages({ readingId });
+  const [error, setError] = useState(messageError);
   const [showCreate, setShowCreate] = useState(false);
   const [formContent, setFormContent] = useState("");
   const [creating, setCreating] = useState(false);
   const { isAuthenticated } = useAuth();
-
-  const load = () => {
-    setLoading(true);
-    setError(null);
-    fetch(`/api/messages?readingId=${encodeURIComponent(readingId)}`, {
-      cache: "no-store",
-    })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((data) => {
-        const allMessages = Array.isArray(data) ? data : [];
-        const topLevelMessages = allMessages.filter((m: Message) => !m.parentId);
-        setMessages(topLevelMessages);
-      })
-      .catch((err) => setError(String(err)))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    load();
-  }, [readingId]);
 
   const createMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();

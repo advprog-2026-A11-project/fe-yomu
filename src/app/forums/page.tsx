@@ -1,42 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { MessageCard, Message } from "./MessageCard";
+import { useState } from "react";
+import { MessageCard } from "./MessageCard";
+import { useMessages } from "@/app/hooks/useMessages";
+import { useAuth } from "@/components/providers/auth-provider";
+import { getAuthHeaders } from "@/lib/auth-headers";
 
 export default function ForumsPage() {
-  const [messages, setMessages] = useState<Message[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { messages, loading, error: messageError, load } = useMessages();
+  const [error, setError] = useState(messageError);
   const [showCreate, setShowCreate] = useState(false);
   const [formContent, setFormContent] = useState("");
-
-  const load = () => {
-    setLoading(true);
-    setError(null);
-    fetch("/api/messages", { cache: "no-store" })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((data) => {
-        const allMessages = Array.isArray(data) ? data : [];
-        const topLevelMessages = allMessages.filter((m: Message) => !m.parentId);
-        setMessages(topLevelMessages);
-      })
-      .catch((err) => setError(String(err)))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    load();
-  }, []);
+  const [creating, setCreating] = useState(false);
+  const { isAuthenticated } = useAuth();
 
   const createMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
+    setCreating(true);
     try {
       const res = await fetch("/api/messages", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
         body: JSON.stringify({ content: formContent }),
       });
       if (!res.ok) throw new Error(`Create failed: ${res.status} ${await res.text()}`);
@@ -45,6 +32,8 @@ export default function ForumsPage() {
       load();
     } catch (err) {
       setError(String(err));
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -55,23 +44,25 @@ export default function ForumsPage() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2 style={{ fontSize: "1.25rem", marginBottom: "0.75rem" }}>Forums</h2>
         <div>
-          {!showCreate ? (
-            <button type="button" onClick={() => setShowCreate(true)} className="btn">
-              Create message
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                setShowCreate(false);
-                setFormContent("");
-              }}
-              className="btn-ghost"
-              style={{ marginLeft: 8 }}
-            >
-              Cancel
-            </button>
-          )}
+          {isAuthenticated ? (
+            !showCreate ? (
+              <button type="button" onClick={() => setShowCreate(true)} className="btn">
+                Create message
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreate(false);
+                  setFormContent("");
+                }}
+                className="btn-ghost"
+                style={{ marginLeft: 8 }}
+              >
+                Cancel
+              </button>
+            )
+          ) : null}
         </div>
       </div>
 
