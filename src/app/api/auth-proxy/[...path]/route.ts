@@ -45,8 +45,27 @@ async function forward(request: NextRequest, context: RouteContext): Promise<Nex
     init.body = await request.text();
   }
 
-  const upstream = await fetch(upstreamUrl.toString(), init);
+  let upstream: Response;
+  try {
+    upstream = await fetch(upstreamUrl.toString(), init);
+  } catch {
+    return NextResponse.json(
+      {
+        error: "Auth service is unavailable",
+        detail: `Unable to reach ${base}`,
+      },
+      { status: 502 }
+    );
+  }
+
   const payload = await upstream.text();
+
+  if (!upstream.ok) {
+    console.error(
+      `Auth proxy upstream failed: ${request.method} ${upstreamUrl} -> ${upstream.status}`,
+      payload,
+    );
+  }
 
   const responseHeaders = new Headers();
   const contentType = upstream.headers.get("content-type");
