@@ -1,20 +1,22 @@
-import Link from "next/link";
+"use client";
 
-export default function BacaanPage() {
-    return (
-        <div>
+import { useAuth } from "@/components/providers/auth-provider";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <Link href="/create-bacaan" className="btn" style={{ background : "lightblue", color : "black"}}>
-                    + Create a reading exercise
-                </Link>
-            </div>
+export default function ReadingPage() {
+    const { isAdmin, isAuthenticated } = useAuth();
+    const router = useRouter();
 
-            <div style={{ textAlign: "center", marginTop: "3rem" }}>
-                <h1>Welcome friendss!!</h1>
-                <h1>Let's get started to read our materials</h1>
-            </div>
+    useEffect(() => {
+        if (!isAuthenticated) return;
 
-        </div>
-    );
+        if (isAdmin) {
+            router.replace("/reading/admin");
+        } else {
+            router.replace("/reading/student/readings");
+        }
+    }, [isAdmin, isAuthenticated, router]);
+
+    return <p>Redirecting...</p>;
 }
