@@ -2,8 +2,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-
-const API_BASE_URL= `${process.env.NEXT_PUBLIC_BACKEND_BACAAN_QUIZ_URL}/api/admin/readings`;
+import { ReadingAPI } from "@/lib/readings";
 
 export default function ReadingView() {
     const { id } = useParams();
@@ -12,14 +11,10 @@ export default function ReadingView() {
 
     useEffect(() => {
         const fetchDetail = async () => {
-            const response = await fetch(`${API_BASE_URL}/${id}`, {
-                headers: { "userId": userId}
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                setReading(data);
-            }
+            const data = await ReadingAPI.getReadingById(
+                id as string, userId
+            );
+            setReading(data)
         };
         fetchDetail();
     }, [id]);
