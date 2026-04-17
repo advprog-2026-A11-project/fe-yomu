@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 
-const API_STUDENT = "http://localhost:8082/api/admin/readings";
+const API_BASE_URL= `${process.env.NEXT_PUBLIC_BACKEND_BACAAN_QUIZ_URL}/api/admin/readings`;
 
 export default function ReadingView() {
     const { id } = useParams();
@@ -12,7 +12,7 @@ export default function ReadingView() {
 
     useEffect(() => {
         const fetchDetail = async () => {
-            const response = await fetch(`${API_STUDENT}/${id}`, {
+            const response = await fetch(`${API_BASE_URL}/${id}`, {
                 headers: { "userId": userId}
             });
 
