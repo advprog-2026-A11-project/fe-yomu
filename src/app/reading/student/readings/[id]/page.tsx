@@ -21,12 +21,6 @@ export default function ReadingViewStudent() {
 
     if (!reading) return <div className="p-10 text-center">Loading material...</div>;
 
-    const difficultyColor = {
-        BEGINNER: "bg-emerald-100 text-emerald-700",
-        INTERMEDIATE: "bg-amber-100 text-amber-700",
-        ADVANCED: "bg-rose-100 text-rose-700"
-    };
-
     return (
         <ReadingLayout
             reading={reading}
