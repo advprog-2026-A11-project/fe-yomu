@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { authApi } from "@/lib/auth-client";
+import { authApi, extractErrorMessage } from "@/lib/auth-client";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useAuth } from "@/components/providers/auth-provider";
 
@@ -46,10 +46,10 @@ export default function DashboardPage() {
 
     try {
       const response = await fetch(authApi("/users"), {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        cache: "no-store",
       });
 
       const payload = (await response.json()) as AdminUser[] | { message?: string; error?: string };
@@ -71,7 +71,7 @@ export default function DashboardPage() {
         }, {}),
       );
     } catch (error) {
-      setAdminMessage(error instanceof Error ? error.message : String(error));
+      setAdminMessage(extractErrorMessage(error, "Failed to load users"));
     } finally {
       setAdminLoading(false);
     }
@@ -126,7 +126,7 @@ export default function DashboardPage() {
       setProfileMessage(payload.message || "Profile updated.");
       await refreshSession();
     } catch (error) {
-      setProfileMessage(String(error));
+      setProfileMessage(extractErrorMessage(error, "Failed to update profile"));
     } finally {
       setSavingProfile(false);
     }
@@ -164,7 +164,7 @@ export default function DashboardPage() {
       setDeleteMessage("Account deactivated.");
       signOut();
     } catch (error) {
-      setDeleteMessage(String(error));
+      setDeleteMessage(extractErrorMessage(error, "Failed to delete account"));
     } finally {
       setDeletingSelf(false);
     }
@@ -205,7 +205,7 @@ export default function DashboardPage() {
       );
       setAdminMessage(payload.message || "Target user updated.");
     } catch (error) {
-      setAdminMessage(String(error));
+      setAdminMessage(extractErrorMessage(error, "Failed to update target display name"));
     } finally {
       setAdminLoading(false);
     }
@@ -247,7 +247,7 @@ export default function DashboardPage() {
       );
       setAdminMessage("User soft deleted.");
     } catch (error) {
-      setAdminMessage(String(error));
+      setAdminMessage(extractErrorMessage(error, "Failed to soft delete user"));
     } finally {
       setAdminLoading(false);
     }
