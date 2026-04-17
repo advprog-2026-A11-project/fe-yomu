@@ -253,6 +253,43 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleAdminActivate(userId: string) {
+    if (!token) {
+      return;
+    }
+
+    setAdminLoading(true);
+    setAdminMessage(null);
+
+    try {
+      const response = await fetch(authApi(`/users/${userId}/activate`), {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const payload = (await response.json()) as AdminUser | { message?: string };
+
+      if (!response.ok) {
+        throw new Error("message" in payload && payload.message
+          ? payload.message
+          : "Failed to activate user");
+      }
+
+      setAdminUsers((current) =>
+        current.map((user) =>
+          user.id === userId ? { ...user, isActive: true } : user,
+        ),
+      );
+      setAdminMessage("User activated.");
+    } catch (error) {
+      setAdminMessage(String(error));
+    } finally {
+      setAdminLoading(false);
+    }
+  }
+
   return (
     <ProtectedRoute description="Sign in to open your dashboard.">
       <section className="dashboard-page">
@@ -384,6 +421,14 @@ export default function DashboardPage() {
                         onClick={() => user.id && void handleAdminSoftDelete(user.id)}
                       >
                         Soft delete
+                      </button>
+                      <button
+                        type="button"
+                        className="button button-secondary"
+                        disabled={adminLoading || !user.id || user.isActive}
+                        onClick={() => user.id && void handleAdminActivate(user.id)}
+                      >
+                        Activate
                       </button>
                     </div>
                   </div>
