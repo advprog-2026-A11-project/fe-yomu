@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
+import { extractErrorMessage } from "@/lib/auth-client";
 
 export function RegisterForm() {
   const { register, startGoogleSignIn } = useAuth();
@@ -25,7 +26,7 @@ export function RegisterForm() {
         displayName: displayName.trim() || undefined,
       });
     } catch (submitError) {
-      setError(String(submitError));
+      setError(extractErrorMessage(submitError, "Registration failed"));
     } finally {
       setLoading(false);
     }
