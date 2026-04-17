@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
+import { extractErrorMessage } from "@/lib/auth-client";
 
 export function LoginForm() {
   const { signIn, startGoogleSignIn } = useAuth();
@@ -21,7 +22,7 @@ export function LoginForm() {
         password,
       });
     } catch (submitError) {
-      setError(String(submitError));
+      setError(extractErrorMessage(submitError, "Sign in failed"));
     } finally {
       setLoading(false);
     }

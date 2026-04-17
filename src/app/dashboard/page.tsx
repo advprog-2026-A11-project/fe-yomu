@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { authApi } from "@/lib/auth-client";
+import { authApi, extractErrorMessage } from "@/lib/auth-client";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useAuth } from "@/components/providers/auth-provider";
 
@@ -36,44 +36,53 @@ export default function DashboardPage() {
     setDisplayName(profile?.displayName || "");
   }, [profile?.displayName, profile?.username]);
 
-  useEffect(() => {
+  async function loadAdminUsers() {
     if (!token || !isAdmin) {
-      setAdminUsers([]);
-      setAdminMessage(null);
       return;
     }
 
     setAdminLoading(true);
     setAdminMessage(null);
 
-    void fetch(authApi("/users"), {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      cache: "no-store",
-    })
-      .then(async (response) => {
-        const payload = (await response.json()) as AdminUser[];
+    try {
+      const response = await fetch(authApi("/users"), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        cache: "no-store",
+      });
 
-        if (!response.ok) {
-          throw new Error(JSON.stringify(payload));
-        }
+      const payload = (await response.json()) as AdminUser[] | { message?: string; error?: string };
 
-        setAdminUsers(payload);
-        setAdminDisplayNames(
-          payload.reduce<Record<string, string>>((accumulator, user) => {
-            if (user.id) {
-              accumulator[user.id] = user.displayName || "";
-            }
-            return accumulator;
-          }, {}),
-        );
-      })
-      .catch((error) => {
-        setAdminMessage(String(error));
-      })
-      .finally(() => setAdminLoading(false));
-  }, [isAdmin, token]);
+      if (!response.ok || !Array.isArray(payload)) {
+        const message = Array.isArray(payload)
+          ? "Failed to load users"
+          : payload.message || payload.error || "Failed to load users";
+        throw new Error(message);
+      }
+
+      setAdminUsers(payload);
+      setAdminDisplayNames(
+        payload.reduce<Record<string, string>>((accumulator, user) => {
+          if (user.id) {
+            accumulator[user.id] = user.displayName || "";
+          }
+          return accumulator;
+        }, {}),
+      );
+    } catch (error) {
+      setAdminMessage(extractErrorMessage(error, "Failed to load users"));
+    } finally {
+      setAdminLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!isAdmin) {
+      setAdminUsers([]);
+      setAdminMessage(null);
+    }
+  }, [isAdmin]);
 
   const profileRows = [
     { label: "Profile ID", value: profile?.id || "-" },
@@ -117,7 +126,7 @@ export default function DashboardPage() {
       setProfileMessage(payload.message || "Profile updated.");
       await refreshSession();
     } catch (error) {
-      setProfileMessage(String(error));
+      setProfileMessage(extractErrorMessage(error, "Failed to update profile"));
     } finally {
       setSavingProfile(false);
     }
@@ -144,18 +153,22 @@ export default function DashboardPage() {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+          confirmation: "DELETE",
+        }),
       });
 
       if (!response.ok) {
         const raw = await response.text();
-        throw new Error(raw || "Failed to delete account");
+        throw new Error(extractErrorMessage(raw, "Failed to delete account"));
       }
 
       setDeleteMessage("Account deactivated.");
       signOut();
     } catch (error) {
-      setDeleteMessage(String(error));
+      setDeleteMessage(extractErrorMessage(error, "Failed to delete account"));
     } finally {
       setDeletingSelf(false);
     }
@@ -196,7 +209,7 @@ export default function DashboardPage() {
       );
       setAdminMessage(payload.message || "Target user updated.");
     } catch (error) {
-      setAdminMessage(String(error));
+      setAdminMessage(extractErrorMessage(error, "Failed to update target display name"));
     } finally {
       setAdminLoading(false);
     }
@@ -237,6 +250,43 @@ export default function DashboardPage() {
         ),
       );
       setAdminMessage("User soft deleted.");
+    } catch (error) {
+      setAdminMessage(extractErrorMessage(error, "Failed to soft delete user"));
+    } finally {
+      setAdminLoading(false);
+    }
+  }
+
+  async function handleAdminActivate(userId: string) {
+    if (!token) {
+      return;
+    }
+
+    setAdminLoading(true);
+    setAdminMessage(null);
+
+    try {
+      const response = await fetch(authApi(`/users/${userId}/activate`), {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const payload = (await response.json()) as AdminUser | { message?: string };
+
+      if (!response.ok) {
+        throw new Error("message" in payload && payload.message
+          ? payload.message
+          : "Failed to activate user");
+      }
+
+      setAdminUsers((current) =>
+        current.map((user) =>
+          user.id === userId ? { ...user, isActive: true } : user,
+        ),
+      );
+      setAdminMessage("User activated.");
     } catch (error) {
       setAdminMessage(String(error));
     } finally {
@@ -316,7 +366,18 @@ export default function DashboardPage() {
               {adminMessage ? <p className="form-feedback">{adminMessage}</p> : null}
 
               <div className="dashboard-admin-list">
-                {adminLoading && adminUsers.length === 0 ? <p>Loading users...</p> : null}
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  disabled={adminLoading}
+                  onClick={() => void loadAdminUsers()}
+                >
+                  {adminLoading ? "Loading users..." : "Load users"}
+                </button>
+
+                {!adminLoading && adminUsers.length === 0 ? (
+                  <p className="muted-copy">Load users first to manage other accounts.</p>
+                ) : null}
 
                 {adminUsers.map((user) => (
                   <div key={user.id} className="dashboard-admin-item">
@@ -364,6 +425,14 @@ export default function DashboardPage() {
                         onClick={() => user.id && void handleAdminSoftDelete(user.id)}
                       >
                         Soft delete
+                      </button>
+                      <button
+                        type="button"
+                        className="button button-secondary"
+                        disabled={adminLoading || !user.id || user.isActive}
+                        onClick={() => user.id && void handleAdminActivate(user.id)}
+                      >
+                        Activate
                       </button>
                     </div>
                   </div>

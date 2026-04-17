@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/auth-provider";
 import { LoadingState } from "@/components/states/loading-state";
 import { EmptyState } from "@/components/states/empty-state";
+import { extractErrorMessage } from "@/lib/auth-client";
 
 export function CallbackClient({
   code,
@@ -37,7 +38,7 @@ export function CallbackClient({
       state,
       nextPath: nextPath || "/dashboard",
     }).catch((authError) => {
-      setError(String(authError));
+      setError(extractErrorMessage(authError, "Google sign in could not be completed"));
     });
   }, [code, finishGoogleSignIn, nextPath, oauthError, state]);
 
