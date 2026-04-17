@@ -73,6 +73,13 @@ async function forward(request: NextRequest, context: RouteContext): Promise<Nex
     responseHeaders.set("content-type", contentType);
   }
 
+  if (upstream.status === 204 || upstream.status === 304) {
+    return new NextResponse(null, {
+      status: upstream.status,
+      headers: responseHeaders,
+    });
+  }
+
   return new NextResponse(payload, {
     status: upstream.status,
     headers: responseHeaders,
