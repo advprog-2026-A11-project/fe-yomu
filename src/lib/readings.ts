@@ -1,8 +1,8 @@
 const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BACAAN_QUIZ_URL;
 
 export const ReadingAPI = {
-    getStudentReadings: async (userId: string) => {
-        const res = await fetch(`${BASE_URL}/api/student/readings`, {
+    getStudentReadingById: async (id: string, userId: string) => {
+        const res = await fetch(`${BASE_URL}/api/student/readings/${id}`, {
             headers: { userId },
         });
         return res.json();
