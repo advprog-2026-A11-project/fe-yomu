@@ -153,12 +153,16 @@ export default function DashboardPage() {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+          confirmation: "DELETE",
+        }),
       });
 
       if (!response.ok) {
         const raw = await response.text();
-        throw new Error(raw || "Failed to delete account");
+        throw new Error(extractErrorMessage(raw, "Failed to delete account"));
       }
 
       setDeleteMessage("Account deactivated.");
