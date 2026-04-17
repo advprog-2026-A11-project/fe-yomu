@@ -36,44 +36,53 @@ export default function DashboardPage() {
     setDisplayName(profile?.displayName || "");
   }, [profile?.displayName, profile?.username]);
 
-  useEffect(() => {
+  async function loadAdminUsers() {
     if (!token || !isAdmin) {
-      setAdminUsers([]);
-      setAdminMessage(null);
       return;
     }
 
     setAdminLoading(true);
     setAdminMessage(null);
 
-    void fetch(authApi("/users"), {
+    try {
+      const response = await fetch(authApi("/users"), {
       headers: {
         Authorization: `Bearer ${token}`,
       },
       cache: "no-store",
-    })
-      .then(async (response) => {
-        const payload = (await response.json()) as AdminUser[];
+      });
 
-        if (!response.ok) {
-          throw new Error(JSON.stringify(payload));
-        }
+      const payload = (await response.json()) as AdminUser[] | { message?: string; error?: string };
 
-        setAdminUsers(payload);
-        setAdminDisplayNames(
-          payload.reduce<Record<string, string>>((accumulator, user) => {
-            if (user.id) {
-              accumulator[user.id] = user.displayName || "";
-            }
-            return accumulator;
-          }, {}),
-        );
-      })
-      .catch((error) => {
-        setAdminMessage(String(error));
-      })
-      .finally(() => setAdminLoading(false));
-  }, [isAdmin, token]);
+      if (!response.ok || !Array.isArray(payload)) {
+        const message = Array.isArray(payload)
+          ? "Failed to load users"
+          : payload.message || payload.error || "Failed to load users";
+        throw new Error(message);
+      }
+
+      setAdminUsers(payload);
+      setAdminDisplayNames(
+        payload.reduce<Record<string, string>>((accumulator, user) => {
+          if (user.id) {
+            accumulator[user.id] = user.displayName || "";
+          }
+          return accumulator;
+        }, {}),
+      );
+    } catch (error) {
+      setAdminMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setAdminLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!isAdmin) {
+      setAdminUsers([]);
+      setAdminMessage(null);
+    }
+  }, [isAdmin]);
 
   const profileRows = [
     { label: "Profile ID", value: profile?.id || "-" },
@@ -316,7 +325,18 @@ export default function DashboardPage() {
               {adminMessage ? <p className="form-feedback">{adminMessage}</p> : null}
 
               <div className="dashboard-admin-list">
-                {adminLoading && adminUsers.length === 0 ? <p>Loading users...</p> : null}
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  disabled={adminLoading}
+                  onClick={() => void loadAdminUsers()}
+                >
+                  {adminLoading ? "Loading users..." : "Load users"}
+                </button>
+
+                {!adminLoading && adminUsers.length === 0 ? (
+                  <p className="muted-copy">Load users first to manage other accounts.</p>
+                ) : null}
 
                 {adminUsers.map((user) => (
                   <div key={user.id} className="dashboard-admin-item">

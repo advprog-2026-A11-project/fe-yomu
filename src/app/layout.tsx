@@ -1,22 +1,22 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import Link from "next/link";
 import { AppProviders } from "@/components/providers/app-providers";
 
-const jakartaSans = Plus_Jakarta_Sans({
-  variable: "--font-plus-jakarta",
+const geistSans = Geist({
+  variable: "--font-geist-sans",
   subsets: ["latin"],
 });
 
-const plexMono = IBM_Plex_Mono({
-  variable: "--font-plex-mono",
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
   subsets: ["latin"],
-  weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
   title: "Yomu",
-  description: "Gamified learning platform for students and study communities.",
+  description: "A tiny forum frontend",
 };
 
 export default function RootLayout({
@@ -26,9 +26,52 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${jakartaSans.variable} ${plexMono.variable}`}>
-        <AppProviders>{children}</AppProviders>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        <AppProviders>
+          <header className="header">
+            <div className="container nav">
+              <Link href="/" className="brand">
+                Yomu
+              </Link>
+              <div style={{display : "flex", gap: 8}}>
+                <Link href="/forums">
+                  <button className="btn">Forums</button>
+                </Link>
+                <Link href="/reading">
+                  <button className="btn">Reading</button>
+                </Link>
+                <Link href="/users">
+                  <button className="btn" >Auth</button>
+                </Link>
+                <Link href="/achievement">
+                  <button className="btn" >Achievement</button>
+                </Link>
+                <Link href="/clan">
+                  <button className="btn" >League</button>
+                </Link>
+              </div>
+            </div>
+          </header>
+
+          <main className="container">{children}</main>
+
+          <footer
+              className="container"
+              style={{
+                marginTop: "3rem",
+                padding: "1rem 0",
+                borderTop: "1px solid var(--border)",
+                textAlign: "center",
+              }}
+          >
+            <small>(c) {new Date().getFullYear()} Yomu</small>
+          </footer>
+        </AppProviders>
+
       </body>
     </html>
   );
 }
+
