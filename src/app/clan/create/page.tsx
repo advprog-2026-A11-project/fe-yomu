@@ -1,40 +1,31 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// 1. Import the same global auth hook we used earlier!
+import { useAuth } from '@/components/providers/auth-provider';
 
 export default function CreateClanPage() {
     const [name, setName] = useState("");
-    const [token, setToken] = useState<string | null>(null);
     const router = useRouter();
 
-    useEffect(() => {
-        const fetchToken = async () => {
-            const { data } = await supabase.auth.getSession();
-            if (data.session) {
-                setToken(data.session.access_token);
-            }
-        };
-        fetchToken();
-    }, []);
+    // 2. Grab the token directly from the global state!
+    const { token } = useAuth();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
+        // 3. Since we use the global token, this won't falsely block you anymore
         if (!token) {
             alert("You must be logged in to create a clan!");
             return;
         }
 
-        await fetch('http://localhost:8080/api/clan/create', {
+        await fetch('http://localhost:8081/api/clan/create', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                // 4. Pass the extracted token to your backend
                 'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({ clanName: name })

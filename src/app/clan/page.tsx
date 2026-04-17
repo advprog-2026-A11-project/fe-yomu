@@ -1,30 +1,23 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase directly using your friend's environment variables
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// The actual, real path!
+import { useAuth } from '@/components/providers/auth-provider';
 
 export default function ClanListPage() {
     const [clans, setClans] = useState<any[]>([]);
-    const [userId, setUserId] = useState<string | null>(null);
+
+    // Grab the global session
+    const { session } = useAuth();
+
+    // Extract the CORRECT Yomu Profile ID and Role
+    const userId = session?.profile?.id;
+    const userRole = session?.profile?.role;
 
     useEffect(() => {
-        // 1. Get the logged-in user from Supabase
-        const fetchAuth = async () => {
-            const { data } = await supabase.auth.getSession();
-            if (data.session) {
-                setUserId(data.session.user.id);
-            }
-        };
-        fetchAuth();
-
-        // 2. Fetch the clans
-        fetch('http://localhost:8080/api/clan/list')
+        // Fetch the clans
+        fetch('http://localhost:8081/api/clan/list')
             .then(res => res.json())
             .then(data => setClans(data));
     }, []);
@@ -32,7 +25,12 @@ export default function ClanListPage() {
     // Compute user status based on all clans
     const isUserInAnyClan = clans.some(clan => clan.members?.some((m: any) => m.userId === userId));
     const isUserApplying = clans.some(clan => clan.applicantIds?.includes(userId));
-    const canCreateClan = userId && !isUserInAnyClan && !isUserApplying;
+
+    // Verify they are a student
+    const isStudent = userRole === 'STUDENT';
+
+    // The final check
+    const canCreateClan = isStudent && userId && !isUserInAnyClan && !isUserApplying;
 
     return (
         <div className="p-8 max-w-5xl mx-auto">
