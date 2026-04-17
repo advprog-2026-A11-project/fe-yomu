@@ -82,12 +82,54 @@ async function request<T>(
   const payload = await parseJson<T>(response);
 
   if (!response.ok) {
-    const detail =
-      typeof payload === "string" ? payload : JSON.stringify(payload);
-    throw new Error(`${response.status} ${detail}`);
+    throw new Error(extractErrorMessage(payload, `Request failed with status ${response.status}`));
   }
 
   return (typeof payload === "string" ? ({} as T) : payload) as T;
+}
+
+export function extractErrorMessage(error: unknown, fallback = "Request failed"): string {
+  if (error instanceof Error) {
+    return extractErrorMessage(error.message, fallback);
+  }
+
+  if (typeof error === "string") {
+    const trimmed = error.trim();
+    const jsonStart = trimmed.indexOf("{");
+
+    if (jsonStart >= 0) {
+      try {
+        const parsed = JSON.parse(trimmed.slice(jsonStart)) as unknown;
+        return extractErrorMessage(parsed, fallback);
+      } catch {
+        return trimmed || fallback;
+      }
+    }
+
+    return trimmed || fallback;
+  }
+
+  if (error && typeof error === "object") {
+    const payload = error as {
+      message?: unknown;
+      error?: unknown;
+      detail?: unknown;
+    };
+
+    if (typeof payload.message === "string" && payload.message.trim()) {
+      return payload.message;
+    }
+
+    if (typeof payload.error === "string" && payload.error.trim()) {
+      return payload.error;
+    }
+
+    if (typeof payload.detail === "string" && payload.detail.trim()) {
+      return payload.detail;
+    }
+  }
+
+  return fallback;
 }
 
 export function persistAccessToken(token: string | null): void {
