@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/components/providers/auth-provider";
+import { getAuthHeaders } from "@/lib/auth-headers";
 
 export type Message = {
   id: string;
@@ -8,6 +10,7 @@ export type Message = {
   createdAt?: string | null;
   replies?: Message[];
   parentId?: string | null;
+  userId?: string;
 };
 
 type ReactionType =
@@ -131,7 +134,7 @@ function getMessageEndpoint(message: Message, isTopLevel: boolean): string {
 async function createReplyRequest(messageId: string, content: string): Promise<void> {
   const res = await fetch(`/api/messages/${messageId}/replies`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
     body: JSON.stringify({ content }),
   });
   if (!res.ok) {
@@ -142,7 +145,7 @@ async function createReplyRequest(messageId: string, content: string): Promise<v
 async function updateMessageRequest(endpoint: string, content: string): Promise<void> {
   const res = await fetch(endpoint, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
     body: JSON.stringify({ content }),
   });
   if (!res.ok) {
@@ -151,7 +154,10 @@ async function updateMessageRequest(endpoint: string, content: string): Promise<
 }
 
 async function deleteMessageRequest(endpoint: string): Promise<void> {
-  const res = await fetch(endpoint, { method: "DELETE" });
+  const res = await fetch(endpoint, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
   if (!res.ok) {
     throw new Error(`Delete failed: ${res.status} ${await res.text()}`);
   }
@@ -395,6 +401,12 @@ export function MessageCard({
   const replyCount = message.replies?.length || 0;
   const maxIndent = 10;
 
+  const { session, isAdmin } = useAuth();
+  const currentUserId = session?.profile?.id;
+
+  const canEdit = currentUserId === message.userId;
+  const canDelete = isAdmin || currentUserId === message.userId;
+
   const {
     showReplyForm,
     setShowReplyForm,
@@ -585,32 +597,37 @@ export function MessageCard({
                 )}
               </div>
 
-              <button
+                            <button
                 type="button"
                 onClick={() => setShowReplyForm(!showReplyForm)}
                 className="btn-ghost"
                 style={{ fontSize: smallFontSize, padding: buttonPadding }}
+                title="Reply to this message"
               >
                 Reply
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  beginEditing();
-                }}
-                className="btn"
-                style={{ fontSize: smallFontSize, padding: buttonPadding }}
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                onClick={deleteMessage}
-                className="btn-danger"
-                style={{ fontSize: smallFontSize, padding: buttonPadding }}
-              >
-                Delete
-              </button>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    beginEditing();
+                  }}
+                  className="btn"
+                  style={{ fontSize: smallFontSize, padding: buttonPadding }}
+                >
+                  Edit
+                </button>
+              )}
+              {canDelete && (
+                <button
+                  type="button"
+                  onClick={deleteMessage}
+                  className="btn-danger"
+                  style={{ fontSize: smallFontSize, padding: buttonPadding }}
+                >
+                  Delete
+                </button>
+              )}
             </div>
           </div>
         ) : (
