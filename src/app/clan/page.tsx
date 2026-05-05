@@ -1,35 +1,42 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-
-// The actual, real path!
 import { useAuth } from '@/components/providers/auth-provider';
 
 export default function ClanListPage() {
     const [clans, setClans] = useState<any[]>([]);
 
-    // Grab the global session
     const { session } = useAuth();
-
-    // Extract the CORRECT Yomu Profile ID and Role
     const userId = session?.profile?.id;
     const userRole = session?.profile?.role;
 
     useEffect(() => {
-        // Fetch the clans
-        fetch('http://localhost:8081/api/clan/list')
-            .then(res => res.json())
-            .then(data => setClans(data));
+        fetch('http://localhost:8080/api/clan/list')
+            .then(async (res) => {
+                const text = await res.text(); // 1. Read the raw text first
+                if (!text) return []; // 2. If it's completely empty, default to empty array
+                return JSON.parse(text); // 3. If it has text, parse it safely
+            })
+            .then(data => {
+                if (Array.isArray(data)) {
+                    setClans(data);
+                } else if (data && Array.isArray(data.data)) {
+                    setClans(data.data);
+                } else {
+                    console.error("API did not return an array! It returned:", data);
+                    setClans([]); 
+                }
+            })
+            .catch(err => {
+                console.error("Failed to fetch clans:", err);
+                setClans([]); 
+            });
     }, []);
 
-    // Compute user status based on all clans
+    // Compute user status safely
     const isUserInAnyClan = clans.some(clan => clan.members?.some((m: any) => m.userId === userId));
     const isUserApplying = clans.some(clan => clan.applicantIds?.includes(userId));
-
-    // Verify they are a student
     const isStudent = userRole === 'STUDENT';
-
-    // The final check
     const canCreateClan = isStudent && userId && !isUserInAnyClan && !isUserApplying;
 
     return (
@@ -56,6 +63,9 @@ export default function ClanListPage() {
                         </Link>
                     </div>
                 ))}
+                {clans.length === 0 && (
+                    <p className="text-gray-500">No clans found or loading...</p>
+                )}
             </div>
         </div>
     );

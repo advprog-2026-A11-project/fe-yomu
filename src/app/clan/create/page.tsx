@@ -12,26 +12,37 @@ export default function CreateClanPage() {
     // 2. Grab the token directly from the global state!
     const { token } = useAuth();
 
-    const handleSubmit = async (e: React.FormEvent) => {
+const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // 3. Since we use the global token, this won't falsely block you anymore
         if (!token) {
             alert("You must be logged in to create a clan!");
             return;
         }
 
-        await fetch('http://localhost:8081/api/clan/create', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                // 4. Pass the extracted token to your backend
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ clanName: name })
-        });
+        try {
+            // Changed from 8081 to 8080!
+            const response = await fetch('http://localhost:8080/api/clan/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ clanName: name })
+            });
 
-        router.push('/clan');
+            if (!response.ok) {
+                const errorMessage = await response.text();
+                alert(`Backend rejected the request! Status: ${response.status}. Error: ${errorMessage}`);
+                return; 
+            }
+
+            alert("Clan successfully created!");
+            router.push('/clan');
+            
+        } catch (error) {
+            alert(`Network or CORS error: ${error}`);
+        }
     };
 
     return (
