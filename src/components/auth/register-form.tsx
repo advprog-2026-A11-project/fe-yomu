@@ -5,7 +5,7 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { extractErrorMessage } from "@/lib/auth-client";
 
 export function RegisterForm() {
-  const { register, startGoogleSignIn } = useAuth();
+  const { register } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
@@ -34,20 +34,6 @@ export function RegisterForm() {
 
   return (
     <div className="auth-panel-stack">
-      <button
-        type="button"
-        className="button button-secondary button-with-icon"
-        disabled={loading}
-        onClick={() => void startGoogleSignIn()}
-      >
-        <span className="button-icon">G</span>
-        Register with Google
-      </button>
-
-      <div className="divider-line">
-        <span>or create an account with email</span>
-      </div>
-
       <form className="auth-form" onSubmit={(event) => void handleSubmit(event)}>
         <label className="field">
           <span>Email</span>

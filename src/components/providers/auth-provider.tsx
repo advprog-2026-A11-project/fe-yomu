@@ -18,12 +18,16 @@ import {
   getAccessToken,
   getDefaultAuthReason,
   getGoogleAuthorizationUrl,
+  getRefreshToken,
   isAuthSnapshotFresh,
   loginWithPassword,
   persistAccessToken,
   persistAuthSnapshot,
+  persistRefreshToken,
   readAccessToken,
   readAuthSnapshot,
+  readRefreshToken,
+  refreshWithToken,
   registerWithPassword,
 } from "@/lib/auth-client";
 import type {
@@ -90,12 +94,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authModal, setAuthModal] = useState<AuthModalIntent | null>(null);
   const [toast, setToast] = useState<ToastState>(null);
 
-  const syncSession = useCallback(async (nextToken: string) => {
+  const syncSession = useCallback(async (nextToken: string, nextRefreshToken?: string | null) => {
     const nextSession = await fetchCurrentSession(nextToken);
     setToken(nextToken);
     setSession(nextSession);
     setStatus("authenticated");
     persistAccessToken(nextToken);
+    persistRefreshToken(nextRefreshToken ?? readRefreshToken());
     persistAuthSnapshot(createAuthSnapshot({ token: nextToken, session: nextSession }));
   }, []);
 
@@ -106,18 +111,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearPersistedAuth();
   }, []);
 
-  const bootstrap = useCallback(async (nextToken: string) => {
+  const bootstrap = useCallback(async (nextToken: string, nextRefreshToken?: string | null) => {
     try {
-      await syncSession(nextToken);
+      await syncSession(nextToken, nextRefreshToken);
     } catch (error) {
-      clearAuth();
-      throw error;
+      const refreshToken = nextRefreshToken ?? readRefreshToken();
+      if (!refreshToken) {
+        clearAuth();
+        throw error;
+      }
+
+      const refreshed = await refreshWithToken(refreshToken);
+      const refreshedAccessToken = getAccessToken(refreshed);
+      if (!refreshedAccessToken) {
+        clearAuth();
+        throw error;
+      }
+
+      await syncSession(refreshedAccessToken, getRefreshToken(refreshed) || refreshToken);
     }
   }, [clearAuth, syncSession]);
 
   useEffect(() => {
     const snapshot = readAuthSnapshot();
     const storedToken = readAccessToken();
+    const storedRefreshToken = readRefreshToken();
 
     if (snapshot?.session) {
       setToken(snapshot.token);
@@ -126,16 +144,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       persistAccessToken(snapshot.token);
     }
 
-    if (!storedToken) {
+    if (!storedToken && !storedRefreshToken) {
       setStatus("unauthenticated");
       return;
     }
 
-    if (snapshot && snapshot.token === storedToken && isAuthSnapshotFresh(snapshot)) {
+    if (storedToken && snapshot && snapshot.token === storedToken && isAuthSnapshotFresh(snapshot)) {
       return;
     }
 
-    void bootstrap(storedToken).catch(() => {
+    void bootstrap(storedToken || "", storedRefreshToken).catch(() => {
       setToast({
         message: "Your session expired. Please sign in again.",
         tone: "error",
@@ -191,16 +209,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const handleAuthSuccess = useCallback(
-    async (response: AuthTokenResponse, fallbackNextPath?: string) => {
+    async (
+      response: AuthTokenResponse,
+      fallbackNextPath?: string,
+      successMessage = "Welcome back to Yomu.",
+    ) => {
       const nextToken = getAccessToken(response);
       if (!nextToken) {
         throw new Error("Auth response did not contain an access token");
       }
 
-      await bootstrap(nextToken);
+      await bootstrap(nextToken, getRefreshToken(response));
       setAuthModal(null);
       setToast({
-        message: "Welcome back to Yomu.",
+        message: response.message || successMessage,
         tone: "success",
       });
 
@@ -213,7 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(
     async (input: { identifier: string; password: string }) => {
       const response = await loginWithPassword(input);
-      await handleAuthSuccess(response);
+      await handleAuthSuccess(response, undefined, "Welcome back to Yomu.");
     },
     [handleAuthSuccess],
   );
@@ -226,7 +248,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       displayName?: string;
     }) => {
       const response = await registerWithPassword(input);
-      await handleAuthSuccess(response);
+      const nextToken = getAccessToken(response);
+      if (nextToken) {
+        await handleAuthSuccess(response, undefined, "Your Yomu account is ready.");
+        return;
+      }
+
+      setAuthModal((currentModal) => currentModal
+        ? {
+            ...currentModal,
+            mode: "login",
+            reason: "Account created. Verify your email, then sign in.",
+          }
+        : null);
+      setToast({
+        message: response.message || "Account created. Please verify your email before signing in.",
+        tone: "success",
+      });
     },
     [handleAuthSuccess],
   );
@@ -250,6 +288,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const refreshSession = useCallback(async () => {
+    const refreshToken = readRefreshToken();
+    if (refreshToken) {
+      const response = await refreshWithToken(refreshToken);
+      const refreshedAccessToken = getAccessToken(response);
+      if (!refreshedAccessToken) {
+        throw new Error("Refresh response did not contain an access token");
+      }
+      await bootstrap(refreshedAccessToken, getRefreshToken(response) || refreshToken);
+      return;
+    }
+
     if (!token) {
       return;
     }

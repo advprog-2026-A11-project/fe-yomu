@@ -8,6 +8,7 @@ import type {
 } from "@/types/auth";
 
 const ACCESS_TOKEN_KEY = "yomu.auth.access-token";
+const REFRESH_TOKEN_KEY = "yomu.auth.refresh-token";
 const AUTH_SNAPSHOT_KEY = "yomu.auth.snapshot";
 const SESSION_REVALIDATE_MS = 60_000;
 const AUTH_COOKIE_KEY = "yomu-auth";
@@ -147,12 +148,33 @@ export function persistAccessToken(token: string | null): void {
   writeAuthPresenceCookie(token);
 }
 
+export function persistRefreshToken(token: string | null): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (!token) {
+    window.localStorage.removeItem(REFRESH_TOKEN_KEY);
+    return;
+  }
+
+  window.localStorage.setItem(REFRESH_TOKEN_KEY, token);
+}
+
 export function readAccessToken(): string | null {
   if (typeof window === "undefined") {
     return null;
   }
 
   return window.localStorage.getItem(ACCESS_TOKEN_KEY);
+}
+
+export function readRefreshToken(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.localStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
 export function persistAuthSnapshot(snapshot: AuthSnapshot | null): void {
@@ -212,6 +234,7 @@ export function isAuthSnapshotFresh(snapshot: AuthSnapshot | null): boolean {
 
 export function clearPersistedAuth(): void {
   persistAccessToken(null);
+  persistRefreshToken(null);
   persistAuthSnapshot(null);
 }
 
@@ -243,6 +266,13 @@ export async function registerWithPassword(input: {
   return request<AuthTokenResponse>("/auth/register", {
     method: "POST",
     body: JSON.stringify(input),
+  });
+}
+
+export async function refreshWithToken(refreshToken: string): Promise<AuthTokenResponse> {
+  return request<AuthTokenResponse>("/auth/refresh", {
+    method: "POST",
+    body: JSON.stringify({ refreshToken }),
   });
 }
 
