@@ -296,16 +296,6 @@ export async function getGoogleAuthorizationUrl(nextPath?: string): Promise<stri
   return response.authorizationUrl;
 }
 
-export async function completeGoogleAuth(input: {
-  code: string;
-  state: string;
-}): Promise<AuthTokenResponse> {
-  return request<AuthTokenResponse>("/auth/sso/google/callback", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
-}
-
 export function getAccessToken(response: AuthTokenResponse): string {
   return response.accessToken || response.access_token || "";
 }

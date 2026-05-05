@@ -5,7 +5,7 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { extractErrorMessage } from "@/lib/auth-client";
 
 export function LoginForm() {
-  const { signIn } = useAuth();
+  const { signIn, startGoogleSignIn } = useAuth();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -30,6 +30,20 @@ export function LoginForm() {
 
   return (
     <div className="auth-panel-stack">
+      <button
+        type="button"
+        className="button button-secondary button-with-icon"
+        disabled={loading}
+        onClick={() => void startGoogleSignIn()}
+      >
+        <span className="button-icon">G</span>
+        Continue with Google
+      </button>
+
+      <div className="divider-line">
+        <span>or sign in with your account</span>
+      </div>
+
       <form className="auth-form" onSubmit={(event) => void handleSubmit(event)}>
         <label className="field">
           <span>Email, username, or phone</span>

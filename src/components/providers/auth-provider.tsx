@@ -11,9 +11,9 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  authApi,
   clearPersistedAuth,
   createAuthSnapshot,
-  completeGoogleAuth,
   fetchCurrentSession,
   getAccessToken,
   getDefaultAuthReason,
@@ -30,6 +30,7 @@ import {
   refreshWithToken,
   registerWithPassword,
 } from "@/lib/auth-client";
+import { getSupabaseClient } from "@/lib/supabase";
 import type {
   AuthModalIntent,
   AuthModalMode,
@@ -64,11 +65,11 @@ type AuthContextValue = {
   startGoogleSignIn: (nextPath?: string) => Promise<void>;
   finishGoogleSignIn: (input: {
     code: string;
-    state: string;
+    state?: string;
     nextPath?: string;
   }) => Promise<void>;
   refreshSession: () => Promise<void>;
-  signOut: () => void;
+  signOut: () => Promise<void>;
   openAuthModal: (intent?: Partial<AuthModalIntent>) => void;
   closeAuthModal: () => void;
   clearToast: () => void;
@@ -280,11 +281,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const finishGoogleSignIn = useCallback(
-    async (input: { code: string; state: string; nextPath?: string }) => {
-      const response = await completeGoogleAuth(input);
-      await handleAuthSuccess(response, input.nextPath || "/dashboard");
+    async (input: { code: string; state?: string; nextPath?: string }) => {
+      const { data, error } = await getSupabaseClient().auth.exchangeCodeForSession(input.code);
+      if (error) {
+        throw error;
+      }
+
+      if (!data.session?.access_token) {
+        throw new Error("Google sign in did not return an access token");
+      }
+
+      await bootstrap(data.session.access_token, data.session.refresh_token ?? null);
+      setAuthModal(null);
+      setToast({
+        message: "Welcome back to Yomu.",
+        tone: "success",
+      });
+      router.replace(input.nextPath || authModal?.nextPath || "/dashboard");
     },
-    [handleAuthSuccess],
+    [authModal?.nextPath, bootstrap, router],
   );
 
   const refreshSession = useCallback(async () => {
@@ -306,7 +321,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await bootstrap(token);
   }, [bootstrap, token]);
 
-  const signOut = useCallback(() => {
+  const signOut = useCallback(async () => {
+    const currentToken = token || readAccessToken();
+
+    try {
+      if (currentToken) {
+        await fetch(authApi("/auth/logout"), {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${currentToken}`,
+          },
+          cache: "no-store",
+        });
+      }
+    } catch {
+      // Local sign-out still wins even if backend logout is unavailable.
+    }
+
+    try {
+      await getSupabaseClient().auth.signOut();
+    } catch {
+      // Local sign-out still wins even if Supabase cleanup fails.
+    }
+
     clearAuth();
     setAuthModal(null);
     setToast({
@@ -314,7 +351,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       tone: "neutral",
     });
     router.replace("/");
-  }, [clearAuth, router]);
+  }, [clearAuth, router, token]);
 
   const clearToast = useCallback(() => {
     setToast(null);

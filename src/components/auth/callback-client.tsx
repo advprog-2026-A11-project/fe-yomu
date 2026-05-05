@@ -28,8 +28,8 @@ export function CallbackClient({
       return;
     }
 
-    if (!code || !state) {
-      setError("Missing Google callback parameters.");
+    if (!code) {
+      setError("Missing Google callback code.");
       return;
     }
 
