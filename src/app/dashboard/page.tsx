@@ -166,7 +166,7 @@ export default function DashboardPage() {
       }
 
       setDeleteMessage("Account deactivated.");
-      signOut();
+      await signOut();
     } catch (error) {
       setDeleteMessage(extractErrorMessage(error, "Failed to delete account"));
     } finally {
@@ -179,18 +179,28 @@ export default function DashboardPage() {
       return;
     }
 
+    const targetUser = adminUsers.find((user) => user.id === userId);
+    if (!targetUser) {
+      setAdminMessage("Target user not found.");
+      return;
+    }
+
     setAdminLoading(true);
     setAdminMessage(null);
 
     try {
-      const response = await fetch(authApi(`/users/${userId}/displayName`), {
+      const response = await fetch(authApi(`/users/${userId}`), {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          username: targetUser.username || "",
+          email: targetUser.email || "",
           displayName: adminDisplayNames[userId] || "",
+          role: targetUser.role || "STUDENT",
+          isActive: targetUser.isActive ?? true,
         }),
       });
 
