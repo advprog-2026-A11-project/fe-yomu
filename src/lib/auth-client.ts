@@ -175,6 +175,10 @@ export function normalizeAuthError(error: unknown, intent: AuthErrorIntent): str
       return "That phone number is already in use.";
     }
 
+    if (normalized.includes("phone must contain 8-15 digits")) {
+      return "Phone number must contain 8-15 digits.";
+    }
+
     if (normalized.includes("password should")
       || normalized.includes("password must")
       || normalized.includes("weak password")
