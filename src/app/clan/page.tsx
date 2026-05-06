@@ -9,15 +9,7 @@ export default function ClanListPage() {
     const { session, token } = useAuth();
     const userRole = session?.profile?.role;
 
-    let authUserId: string | null = null;
-    if (token) {
-        try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            authUserId = payload.sub;
-        } catch (e) {
-            console.error("Error decoding token:", e);
-        }
-    }
+    const authUserId = session?.profile?.id || null;
 
     useEffect(() => {
         fetch('http://localhost:8080/api/clan/list')
