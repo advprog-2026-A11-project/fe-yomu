@@ -139,6 +139,14 @@ export function normalizeAuthError(error: unknown, intent: AuthErrorIntent): str
       return "Invalid email, username, or password.";
     }
 
+    if (normalized.includes("phone number is not registered")) {
+      return "That phone number is not registered.";
+    }
+
+    if (normalized.includes("phone login is not available for this account")) {
+      return "This account cannot sign in with a phone number yet.";
+    }
+
     if (normalized.includes("email not confirmed") || normalized.includes("verify your email")) {
       return "Please verify your email first, then try signing in again.";
     }
