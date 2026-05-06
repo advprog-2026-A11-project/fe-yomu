@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { GoogleAuthButton } from "@/components/auth/google-auth-button";
+import { runGoogleAuthAction } from "@/components/auth/google-auth-action";
 import { useAuth } from "@/components/providers/auth-provider";
-import { extractErrorMessage } from "@/lib/auth-client";
+import { normalizeAuthError } from "@/lib/auth-client";
 
 export function RegisterForm() {
   const { register, startGoogleSignIn } = useAuth();
@@ -26,23 +28,23 @@ export function RegisterForm() {
         displayName: displayName.trim() || undefined,
       });
     } catch (submitError) {
-      setError(extractErrorMessage(submitError, "Registration failed"));
+      setError(normalizeAuthError(submitError, "register"));
     } finally {
       setLoading(false);
     }
   }
 
+  async function handleGoogleSignIn() {
+    await runGoogleAuthAction(startGoogleSignIn, setLoading, setError);
+  }
+
   return (
     <div className="auth-panel-stack">
-      <button
-        type="button"
-        className="button button-secondary button-with-icon"
-        disabled={loading}
-        onClick={() => void startGoogleSignIn()}
-      >
-        <span className="button-icon">G</span>
-        Register with Google
-      </button>
+      <GoogleAuthButton
+        loading={loading}
+        label="Register with Google"
+        onClick={() => void handleGoogleSignIn()}
+      />
 
       <div className="divider-line">
         <span>or create an account with email</span>
