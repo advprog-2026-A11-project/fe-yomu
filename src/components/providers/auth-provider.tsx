@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const syncSession = useCallback(async () => {
     const nextSession = await fetchCurrentSession();
     setSession(nextSession);
-    setStatus("authenticated");
+    setStatus(nextSession ? "authenticated" : "unauthenticated");
   }, []);
 
   const clearAuth = useCallback(() => {
@@ -113,6 +113,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
   }, [clearAuth, syncSession]);
+
+  // Sync auth state across browser tabs via localStorage events
+  useEffect(() => {
+    function handleStorage(event: StorageEvent) {
+      if (!event.key) {
+        return;
+      }
+
+      if (event.key === "yomu.auth.access-token" && !event.newValue) {
+        clearAuth();
+      }
+
+      if (event.key === "yomu.auth.snapshot" && event.newValue) {
+        try {
+          const snapshot = JSON.parse(event.newValue) as {
+            token: string;
+            session: AuthSession;
+            refreshedAt?: number;
+          };
+
+          setSession(snapshot.session);
+          setStatus("authenticated");
+        } catch {
+          clearAuth();
+        }
+      }
+    }
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, [clearAuth]);
 
   const openAuthModal = useCallback(
     (intent?: Partial<AuthModalIntent>) => {
@@ -179,10 +210,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setAuthModal((currentModal) => currentModal
         ? {
-            ...currentModal,
-            mode: "login",
-            reason: "Account created. Verify your email, then sign in.",
-          }
+          ...currentModal,
+          mode: "login",
+          reason: "Account created. Verify your email, then sign in.",
+        }
         : null);
       setToast({
         message: response.message || "Account created. Please verify your email before signing in.",
@@ -194,11 +225,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const startGoogleSignIn = useCallback(
     async (nextPath?: string) => {
-      const redirectTo = `${window.location.origin}/auth/callback${
-        nextPath || authModal?.nextPath || pathname
-          ? `?next=${encodeURIComponent(nextPath || authModal?.nextPath || inferNextPath(pathname || "/"))}`
-          : ""
-      }`;
+      const redirectTo = `${window.location.origin}/auth/callback${nextPath || authModal?.nextPath || pathname
+        ? `?next=${encodeURIComponent(nextPath || authModal?.nextPath || inferNextPath(pathname || "/"))}`
+        : ""
+        }`;
 
       const { data, error } = await getSupabaseClient().auth.signInWithOAuth({
         provider: "google",

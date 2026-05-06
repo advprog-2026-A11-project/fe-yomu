@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 
-const API_BASE_URL = "http://localhost:8082/api/admin/readings";
+const API_BASE_URL = "http://localhost:8083/api/admin/readings";
 
 export default function BacaanPage() {
     const [readings, setReadings] = useState([]);

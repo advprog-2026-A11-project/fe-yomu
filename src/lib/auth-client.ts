@@ -14,9 +14,9 @@ export function normalizeAuthApiBase(): string {
   }
 
   if (
-    typeof window !== "undefined"
-    && window.location.protocol === "https:"
-    && configured.startsWith("http://")
+    typeof window !== "undefined" &&
+    window.location.protocol === "https:" &&
+    configured.startsWith("http://")
   ) {
     return "/api/auth-proxy";
   }
@@ -32,9 +32,7 @@ export function authApi(path: string): string {
 async function parseJson<T>(response: Response): Promise<T | string> {
   const raw = await response.text();
 
-  if (!raw) {
-    return "" as T;
-  }
+  if (!raw) return "" as T;
 
   try {
     return JSON.parse(raw) as T;
@@ -46,7 +44,7 @@ async function parseJson<T>(response: Response): Promise<T | string> {
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(authApi(path), {
     ...init,
-    credentials: "include",
+    credentials: "include", // ✅ cookie-based auth
     headers: {
       "Content-Type": "application/json",
       ...(init.headers || {}),
@@ -57,7 +55,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const payload = await parseJson<T>(response);
 
   if (!response.ok) {
-    throw new Error(extractErrorMessage(payload, `Request failed with status ${response.status}`));
+    throw new Error(
+      extractErrorMessage(payload, `Request failed with status ${response.status}`)
+    );
   }
 
   return (typeof payload === "string" ? ({} as T) : payload) as T;
@@ -74,7 +74,7 @@ export function extractErrorMessage(error: unknown, fallback = "Request failed")
 
     if (jsonStart >= 0) {
       try {
-        const parsed = JSON.parse(trimmed.slice(jsonStart)) as unknown;
+        const parsed = JSON.parse(trimmed.slice(jsonStart));
         return extractErrorMessage(parsed, fallback);
       } catch {
         return trimmed || fallback;
@@ -91,17 +91,9 @@ export function extractErrorMessage(error: unknown, fallback = "Request failed")
       detail?: unknown;
     };
 
-    if (typeof payload.message === "string" && payload.message.trim()) {
-      return payload.message;
-    }
-
-    if (typeof payload.error === "string" && payload.error.trim()) {
-      return payload.error;
-    }
-
-    if (typeof payload.detail === "string" && payload.detail.trim()) {
-      return payload.detail;
-    }
+    if (typeof payload.message === "string") return payload.message;
+    if (typeof payload.error === "string") return payload.error;
+    if (typeof payload.detail === "string") return payload.detail;
   }
 
   return fallback;
@@ -109,20 +101,20 @@ export function extractErrorMessage(error: unknown, fallback = "Request failed")
 
 function sanitizeAuthMessage(message: string, fallback: string): string {
   const trimmed = message.trim();
-  if (!trimmed) {
-    return fallback;
-  }
+  if (!trimmed) return fallback;
 
   const firstLine = trimmed.split(/\r?\n/)[0]?.trim() || fallback;
-  if (!firstLine) {
+
+  if (
+    firstLine.startsWith("org.") ||
+    firstLine.startsWith("java.")
+  ) {
     return fallback;
   }
 
-  if (firstLine.startsWith("org.") || firstLine.startsWith("java.")) {
-    return fallback;
-  }
-
-  return firstLine.length > 180 ? `${firstLine.slice(0, 177)}...` : firstLine;
+  return firstLine.length > 180
+    ? `${firstLine.slice(0, 177)}...`
+    : firstLine;
 }
 
 export type AuthErrorIntent = "login" | "register" | "google" | "session";
@@ -132,69 +124,53 @@ export function normalizeAuthError(error: unknown, intent: AuthErrorIntent): str
   const normalized = raw.toLowerCase();
 
   if (intent === "login") {
-    if (normalized.includes("invalid login credentials")
-      || normalized.includes("bad credentials")
-      || normalized.includes("invalid credentials")
-      || normalized.includes("unauthorized")) {
+    if (
+      normalized.includes("invalid credentials") ||
+      normalized.includes("unauthorized") ||
+      normalized.includes("bad credentials")
+    ) {
       return "Invalid email, username, or password.";
     }
 
-    if (normalized.includes("email not confirmed") || normalized.includes("verify your email")) {
-      return "Please verify your email first, then try signing in again.";
+    if (normalized.includes("verify your email")) {
+      return "Please verify your email first.";
     }
 
-    if (raw) {
-      return raw;
-    }
-
-    return "We could not sign you in right now. Please try again.";
+    return raw || "We could not sign you in.";
   }
 
   if (intent === "register") {
-    if (normalized.includes("already registered")
-      || normalized.includes("already exists")
-      || normalized.includes("duplicate")
-      || normalized.includes("username is already taken")
-      || normalized.includes("email already")) {
+    if (
+      normalized.includes("already") ||
+      normalized.includes("duplicate")
+    ) {
       return "That email or username is already in use.";
     }
 
-    if (normalized.includes("password should")
-      || normalized.includes("password must")
-      || normalized.includes("weak password")
-      || normalized.includes("password")) {
-      return raw || "Your password does not meet the required strength rules.";
+    if (normalized.includes("password")) {
+      return raw || "Password is too weak.";
     }
 
-    if (raw) {
-      return raw;
-    }
-
-    return "We could not create your account right now. Please try again.";
+    return raw || "Registration failed.";
   }
 
   if (intent === "google") {
-    if (normalized.includes("access_denied")
-      || normalized.includes("oauth")
-      || normalized.includes("callback")
-      || normalized.includes("missing google callback code")) {
-      return "Google sign in was cancelled or could not be completed.";
+    if (
+      normalized.includes("oauth") ||
+      normalized.includes("access_denied")
+    ) {
+      return "Google sign-in failed or cancelled.";
     }
 
-    if (raw) {
-      return raw;
-    }
-
-    return "We could not complete Google sign in right now. Please try again.";
+    return raw || "Google login failed.";
   }
 
-  if (raw) {
-    return raw;
-  }
-
-  return "Your session expired. Please sign in again.";
+  return raw || "Session expired. Please login again.";
 }
 
+//
+// ✅ FINAL VERSION (NO TOKEN PARAM)
+//
 export async function fetchCurrentSession(): Promise<AuthSession> {
   return request<AuthSession>("/auth/me", {
     method: "GET",
@@ -257,6 +233,6 @@ export function getAccessToken(response: AuthTokenResponse): string {
 
 export function getDefaultAuthReason(mode: AuthModalMode): string {
   return mode === "register"
-    ? "Create an account to save progress, join modules, and keep your streak."
-    : "Sign in to continue into the Yomu app experience.";
+    ? "Create an account to save progress and track achievements."
+    : "Sign in to continue.";
 }

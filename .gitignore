@@ -1,5 +1,6 @@
 /node_modules
 /.pnp
+/.env.local
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -32,3 +33,5 @@ yarn-error.log*
 next-env.d.ts
 
 docker-compose.yml
+
+.idea/
