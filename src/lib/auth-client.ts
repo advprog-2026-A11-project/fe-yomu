@@ -89,7 +89,18 @@ export function extractErrorMessage(error: unknown, fallback = "Request failed")
       message?: unknown;
       error?: unknown;
       detail?: unknown;
+      validationErrors?: unknown;
+      validation_errors?: unknown;
     };
+
+    const validationErrors = payload.validationErrors ?? payload.validation_errors;
+    if (validationErrors && typeof validationErrors === "object") {
+      const firstValidationMessage = Object.values(validationErrors as Record<string, unknown>)
+        .find((value) => typeof value === "string" && value.trim());
+      if (typeof firstValidationMessage === "string") {
+        return firstValidationMessage;
+      }
+    }
 
     if (typeof payload.message === "string" && payload.message.trim()) {
       return payload.message;
