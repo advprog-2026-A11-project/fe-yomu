@@ -79,6 +79,7 @@ async function request<T>(
     cache: "no-store",
   });
 
+
   const payload = await parseJson<T>(response);
 
   if (!response.ok) {
@@ -216,13 +217,21 @@ export function clearPersistedAuth(): void {
 }
 
 export async function fetchCurrentSession(token: string): Promise<AuthSession> {
-  return request<AuthSession>("/auth/me", {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+  try {
+    return await request<AuthSession>("/auth/me", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
+
 
 export async function loginWithPassword(input: {
   identifier: string;

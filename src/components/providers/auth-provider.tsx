@@ -143,6 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [bootstrap]);
 
+
   useEffect(() => {
     function handleStorage(event: StorageEvent) {
       if (!event.key) {
