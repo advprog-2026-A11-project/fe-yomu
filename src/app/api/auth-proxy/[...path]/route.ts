@@ -134,6 +134,18 @@ function applyAuthCookiesFromPayload(
   }
 }
 
+function shouldLogUpstreamFailure(joinedPath: string, status: number): boolean {
+  if (status >= 500) {
+    return true;
+  }
+
+  if (status !== 401) {
+    return false;
+  }
+
+  return !["auth/login", "auth/me", "auth/refresh"].includes(joinedPath);
+}
+
 async function forward(request: NextRequest, context: RouteContext): Promise<NextResponse> {
   const base = resolveTargetBase();
   if (!base) {
@@ -194,7 +206,7 @@ async function forward(request: NextRequest, context: RouteContext): Promise<Nex
 
   const payload = await upstream.text();
 
-  if (!upstream.ok) {
+  if (!upstream.ok && shouldLogUpstreamFailure(joinedPath, upstream.status)) {
     console.error(
       `Auth proxy upstream failed: ${request.method} ${upstreamUrl} -> ${upstream.status}`,
       payload,
