@@ -133,6 +133,57 @@ export function extractErrorMessage(error: unknown, fallback = "Request failed")
   return fallback;
 }
 
+export type AuthErrorIntent = "login" | "register" | "google" | "session";
+
+export function normalizeAuthError(error: unknown, intent: AuthErrorIntent): string {
+  const raw = extractErrorMessage(error, "");
+  const normalized = raw.toLowerCase();
+
+  if (intent === "login") {
+    if (normalized.includes("invalid login credentials")
+      || normalized.includes("bad credentials")
+      || normalized.includes("invalid credentials")
+      || normalized.includes("unauthorized")) {
+      return "We could not sign you in. Check your credentials and try again.";
+    }
+
+    if (normalized.includes("email not confirmed") || normalized.includes("verify your email")) {
+      return "Verify your email first, then try signing in again.";
+    }
+
+    return "We could not sign you in right now. Please try again.";
+  }
+
+  if (intent === "register") {
+    if (normalized.includes("already registered")
+      || normalized.includes("already exists")
+      || normalized.includes("duplicate")
+      || normalized.includes("username is already taken")
+      || normalized.includes("email already")) {
+      return "We could not create your account. Use a different email or username and try again.";
+    }
+
+    if (normalized.includes("password")) {
+      return "We could not create your account. Check your password requirements and try again.";
+    }
+
+    return "We could not create your account right now. Please try again.";
+  }
+
+  if (intent === "google") {
+    if (normalized.includes("access_denied")
+      || normalized.includes("oauth")
+      || normalized.includes("callback")
+      || normalized.includes("missing google callback code")) {
+      return "We could not complete Google sign in. Please try again.";
+    }
+
+    return "We could not complete Google sign in right now. Please try again.";
+  }
+
+  return "Your session expired. Please sign in again.";
+}
+
 export function persistAccessToken(token: string | null): void {
   if (typeof window === "undefined") {
     return;
@@ -274,26 +325,6 @@ export async function refreshWithToken(refreshToken: string): Promise<AuthTokenR
     method: "POST",
     body: JSON.stringify({ refreshToken }),
   });
-}
-
-export async function getGoogleAuthorizationUrl(nextPath?: string): Promise<string> {
-  const redirectTo =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/auth/callback${
-          nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""
-        }`
-      : "/auth/callback";
-
-  const response = await request<AuthTokenResponse>(
-    `/auth/sso/google/url?redirectTo=${encodeURIComponent(redirectTo)}`,
-    { method: "GET" },
-  );
-
-  if (!response.authorizationUrl) {
-    throw new Error(response.message || "Google authorization URL not returned");
-  }
-
-  return response.authorizationUrl;
 }
 
 export function getAccessToken(response: AuthTokenResponse): string {

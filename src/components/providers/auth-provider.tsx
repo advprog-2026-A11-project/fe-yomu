@@ -17,10 +17,10 @@ import {
   fetchCurrentSession,
   getAccessToken,
   getDefaultAuthReason,
-  getGoogleAuthorizationUrl,
   getRefreshToken,
   isAuthSnapshotFresh,
   loginWithPassword,
+  normalizeAuthError,
   persistAccessToken,
   persistAuthSnapshot,
   persistRefreshToken,
@@ -156,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     void bootstrap(storedToken || "", storedRefreshToken).catch(() => {
       setToast({
-        message: "Your session expired. Please sign in again.",
+        message: normalizeAuthError(null, "session"),
         tone: "error",
       });
     });
@@ -272,10 +272,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const startGoogleSignIn = useCallback(
     async (nextPath?: string) => {
-      const authorizationUrl = await getGoogleAuthorizationUrl(
-        nextPath || authModal?.nextPath || inferNextPath(pathname || "/"),
-      );
-      window.location.assign(authorizationUrl);
+      const redirectTo = `${window.location.origin}/auth/callback${
+        nextPath || authModal?.nextPath || pathname
+          ? `?next=${encodeURIComponent(nextPath || authModal?.nextPath || inferNextPath(pathname || "/"))}`
+          : ""
+      }`;
+
+      const { data, error } = await getSupabaseClient().auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.url) {
+        window.location.assign(data.url);
+      }
     },
     [authModal?.nextPath, pathname],
   );

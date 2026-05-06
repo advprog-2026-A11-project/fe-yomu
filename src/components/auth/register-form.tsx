@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
-import { extractErrorMessage } from "@/lib/auth-client";
+import { normalizeAuthError } from "@/lib/auth-client";
 
 export function RegisterForm() {
   const { register, startGoogleSignIn } = useAuth();
@@ -26,8 +26,20 @@ export function RegisterForm() {
         displayName: displayName.trim() || undefined,
       });
     } catch (submitError) {
-      setError(extractErrorMessage(submitError, "Registration failed"));
+      setError(normalizeAuthError(submitError, "register"));
     } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    setLoading(true);
+    setError(null);
+
+    try {
+      await startGoogleSignIn();
+    } catch (submitError) {
+      setError(normalizeAuthError(submitError, "google"));
       setLoading(false);
     }
   }
@@ -38,7 +50,7 @@ export function RegisterForm() {
         type="button"
         className="button button-secondary button-with-icon"
         disabled={loading}
-        onClick={() => void startGoogleSignIn()}
+        onClick={() => void handleGoogleSignIn()}
       >
         <span className="button-icon">G</span>
         Register with Google
