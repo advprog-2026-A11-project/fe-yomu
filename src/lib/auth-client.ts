@@ -3,34 +3,11 @@
 import type {
   AuthModalMode,
   AuthSession,
-  AuthSnapshot,
   AuthTokenResponse,
 } from "@/types/auth";
 
-const ACCESS_TOKEN_KEY = "yomu.auth.access-token";
-const AUTH_SNAPSHOT_KEY = "yomu.auth.snapshot";
-const SESSION_REVALIDATE_MS = 60_000;
-const AUTH_COOKIE_KEY = "yomu-auth";
-
-function writeAuthPresenceCookie(token: string | null): void {
-  if (typeof document === "undefined") {
-    return;
-  }
-
-  if (!token) {
-    document.cookie = `${AUTH_COOKIE_KEY}=; Path=/; Max-Age=0; SameSite=Lax`;
-    return;
-  }
-
-  document.cookie = `${AUTH_COOKIE_KEY}=1; Path=/; Max-Age=2592000; SameSite=Lax`;
-}
-
-function getConfiguredAuthBase(): string | undefined {
-  return process.env.NEXT_PUBLIC_AUTH_API_URL?.replace(/\/$/, "");
-}
-
 export function normalizeAuthApiBase(): string {
-  const configured = getConfiguredAuthBase();
+  const configured = process.env.NEXT_PUBLIC_AUTH_API_URL?.replace(/\/$/, "");
 
   if (!configured) {
     return "/api/auth-proxy";
@@ -55,9 +32,7 @@ export function authApi(path: string): string {
 async function parseJson<T>(response: Response): Promise<T | string> {
   const raw = await response.text();
 
-  if (!raw) {
-    return "" as T;
-  }
+  if (!raw) return "" as T;
 
   try {
     return JSON.parse(raw) as T;
@@ -66,12 +41,10 @@ async function parseJson<T>(response: Response): Promise<T | string> {
   }
 }
 
-async function request<T>(
-  path: string,
-  init: RequestInit = {},
-): Promise<T> {
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(authApi(path), {
     ...init,
+    credentials: "include", // ✅ cookie-based auth
     headers: {
       "Content-Type": "application/json",
       ...(init.headers || {}),
@@ -79,11 +52,12 @@ async function request<T>(
     cache: "no-store",
   });
 
-
   const payload = await parseJson<T>(response);
 
   if (!response.ok) {
-    throw new Error(extractErrorMessage(payload, `Request failed with status ${response.status}`));
+    throw new Error(
+      extractErrorMessage(payload, `Request failed with status ${response.status}`)
+    );
   }
 
   return (typeof payload === "string" ? ({} as T) : payload) as T;
@@ -100,7 +74,7 @@ export function extractErrorMessage(error: unknown, fallback = "Request failed")
 
     if (jsonStart >= 0) {
       try {
-        const parsed = JSON.parse(trimmed.slice(jsonStart)) as unknown;
+        const parsed = JSON.parse(trimmed.slice(jsonStart));
         return extractErrorMessage(parsed, fallback);
       } catch {
         return trimmed || fallback;
@@ -117,121 +91,91 @@ export function extractErrorMessage(error: unknown, fallback = "Request failed")
       detail?: unknown;
     };
 
-    if (typeof payload.message === "string" && payload.message.trim()) {
-      return payload.message;
-    }
-
-    if (typeof payload.error === "string" && payload.error.trim()) {
-      return payload.error;
-    }
-
-    if (typeof payload.detail === "string" && payload.detail.trim()) {
-      return payload.detail;
-    }
+    if (typeof payload.message === "string") return payload.message;
+    if (typeof payload.error === "string") return payload.error;
+    if (typeof payload.detail === "string") return payload.detail;
   }
 
   return fallback;
 }
 
-export function persistAccessToken(token: string | null): void {
-  if (typeof window === "undefined") {
-    return;
+function sanitizeAuthMessage(message: string, fallback: string): string {
+  const trimmed = message.trim();
+  if (!trimmed) return fallback;
+
+  const firstLine = trimmed.split(/\r?\n/)[0]?.trim() || fallback;
+
+  if (
+    firstLine.startsWith("org.") ||
+    firstLine.startsWith("java.")
+  ) {
+    return fallback;
   }
 
-  if (!token) {
-    window.localStorage.removeItem(ACCESS_TOKEN_KEY);
-    writeAuthPresenceCookie(null);
-    return;
-  }
-
-  window.localStorage.setItem(ACCESS_TOKEN_KEY, token);
-  writeAuthPresenceCookie(token);
+  return firstLine.length > 180
+    ? `${firstLine.slice(0, 177)}...`
+    : firstLine;
 }
 
-export function readAccessToken(): string | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
+export type AuthErrorIntent = "login" | "register" | "google" | "session";
 
-  return window.localStorage.getItem(ACCESS_TOKEN_KEY);
-}
+export function normalizeAuthError(error: unknown, intent: AuthErrorIntent): string {
+  const raw = sanitizeAuthMessage(extractErrorMessage(error, ""), "");
+  const normalized = raw.toLowerCase();
 
-export function persistAuthSnapshot(snapshot: AuthSnapshot | null): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  if (!snapshot) {
-    window.localStorage.removeItem(AUTH_SNAPSHOT_KEY);
-    return;
-  }
-
-  window.localStorage.setItem(AUTH_SNAPSHOT_KEY, JSON.stringify(snapshot));
-}
-
-export function readAuthSnapshot(): AuthSnapshot | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const raw = window.localStorage.getItem(AUTH_SNAPSHOT_KEY);
-  if (!raw) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as AuthSnapshot;
-
-    if (!parsed.refreshedAt) {
-      return {
-        ...parsed,
-        refreshedAt: 0,
-      };
+  if (intent === "login") {
+    if (
+      normalized.includes("invalid credentials") ||
+      normalized.includes("unauthorized") ||
+      normalized.includes("bad credentials")
+    ) {
+      return "Invalid email, username, or password.";
     }
 
-    return parsed;
-  } catch {
-    window.localStorage.removeItem(AUTH_SNAPSHOT_KEY);
-    return null;
-  }
-}
+    if (normalized.includes("verify your email")) {
+      return "Please verify your email first.";
+    }
 
-export function createAuthSnapshot(snapshot: Omit<AuthSnapshot, "refreshedAt">): AuthSnapshot {
-  return {
-    ...snapshot,
-    refreshedAt: Date.now(),
-  };
-}
-
-export function isAuthSnapshotFresh(snapshot: AuthSnapshot | null): boolean {
-  if (!snapshot?.token || !snapshot?.session?.profile?.id) {
-    return false;
+    return raw || "We could not sign you in.";
   }
 
-  return Date.now() - snapshot.refreshedAt < SESSION_REVALIDATE_MS;
-}
+  if (intent === "register") {
+    if (
+      normalized.includes("already") ||
+      normalized.includes("duplicate")
+    ) {
+      return "That email or username is already in use.";
+    }
 
-export function clearPersistedAuth(): void {
-  persistAccessToken(null);
-  persistAuthSnapshot(null);
-}
+    if (normalized.includes("password")) {
+      return raw || "Password is too weak.";
+    }
 
-export async function fetchCurrentSession(token: string): Promise<AuthSession> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-  try {
-    return await request<AuthSession>("/auth/me", {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timeoutId);
+    return raw || "Registration failed.";
   }
+
+  if (intent === "google") {
+    if (
+      normalized.includes("oauth") ||
+      normalized.includes("access_denied")
+    ) {
+      return "Google sign-in failed or cancelled.";
+    }
+
+    return raw || "Google login failed.";
+  }
+
+  return raw || "Session expired. Please login again.";
 }
 
+//
+// ✅ FINAL VERSION (NO TOKEN PARAM)
+//
+export async function fetchCurrentSession(): Promise<AuthSession> {
+  return request<AuthSession>("/auth/me", {
+    method: "GET",
+  });
+}
 
 export async function loginWithPassword(input: {
   identifier: string;
@@ -255,33 +199,31 @@ export async function registerWithPassword(input: {
   });
 }
 
-export async function getGoogleAuthorizationUrl(nextPath?: string): Promise<string> {
-  const redirectTo =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/auth/callback${
-          nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""
-        }`
-      : "/auth/callback";
-
-  const response = await request<AuthTokenResponse>(
-    `/auth/sso/google/url?redirectTo=${encodeURIComponent(redirectTo)}`,
-    { method: "GET" },
-  );
-
-  if (!response.authorizationUrl) {
-    throw new Error(response.message || "Google authorization URL not returned");
-  }
-
-  return response.authorizationUrl;
+export async function refreshWithCookie(): Promise<AuthTokenResponse> {
+  return request<AuthTokenResponse>("/auth/refresh", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
 }
 
-export async function completeGoogleAuth(input: {
-  code: string;
-  state: string;
-}): Promise<AuthTokenResponse> {
-  return request<AuthTokenResponse>("/auth/sso/google/callback", {
+export async function persistCookieSession(input: {
+  accessToken: string;
+  refreshToken?: string | null;
+}): Promise<void> {
+  await fetch("/api/auth-session", {
     method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(input),
+  });
+}
+
+export async function clearCookieSession(): Promise<void> {
+  await fetch("/api/auth-session", {
+    method: "DELETE",
+    credentials: "include",
   });
 }
 
@@ -289,12 +231,8 @@ export function getAccessToken(response: AuthTokenResponse): string {
   return response.accessToken || response.access_token || "";
 }
 
-export function getRefreshToken(response: AuthTokenResponse): string {
-  return response.refreshToken || response.refresh_token || "";
-}
-
 export function getDefaultAuthReason(mode: AuthModalMode): string {
   return mode === "register"
-    ? "Create an account to save progress, join modules, and keep your streak."
-    : "Sign in to continue into the Yomu app experience.";
+    ? "Create an account to save progress and track achievements."
+    : "Sign in to continue.";
 }

@@ -15,7 +15,7 @@ type AdminUser = {
 };
 
 export default function DashboardPage() {
-  const { session, token, refreshSession, signOut, isAdmin } = useAuth();
+  const { session, refreshSession, signOut, isAdmin, isAuthenticated } = useAuth();
   const profile = session?.profile;
 
   const [username, setUsername] = useState(profile?.username || "");
@@ -37,7 +37,7 @@ export default function DashboardPage() {
   }, [profile?.displayName, profile?.username]);
 
   async function loadAdminUsers() {
-    if (!token || !isAdmin) {
+    if (!isAuthenticated || !isAdmin) {
       return;
     }
 
@@ -46,9 +46,7 @@ export default function DashboardPage() {
 
     try {
       const response = await fetch(authApi("/users"), {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: "include",
         cache: "no-store",
       });
 
@@ -97,7 +95,7 @@ export default function DashboardPage() {
   ];
 
   async function handleProfileSave() {
-    if (!token) {
+    if (!isAuthenticated) {
       return;
     }
 
@@ -108,9 +106,9 @@ export default function DashboardPage() {
       const response = await fetch(authApi("/users/me"), {
         method: "PATCH",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           username: username.trim() || undefined,
           displayName: displayName.trim() || undefined,
@@ -133,7 +131,7 @@ export default function DashboardPage() {
   }
 
   async function handleDeleteOwnAccount() {
-    if (!token) {
+    if (!isAuthenticated) {
       return;
     }
 
@@ -152,9 +150,9 @@ export default function DashboardPage() {
       const response = await fetch(authApi("/users/me"), {
         method: "DELETE",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           confirmation: "DELETE",
         }),
@@ -166,7 +164,7 @@ export default function DashboardPage() {
       }
 
       setDeleteMessage("Account deactivated.");
-      signOut();
+      await signOut();
     } catch (error) {
       setDeleteMessage(extractErrorMessage(error, "Failed to delete account"));
     } finally {
@@ -175,7 +173,13 @@ export default function DashboardPage() {
   }
 
   async function handleAdminDisplayNameUpdate(userId: string) {
-    if (!token) {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    const targetUser = adminUsers.find((user) => user.id === userId);
+    if (!targetUser) {
+      setAdminMessage("Target user not found.");
       return;
     }
 
@@ -183,14 +187,18 @@ export default function DashboardPage() {
     setAdminMessage(null);
 
     try {
-      const response = await fetch(authApi(`/users/${userId}/displayName`), {
+      const response = await fetch(authApi(`/users/${userId}`), {
         method: "PUT",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
+          username: targetUser.username || "",
+          email: targetUser.email || "",
           displayName: adminDisplayNames[userId] || "",
+          role: targetUser.role || "STUDENT",
+          isActive: targetUser.isActive ?? true,
         }),
       });
 
@@ -216,7 +224,7 @@ export default function DashboardPage() {
   }
 
   async function handleAdminSoftDelete(userId: string) {
-    if (!token) {
+    if (!isAuthenticated) {
       return;
     }
 
@@ -234,9 +242,7 @@ export default function DashboardPage() {
     try {
       const response = await fetch(authApi(`/users/${userId}`), {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -258,7 +264,7 @@ export default function DashboardPage() {
   }
 
   async function handleAdminActivate(userId: string) {
-    if (!token) {
+    if (!isAuthenticated) {
       return;
     }
 
@@ -268,9 +274,7 @@ export default function DashboardPage() {
     try {
       const response = await fetch(authApi(`/users/${userId}/activate`), {
         method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: "include",
       });
 
       const payload = (await response.json()) as AdminUser | { message?: string };

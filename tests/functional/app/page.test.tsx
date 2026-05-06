@@ -12,33 +12,66 @@ function renderPageWithProviders() {
   );
 }
 
-function setAuthenticatedSnapshot() {
-  globalThis.localStorage.setItem("yomu.auth.access-token", "token-123");
-  globalThis.localStorage.setItem(
-    "yomu.auth.snapshot",
-    JSON.stringify({
-      token: "token-123",
-      session: {
-        profile: {
-          id: "user-1",
-          email: "learner@yomu.test",
-          username: "learner",
-          displayName: "Yomu Learner",
-          role: "STUDENT",
-        },
-      },
-      refreshedAt: Date.now(),
+const authenticatedSession = {
+  sub: "supabase-user-1",
+  aud: ["authenticated"],
+  iss: "https://example.supabase.co/auth/v1",
+  exp: "2026-12-31T00:00:00Z",
+  profile: {
+    id: "user-1",
+    email: "learner@yomu.test",
+    username: "learner",
+    displayName: "Yomu Learner",
+    role: "STUDENT",
+    isActive: true,
+  },
+};
+
+function mockAuthFetch(mode: "guest" | "authenticated") {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method || "GET";
+
+      if (url === "/api/auth-proxy/auth/me" && mode === "guest") {
+        return new Response(
+          JSON.stringify({ message: "Unauthorized" }),
+          { status: 401, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (url === "/api/auth-proxy/auth/me" && mode === "authenticated") {
+        return new Response(
+          JSON.stringify(authenticatedSession),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (url === "/api/auth-proxy/auth/logout" && method === "POST") {
+        return new Response(null, { status: 200 });
+      }
+
+      if (url === "/api/auth-session" && method === "DELETE") {
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      throw new Error(`Unexpected fetch call in test: ${method} ${url}`);
     }),
   );
 }
 
 describe("HomePage functional behavior", () => {
   beforeEach(() => {
-    globalThis.localStorage.clear();
     vi.clearAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("shows guest call-to-action and opens auth modal", async () => {
+    mockAuthFetch("guest");
     renderPageWithProviders();
 
     expect(screen.getByText("Yomu")).toBeInTheDocument();
@@ -53,8 +86,7 @@ describe("HomePage functional behavior", () => {
   });
 
   it("shows authenticated actions and learning modules", async () => {
-    setAuthenticatedSnapshot();
-
+    mockAuthFetch("authenticated");
     renderPageWithProviders();
 
     expect(await screen.findByText("Signed in as Yomu Learner")).toBeInTheDocument();
@@ -66,8 +98,7 @@ describe("HomePage functional behavior", () => {
   });
 
   it("signs user out from authenticated state", async () => {
-    setAuthenticatedSnapshot();
-
+    mockAuthFetch("authenticated");
     renderPageWithProviders();
 
     expect(await screen.findByText("Signed in as Yomu Learner")).toBeInTheDocument();
