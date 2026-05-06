@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/auth-provider";
 import { LoadingState } from "@/components/states/loading-state";
@@ -21,18 +21,26 @@ export function CallbackClient({
   const router = useRouter();
   const { finishGoogleSignIn } = useAuth();
   const [error, setError] = useState<string | null>(null);
+  const hasHandledCallback = useRef(false);
 
   useEffect(() => {
+    if (hasHandledCallback.current) {
+      return;
+    }
+
     if (oauthError) {
+      hasHandledCallback.current = true;
       setError(normalizeAuthError(oauthError, "google"));
       return;
     }
 
     if (!code) {
+      hasHandledCallback.current = true;
       setError(normalizeAuthError("Missing Google callback code.", "google"));
       return;
     }
 
+    hasHandledCallback.current = true;
     void finishGoogleSignIn({
       code,
       state,
