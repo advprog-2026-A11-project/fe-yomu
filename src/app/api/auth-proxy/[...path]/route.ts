@@ -1,19 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   AUTH_ACCESS_COOKIE,
-  AUTH_PRESENCE_COOKIE,
   AUTH_REFRESH_COOKIE,
 } from "@/lib/auth-cookies";
+import {
+  applyAuthCookiesFromPayload,
+  AuthCookiePayload,
+  clearAuthCookies,
+} from "@/lib/auth-cookie-session";
 
 type RouteContext = {
   params: Promise<{ path: string[] }>;
-};
-
-type AuthTokenPayload = {
-  accessToken?: string;
-  access_token?: string;
-  refreshToken?: string;
-  refresh_token?: string;
 };
 
 function resolveTargetBase(): string | null {
@@ -28,55 +25,6 @@ function resolveTargetBase(): string | null {
   }
 
   return normalized;
-}
-
-function secureCookieEnabled(): boolean {
-  return process.env.NODE_ENV === "production";
-}
-
-function setAuthCookies(
-  response: NextResponse,
-  accessToken: string,
-  refreshToken?: string,
-): void {
-  response.cookies.set(AUTH_ACCESS_COOKIE, accessToken, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: secureCookieEnabled(),
-    path: "/",
-    maxAge: 60 * 60,
-  });
-  response.cookies.set(AUTH_PRESENCE_COOKIE, "1", {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: secureCookieEnabled(),
-    path: "/",
-    maxAge: 60 * 60 * 24 * 30,
-  });
-
-  if (refreshToken) {
-    response.cookies.set(AUTH_REFRESH_COOKIE, refreshToken, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: secureCookieEnabled(),
-      path: "/",
-      maxAge: 60 * 60 * 24 * 30,
-    });
-  }
-}
-
-function clearAuthCookies(response: NextResponse): void {
-  const options = {
-    httpOnly: true,
-    sameSite: "lax" as const,
-    secure: secureCookieEnabled(),
-    path: "/",
-    maxAge: 0,
-  };
-
-  response.cookies.set(AUTH_ACCESS_COOKIE, "", options);
-  response.cookies.set(AUTH_REFRESH_COOKIE, "", options);
-  response.cookies.set(AUTH_PRESENCE_COOKIE, "", options);
 }
 
 async function injectRefreshTokenIfNeeded(
@@ -110,28 +58,6 @@ async function injectRefreshTokenIfNeeded(
     ...payload,
     refreshToken,
   });
-}
-
-function applyAuthCookiesFromPayload(
-  response: NextResponse,
-  joinedPath: string,
-  upstreamOk: boolean,
-  payload: string,
-): void {
-  if (!upstreamOk || !["auth/login", "auth/register", "auth/refresh"].includes(joinedPath)) {
-    return;
-  }
-
-  try {
-    const parsed = JSON.parse(payload) as AuthTokenPayload;
-    const accessToken = parsed.accessToken || parsed.access_token;
-    const refreshToken = parsed.refreshToken || parsed.refresh_token;
-    if (accessToken) {
-      setAuthCookies(response, accessToken, refreshToken);
-    }
-  } catch {
-    // Keep upstream payload untouched if it is not JSON.
-  }
 }
 
 function shouldLogUpstreamFailure(joinedPath: string, status: number): boolean {
@@ -227,7 +153,13 @@ async function forward(request: NextRequest, context: RouteContext): Promise<Nex
     },
   );
 
-  applyAuthCookiesFromPayload(response, joinedPath, upstream.ok, payload);
+  if (upstream.ok && ["auth/login", "auth/register", "auth/refresh"].includes(joinedPath)) {
+    try {
+      applyAuthCookiesFromPayload(response, JSON.parse(payload) as AuthCookiePayload);
+    } catch {
+      // Keep upstream payload untouched if it is not JSON.
+    }
+  }
 
   if (joinedPath === "auth/logout" || (joinedPath === "auth/me" && upstream.status === 401)) {
     clearAuthCookies(response);

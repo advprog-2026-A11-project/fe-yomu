@@ -107,10 +107,28 @@ export function extractErrorMessage(error: unknown, fallback = "Request failed")
   return fallback;
 }
 
+function sanitizeAuthMessage(message: string, fallback: string): string {
+  const trimmed = message.trim();
+  if (!trimmed) {
+    return fallback;
+  }
+
+  const firstLine = trimmed.split(/\r?\n/)[0]?.trim() || fallback;
+  if (!firstLine) {
+    return fallback;
+  }
+
+  if (firstLine.startsWith("org.") || firstLine.startsWith("java.")) {
+    return fallback;
+  }
+
+  return firstLine.length > 180 ? `${firstLine.slice(0, 177)}...` : firstLine;
+}
+
 export type AuthErrorIntent = "login" | "register" | "google" | "session";
 
 export function normalizeAuthError(error: unknown, intent: AuthErrorIntent): string {
-  const raw = extractErrorMessage(error, "");
+  const raw = sanitizeAuthMessage(extractErrorMessage(error, ""), "");
   const normalized = raw.toLowerCase();
 
   if (intent === "login") {
@@ -118,11 +136,15 @@ export function normalizeAuthError(error: unknown, intent: AuthErrorIntent): str
       || normalized.includes("bad credentials")
       || normalized.includes("invalid credentials")
       || normalized.includes("unauthorized")) {
-      return "We could not sign you in. Check your credentials and try again.";
+      return "Invalid email, username, or password.";
     }
 
     if (normalized.includes("email not confirmed") || normalized.includes("verify your email")) {
-      return "Verify your email first, then try signing in again.";
+      return "Please verify your email first, then try signing in again.";
+    }
+
+    if (raw) {
+      return raw;
     }
 
     return "We could not sign you in right now. Please try again.";
@@ -134,11 +156,18 @@ export function normalizeAuthError(error: unknown, intent: AuthErrorIntent): str
       || normalized.includes("duplicate")
       || normalized.includes("username is already taken")
       || normalized.includes("email already")) {
-      return "We could not create your account. Use a different email or username and try again.";
+      return "That email or username is already in use.";
     }
 
-    if (normalized.includes("password")) {
-      return "We could not create your account. Check your password requirements and try again.";
+    if (normalized.includes("password should")
+      || normalized.includes("password must")
+      || normalized.includes("weak password")
+      || normalized.includes("password")) {
+      return raw || "Your password does not meet the required strength rules.";
+    }
+
+    if (raw) {
+      return raw;
     }
 
     return "We could not create your account right now. Please try again.";
@@ -149,10 +178,18 @@ export function normalizeAuthError(error: unknown, intent: AuthErrorIntent): str
       || normalized.includes("oauth")
       || normalized.includes("callback")
       || normalized.includes("missing google callback code")) {
-      return "We could not complete Google sign in. Please try again.";
+      return "Google sign in was cancelled or could not be completed.";
+    }
+
+    if (raw) {
+      return raw;
     }
 
     return "We could not complete Google sign in right now. Please try again.";
+  }
+
+  if (raw) {
+    return raw;
   }
 
   return "Your session expired. Please sign in again.";
