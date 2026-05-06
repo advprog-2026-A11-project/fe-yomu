@@ -167,6 +167,10 @@ export function normalizeAuthError(error: unknown, intent: AuthErrorIntent): str
       return "That email or username is already in use.";
     }
 
+    if (normalized.includes("phone already")) {
+      return "That phone number is already in use.";
+    }
+
     if (normalized.includes("password should")
       || normalized.includes("password must")
       || normalized.includes("weak password")
@@ -221,6 +225,7 @@ export async function loginWithPassword(input: {
 
 export async function registerWithPassword(input: {
   email: string;
+  phone: string;
   password: string;
   username?: string;
   displayName?: string;

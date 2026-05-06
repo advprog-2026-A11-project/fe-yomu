@@ -9,6 +9,7 @@ import { normalizeAuthError } from "@/lib/auth-client";
 export function RegisterForm() {
   const { register, startGoogleSignIn } = useAuth();
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -23,6 +24,7 @@ export function RegisterForm() {
     try {
       await register({
         email: email.trim(),
+        phone: phone.trim(),
         password,
         username: username.trim() || undefined,
         displayName: displayName.trim() || undefined,
@@ -47,7 +49,7 @@ export function RegisterForm() {
       />
 
       <div className="divider-line">
-        <span>or create an account with email</span>
+        <span>or create an account with email and phone</span>
       </div>
 
       <form className="auth-form" onSubmit={(event) => void handleSubmit(event)}>
@@ -59,6 +61,18 @@ export function RegisterForm() {
             type="email"
             autoComplete="email"
             placeholder="you@yomu.id"
+            required
+          />
+        </label>
+
+        <label className="field">
+          <span>Phone number</span>
+          <input
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+            type="tel"
+            autoComplete="tel"
+            placeholder="+628123456789 or 0812..."
             required
           />
         </label>
@@ -82,7 +96,8 @@ export function RegisterForm() {
             onChange={(event) => setUsername(event.target.value)}
             type="text"
             autoComplete="username"
-            placeholder="Optional username"
+            placeholder="Choose a username"
+            required
           />
         </label>
 
@@ -94,6 +109,7 @@ export function RegisterForm() {
             type="text"
             autoComplete="nickname"
             placeholder="How Yomu should greet you"
+            required
           />
         </label>
 
