@@ -6,16 +6,25 @@ import { useAuth } from '@/components/providers/auth-provider';
 export default function ClanListPage() {
     const [clans, setClans] = useState<any[]>([]);
 
-    const { session } = useAuth();
-    const userId = session?.profile?.id;
+    const { session, token } = useAuth();
     const userRole = session?.profile?.role;
+
+    let authUserId: string | null = null;
+    if (token) {
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            authUserId = payload.sub;
+        } catch (e) {
+            console.error("Error decoding token:", e);
+        }
+    }
 
     useEffect(() => {
         fetch('http://localhost:8080/api/clan/list')
             .then(async (res) => {
-                const text = await res.text(); // 1. Read the raw text first
-                if (!text) return []; // 2. If it's completely empty, default to empty array
-                return JSON.parse(text); // 3. If it has text, parse it safely
+                const text = await res.text();
+                if (!text) return [];
+                return JSON.parse(text);
             })
             .then(data => {
                 if (Array.isArray(data)) {
@@ -33,11 +42,14 @@ export default function ClanListPage() {
             });
     }, []);
 
-    // Compute user status safely
-    const isUserInAnyClan = clans.some(clan => clan.members?.some((m: any) => m.userId === userId));
-    const isUserApplying = clans.some(clan => clan.applicantIds?.includes(userId));
+    // --- Role Checks ---
+    const isUserInAnyClan = clans.some(clan => 
+        clan.leaderId === authUserId || 
+        clan.members?.some((m: any) => m.userId === authUserId)
+    );
+    const isUserApplying = clans.some(clan => clan.applicantIds?.includes(authUserId));
     const isStudent = userRole === 'STUDENT';
-    const canCreateClan = isStudent && userId && !isUserInAnyClan && !isUserApplying;
+    const canCreateClan = isStudent && authUserId && !isUserInAnyClan && !isUserApplying;
 
     return (
         <div className="p-8 max-w-5xl mx-auto">

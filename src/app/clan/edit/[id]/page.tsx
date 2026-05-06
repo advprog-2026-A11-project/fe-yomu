@@ -1,11 +1,13 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useAuth } from '@/components/providers/auth-provider';
 
 export default function EditClanPage() {
     const { id } = useParams();
     const router = useRouter();
     const [name, setName] = useState("");
+    const { token } = useAuth();
 
     useEffect(() => {
         fetch(`http://localhost:8080/api/clan/detail/${id}`)
@@ -17,7 +19,10 @@ export default function EditClanPage() {
         e.preventDefault();
         await fetch(`http://localhost:8080/api/clan/edit`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
             body: JSON.stringify({ clanId: id, clanName: name })
         });
         router.push(`/clan/detail/${id}`);

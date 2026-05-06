@@ -2,14 +2,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '@/components/providers/auth-provider';
 
 export default function ApplicantListPage() {
     const { id } = useParams();
-    const router = useRouter();
+    const { token } = useAuth();
     const [clan, setClan] = useState<any>(null);
-
-    // const { token } = useAuth(); // <--- YOUR_AUTH_LOGIC_HERE
-    const token = "dummy-token";
 
     const refresh = async () => {
         const res = await fetch(`http://localhost:8080/api/clan/detail/${id}`);

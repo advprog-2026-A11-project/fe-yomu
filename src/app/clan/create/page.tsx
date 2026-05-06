@@ -2,14 +2,12 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-// 1. Import the same global auth hook we used earlier!
 import { useAuth } from '@/components/providers/auth-provider';
 
 export default function CreateClanPage() {
     const [name, setName] = useState("");
     const router = useRouter();
 
-    // 2. Grab the token directly from the global state!
     const { token } = useAuth();
 
 const handleSubmit = async (e: React.FormEvent) => {
@@ -21,7 +19,6 @@ const handleSubmit = async (e: React.FormEvent) => {
         }
 
         try {
-            // Changed from 8081 to 8080!
             const response = await fetch('http://localhost:8080/api/clan/create', {
                 method: 'POST',
                 headers: {

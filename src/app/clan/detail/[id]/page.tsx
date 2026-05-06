@@ -2,20 +2,26 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { useAuth } from '@/components/providers/auth-provider';
 
 export default function ClanDetailPage() {
+    const { session, token } = useAuth();
+    
+    let authUserId: string | null = null;
+    if (token) {
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            authUserId = payload.sub;
+        } catch (e) {
+            console.error("Error decoding token:", e);
+        }
+    }
+
     const { id } = useParams();
     const router = useRouter();
     const [clan, setClan] = useState<any>(null);
     const [allClans, setAllClans] = useState<any[]>([]);
-    const [userId, setUserId] = useState<string | null>(null);
-    const [token, setToken] = useState<string | null>(null);
 
     const refresh = async () => {
         const clanRes = await fetch(`http://localhost:8080/api/clan/detail/${id}`);
@@ -28,27 +34,19 @@ export default function ClanDetailPage() {
     };
 
     useEffect(() => {
-        const fetchAuth = async () => {
-            const { data } = await supabase.auth.getSession();
-            if (data.session) {
-                setUserId(data.session.user.id);
-                setToken(data.session.access_token);
-            }
-        };
-        fetchAuth();
         refresh();
     }, [id]);
 
     if (!clan) return <div className="p-8 text-center">Loading Clan Details...</div>;
 
     // --- Role Checks ---
-    const isLeader = clan.leaderId === userId;
-    const isMember = clan.members?.some((m: any) => m.userId === userId);
-    const isApplyingToThisClan = clan.applicantIds?.includes(userId);
+    const isLeader = clan.leaderId === authUserId;
+    const isMember = clan.members?.some((m: any) => m.userId === authUserId);
+    const isApplyingToThisClan = clan.applicantIds?.includes(authUserId);
 
-    const isUserInAnyClan = allClans.some(c => c.members?.some((m: any) => m.userId === userId));
-    const isUserApplyingAnywhere = allClans.some(c => c.applicantIds?.includes(userId));
-    const canApply = userId && !isUserInAnyClan && !isUserApplyingAnywhere;
+    const isUserInAnyClan = allClans.some(c => c.members?.some((m: any) => m.userId === authUserId));
+    const isUserApplyingAnywhere = allClans.some(c => c.applicantIds?.includes(authUserId));
+    const canApply = authUserId && !isUserInAnyClan && !isUserApplyingAnywhere;
 
     // --- Actions ---
     const handleAction = async (endpoint: string, method: string) => {
@@ -61,7 +59,11 @@ export default function ClanDetailPage() {
 
     const deleteClan = async () => {
         if (confirm("Are you sure you want to delete this clan?")) {
-            await handleAction('/delete', 'DELETE');
+            // FIX: Match the backend URL exactly: /api/clan/delete/{id}
+            await fetch(`http://localhost:8080/api/clan/delete/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             router.push('/clan');
         }
     };
@@ -99,6 +101,10 @@ export default function ClanDetailPage() {
                     <>
                         <Link href={`/clan/detail/${id}/applicants`} className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
                             Manage Applicants ({clan.applicantIds?.length || 0})
+                        </Link>
+                        {/* FIX: Added the Edit Clan Button */}
+                        <Link href={`/clan/edit/${id}`} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                            Edit Clan
                         </Link>
                         <button onClick={deleteClan} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Delete Clan</button>
                     </>
