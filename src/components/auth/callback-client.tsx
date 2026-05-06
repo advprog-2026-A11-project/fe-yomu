@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/auth-provider";
 import { LoadingState } from "@/components/states/loading-state";
 import { EmptyState } from "@/components/states/empty-state";
+import { normalizeAuthError } from "@/lib/auth-client";
 
 export function CallbackClient({
   code,
@@ -23,12 +24,12 @@ export function CallbackClient({
 
   useEffect(() => {
     if (oauthError) {
-      setError(oauthError);
+      setError(normalizeAuthError(oauthError, "google"));
       return;
     }
 
-    if (!code || !state) {
-      setError("Missing Google callback parameters.");
+    if (!code) {
+      setError(normalizeAuthError("Missing Google callback code.", "google"));
       return;
     }
 
@@ -37,7 +38,7 @@ export function CallbackClient({
       state,
       nextPath: nextPath || "/dashboard",
     }).catch((authError) => {
-      setError(String(authError));
+      setError(normalizeAuthError(authError, "google"));
     });
   }, [code, finishGoogleSignIn, nextPath, oauthError, state]);
 

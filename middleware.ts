@@ -1,7 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-
-const AUTH_COOKIE_KEY = "yomu-auth";
+import { AUTH_PRESENCE_COOKIE } from "@/lib/auth-cookies";
 const PROTECTED_PATH_PREFIXES = [
   "/dashboard",
   "/users/account",
@@ -24,7 +23,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const authCookie = request.cookies.get(AUTH_COOKIE_KEY)?.value;
+  const authCookie = request.cookies.get(AUTH_PRESENCE_COOKIE)?.value;
   if (authCookie) {
     return NextResponse.next();
   }

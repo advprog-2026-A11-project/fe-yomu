@@ -18,7 +18,7 @@ export interface AuthProfile {
 
 export interface AuthSession {
   sub?: string;
-  aud?: string[];
+  aud?: string[] | string;
   iss?: string;
   exp?: string;
   profile?: AuthProfile | null;
@@ -29,6 +29,8 @@ export interface AuthTokenResponse {
   access_token?: string;
   refreshToken?: string;
   refresh_token?: string;
+  tokenType?: string;
+  expiresIn?: number;
   userId?: string;
   role?: string;
   authorizationUrl?: string;
@@ -39,10 +41,4 @@ export interface AuthModalIntent {
   mode: AuthModalMode;
   nextPath?: string;
   reason?: string;
-}
-
-export interface AuthSnapshot {
-  token: string;
-  session: AuthSession;
-  refreshedAt: number;
 }

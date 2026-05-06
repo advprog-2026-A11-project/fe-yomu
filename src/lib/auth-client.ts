@@ -3,43 +3,20 @@
 import type {
   AuthModalMode,
   AuthSession,
-  AuthSnapshot,
   AuthTokenResponse,
 } from "@/types/auth";
 
-const ACCESS_TOKEN_KEY = "yomu.auth.access-token";
-const AUTH_SNAPSHOT_KEY = "yomu.auth.snapshot";
-const SESSION_REVALIDATE_MS = 60_000;
-const AUTH_COOKIE_KEY = "yomu-auth";
-
-function writeAuthPresenceCookie(token: string | null): void {
-  if (typeof document === "undefined") {
-    return;
-  }
-
-  if (!token) {
-    document.cookie = `${AUTH_COOKIE_KEY}=; Path=/; Max-Age=0; SameSite=Lax`;
-    return;
-  }
-
-  document.cookie = `${AUTH_COOKIE_KEY}=1; Path=/; Max-Age=2592000; SameSite=Lax`;
-}
-
-function getConfiguredAuthBase(): string | undefined {
-  return process.env.NEXT_PUBLIC_AUTH_API_URL?.replace(/\/$/, "");
-}
-
 export function normalizeAuthApiBase(): string {
-  const configured = getConfiguredAuthBase();
+  const configured = process.env.NEXT_PUBLIC_AUTH_API_URL?.replace(/\/$/, "");
 
   if (!configured) {
     return "/api/auth-proxy";
   }
 
   if (
-    typeof window !== "undefined" &&
-    window.location.protocol === "https:" &&
-    configured.startsWith("http://")
+    typeof window !== "undefined"
+    && window.location.protocol === "https:"
+    && configured.startsWith("http://")
   ) {
     return "/api/auth-proxy";
   }
@@ -66,12 +43,10 @@ async function parseJson<T>(response: Response): Promise<T | string> {
   }
 }
 
-async function request<T>(
-  path: string,
-  init: RequestInit = {},
-): Promise<T> {
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(authApi(path), {
     ...init,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...(init.headers || {}),
@@ -82,103 +57,147 @@ async function request<T>(
   const payload = await parseJson<T>(response);
 
   if (!response.ok) {
-    const detail =
-      typeof payload === "string" ? payload : JSON.stringify(payload);
-    throw new Error(`${response.status} ${detail}`);
+    throw new Error(extractErrorMessage(payload, `Request failed with status ${response.status}`));
   }
 
   return (typeof payload === "string" ? ({} as T) : payload) as T;
 }
 
-export function persistAccessToken(token: string | null): void {
-  if (typeof window === "undefined") {
-    return;
+export function extractErrorMessage(error: unknown, fallback = "Request failed"): string {
+  if (error instanceof Error) {
+    return extractErrorMessage(error.message, fallback);
   }
 
-  if (!token) {
-    window.localStorage.removeItem(ACCESS_TOKEN_KEY);
-    writeAuthPresenceCookie(null);
-    return;
-  }
+  if (typeof error === "string") {
+    const trimmed = error.trim();
+    const jsonStart = trimmed.indexOf("{");
 
-  window.localStorage.setItem(ACCESS_TOKEN_KEY, token);
-  writeAuthPresenceCookie(token);
-}
-
-export function readAccessToken(): string | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  return window.localStorage.getItem(ACCESS_TOKEN_KEY);
-}
-
-export function persistAuthSnapshot(snapshot: AuthSnapshot | null): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  if (!snapshot) {
-    window.localStorage.removeItem(AUTH_SNAPSHOT_KEY);
-    return;
-  }
-
-  window.localStorage.setItem(AUTH_SNAPSHOT_KEY, JSON.stringify(snapshot));
-}
-
-export function readAuthSnapshot(): AuthSnapshot | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const raw = window.localStorage.getItem(AUTH_SNAPSHOT_KEY);
-  if (!raw) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as AuthSnapshot;
-
-    if (!parsed.refreshedAt) {
-      return {
-        ...parsed,
-        refreshedAt: 0,
-      };
+    if (jsonStart >= 0) {
+      try {
+        const parsed = JSON.parse(trimmed.slice(jsonStart)) as unknown;
+        return extractErrorMessage(parsed, fallback);
+      } catch {
+        return trimmed || fallback;
+      }
     }
 
-    return parsed;
-  } catch {
-    window.localStorage.removeItem(AUTH_SNAPSHOT_KEY);
-    return null;
-  }
-}
-
-export function createAuthSnapshot(snapshot: Omit<AuthSnapshot, "refreshedAt">): AuthSnapshot {
-  return {
-    ...snapshot,
-    refreshedAt: Date.now(),
-  };
-}
-
-export function isAuthSnapshotFresh(snapshot: AuthSnapshot | null): boolean {
-  if (!snapshot?.token || !snapshot?.session?.profile?.id) {
-    return false;
+    return trimmed || fallback;
   }
 
-  return Date.now() - snapshot.refreshedAt < SESSION_REVALIDATE_MS;
+  if (error && typeof error === "object") {
+    const payload = error as {
+      message?: unknown;
+      error?: unknown;
+      detail?: unknown;
+    };
+
+    if (typeof payload.message === "string" && payload.message.trim()) {
+      return payload.message;
+    }
+
+    if (typeof payload.error === "string" && payload.error.trim()) {
+      return payload.error;
+    }
+
+    if (typeof payload.detail === "string" && payload.detail.trim()) {
+      return payload.detail;
+    }
+  }
+
+  return fallback;
 }
 
-export function clearPersistedAuth(): void {
-  persistAccessToken(null);
-  persistAuthSnapshot(null);
+function sanitizeAuthMessage(message: string, fallback: string): string {
+  const trimmed = message.trim();
+  if (!trimmed) {
+    return fallback;
+  }
+
+  const firstLine = trimmed.split(/\r?\n/)[0]?.trim() || fallback;
+  if (!firstLine) {
+    return fallback;
+  }
+
+  if (firstLine.startsWith("org.") || firstLine.startsWith("java.")) {
+    return fallback;
+  }
+
+  return firstLine.length > 180 ? `${firstLine.slice(0, 177)}...` : firstLine;
 }
 
-export async function fetchCurrentSession(token: string): Promise<AuthSession> {
+export type AuthErrorIntent = "login" | "register" | "google" | "session";
+
+export function normalizeAuthError(error: unknown, intent: AuthErrorIntent): string {
+  const raw = sanitizeAuthMessage(extractErrorMessage(error, ""), "");
+  const normalized = raw.toLowerCase();
+
+  if (intent === "login") {
+    if (normalized.includes("invalid login credentials")
+      || normalized.includes("bad credentials")
+      || normalized.includes("invalid credentials")
+      || normalized.includes("unauthorized")) {
+      return "Invalid email, username, or password.";
+    }
+
+    if (normalized.includes("email not confirmed") || normalized.includes("verify your email")) {
+      return "Please verify your email first, then try signing in again.";
+    }
+
+    if (raw) {
+      return raw;
+    }
+
+    return "We could not sign you in right now. Please try again.";
+  }
+
+  if (intent === "register") {
+    if (normalized.includes("already registered")
+      || normalized.includes("already exists")
+      || normalized.includes("duplicate")
+      || normalized.includes("username is already taken")
+      || normalized.includes("email already")) {
+      return "That email or username is already in use.";
+    }
+
+    if (normalized.includes("password should")
+      || normalized.includes("password must")
+      || normalized.includes("weak password")
+      || normalized.includes("password")) {
+      return raw || "Your password does not meet the required strength rules.";
+    }
+
+    if (raw) {
+      return raw;
+    }
+
+    return "We could not create your account right now. Please try again.";
+  }
+
+  if (intent === "google") {
+    if (normalized.includes("access_denied")
+      || normalized.includes("oauth")
+      || normalized.includes("callback")
+      || normalized.includes("missing google callback code")) {
+      return "Google sign in was cancelled or could not be completed.";
+    }
+
+    if (raw) {
+      return raw;
+    }
+
+    return "We could not complete Google sign in right now. Please try again.";
+  }
+
+  if (raw) {
+    return raw;
+  }
+
+  return "Your session expired. Please sign in again.";
+}
+
+export async function fetchCurrentSession(): Promise<AuthSession> {
   return request<AuthSession>("/auth/me", {
     method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
   });
 }
 
@@ -204,42 +223,36 @@ export async function registerWithPassword(input: {
   });
 }
 
-export async function getGoogleAuthorizationUrl(nextPath?: string): Promise<string> {
-  const redirectTo =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/auth/callback${
-          nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""
-        }`
-      : "/auth/callback";
-
-  const response = await request<AuthTokenResponse>(
-    `/auth/sso/google/url?redirectTo=${encodeURIComponent(redirectTo)}`,
-    { method: "GET" },
-  );
-
-  if (!response.authorizationUrl) {
-    throw new Error(response.message || "Google authorization URL not returned");
-  }
-
-  return response.authorizationUrl;
+export async function refreshWithCookie(): Promise<AuthTokenResponse> {
+  return request<AuthTokenResponse>("/auth/refresh", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
 }
 
-export async function completeGoogleAuth(input: {
-  code: string;
-  state: string;
-}): Promise<AuthTokenResponse> {
-  return request<AuthTokenResponse>("/auth/sso/google/callback", {
+export async function persistCookieSession(input: {
+  accessToken: string;
+  refreshToken?: string | null;
+}): Promise<void> {
+  await fetch("/api/auth-session", {
     method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(input),
+  });
+}
+
+export async function clearCookieSession(): Promise<void> {
+  await fetch("/api/auth-session", {
+    method: "DELETE",
+    credentials: "include",
   });
 }
 
 export function getAccessToken(response: AuthTokenResponse): string {
   return response.accessToken || response.access_token || "";
-}
-
-export function getRefreshToken(response: AuthTokenResponse): string {
-  return response.refreshToken || response.refresh_token || "";
 }
 
 export function getDefaultAuthReason(mode: AuthModalMode): string {
