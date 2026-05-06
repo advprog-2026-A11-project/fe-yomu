@@ -62,8 +62,12 @@ export function getSupabaseClient(): SupabaseClient {
   supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       flowType: "pkce",
+      autoRefreshToken: false,
       detectSessionInUrl: false,
-      persistSession: false,
+      // PKCE verifier must survive the Google redirect round-trip.
+      // In auth-js, persistSession=false forces in-memory storage and ignores
+      // custom storage entirely, which breaks exchangeCodeForSession().
+      persistSession: true,
       storageKey: "yomu-supabase-auth",
       storage: createCookieStorage(),
     },
