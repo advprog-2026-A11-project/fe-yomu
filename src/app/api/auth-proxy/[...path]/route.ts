@@ -21,7 +21,13 @@ function resolveTargetBase(): string | null {
   if (!configured) {
     return null;
   }
-  return configured.replace(/\/$/, "");
+
+  const normalized = configured.replace(/\/$/, "");
+  if (normalized.startsWith("http://localhost:")) {
+    return normalized.replace("http://localhost:", "http://127.0.0.1:");
+  }
+
+  return normalized;
 }
 
 function secureCookieEnabled(): boolean {
@@ -144,14 +150,15 @@ async function forward(request: NextRequest, context: RouteContext): Promise<Nex
     upstreamUrl.searchParams.append(key, value);
   });
 
-  const headers = new Headers(request.headers);
-  headers.delete("host");
-  headers.delete("content-length");
-  headers.delete("origin");
-  headers.delete("referer");
-  headers.delete("access-control-request-method");
-  headers.delete("access-control-request-headers");
-  headers.delete("cookie");
+  const headers = new Headers();
+  const requestContentType = request.headers.get("content-type");
+  const accept = request.headers.get("accept");
+  if (requestContentType) {
+    headers.set("content-type", requestContentType);
+  }
+  if (accept) {
+    headers.set("accept", accept);
+  }
 
   const accessToken = request.cookies.get(AUTH_ACCESS_COOKIE)?.value;
   if (!headers.has("authorization") && accessToken) {
@@ -172,11 +179,14 @@ async function forward(request: NextRequest, context: RouteContext): Promise<Nex
   let upstream: Response;
   try {
     upstream = await fetch(upstreamUrl.toString(), init);
-  } catch {
+  } catch (error) {
+    console.error("Auth proxy fetch failed:", error);
     return NextResponse.json(
       {
         error: "Auth service is unavailable",
-        detail: `Unable to reach ${base}`,
+        detail: process.env.NODE_ENV === "development"
+          ? String(error)
+          : `Unable to reach ${base}`,
       },
       { status: 502 },
     );
