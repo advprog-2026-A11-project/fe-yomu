@@ -3,44 +3,20 @@
 import type {
   AuthModalMode,
   AuthSession,
-  AuthSnapshot,
   AuthTokenResponse,
 } from "@/types/auth";
 
-const ACCESS_TOKEN_KEY = "yomu.auth.access-token";
-const REFRESH_TOKEN_KEY = "yomu.auth.refresh-token";
-const AUTH_SNAPSHOT_KEY = "yomu.auth.snapshot";
-const SESSION_REVALIDATE_MS = 60_000;
-const AUTH_COOKIE_KEY = "yomu-auth";
-
-function writeAuthPresenceCookie(token: string | null): void {
-  if (typeof document === "undefined") {
-    return;
-  }
-
-  if (!token) {
-    document.cookie = `${AUTH_COOKIE_KEY}=; Path=/; Max-Age=0; SameSite=Lax`;
-    return;
-  }
-
-  document.cookie = `${AUTH_COOKIE_KEY}=1; Path=/; Max-Age=2592000; SameSite=Lax`;
-}
-
-function getConfiguredAuthBase(): string | undefined {
-  return process.env.NEXT_PUBLIC_AUTH_API_URL?.replace(/\/$/, "");
-}
-
 export function normalizeAuthApiBase(): string {
-  const configured = getConfiguredAuthBase();
+  const configured = process.env.NEXT_PUBLIC_AUTH_API_URL?.replace(/\/$/, "");
 
   if (!configured) {
     return "/api/auth-proxy";
   }
 
   if (
-    typeof window !== "undefined" &&
-    window.location.protocol === "https:" &&
-    configured.startsWith("http://")
+    typeof window !== "undefined"
+    && window.location.protocol === "https:"
+    && configured.startsWith("http://")
   ) {
     return "/api/auth-proxy";
   }
@@ -67,12 +43,10 @@ async function parseJson<T>(response: Response): Promise<T | string> {
   }
 }
 
-async function request<T>(
-  path: string,
-  init: RequestInit = {},
-): Promise<T> {
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(authApi(path), {
     ...init,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...(init.headers || {}),
@@ -184,117 +158,9 @@ export function normalizeAuthError(error: unknown, intent: AuthErrorIntent): str
   return "Your session expired. Please sign in again.";
 }
 
-export function persistAccessToken(token: string | null): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  if (!token) {
-    window.localStorage.removeItem(ACCESS_TOKEN_KEY);
-    writeAuthPresenceCookie(null);
-    return;
-  }
-
-  window.localStorage.setItem(ACCESS_TOKEN_KEY, token);
-  writeAuthPresenceCookie(token);
-}
-
-export function persistRefreshToken(token: string | null): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  if (!token) {
-    window.localStorage.removeItem(REFRESH_TOKEN_KEY);
-    return;
-  }
-
-  window.localStorage.setItem(REFRESH_TOKEN_KEY, token);
-}
-
-export function readAccessToken(): string | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  return window.localStorage.getItem(ACCESS_TOKEN_KEY);
-}
-
-export function readRefreshToken(): string | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  return window.localStorage.getItem(REFRESH_TOKEN_KEY);
-}
-
-export function persistAuthSnapshot(snapshot: AuthSnapshot | null): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  if (!snapshot) {
-    window.localStorage.removeItem(AUTH_SNAPSHOT_KEY);
-    return;
-  }
-
-  window.localStorage.setItem(AUTH_SNAPSHOT_KEY, JSON.stringify(snapshot));
-}
-
-export function readAuthSnapshot(): AuthSnapshot | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const raw = window.localStorage.getItem(AUTH_SNAPSHOT_KEY);
-  if (!raw) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as AuthSnapshot;
-
-    if (!parsed.refreshedAt) {
-      return {
-        ...parsed,
-        refreshedAt: 0,
-      };
-    }
-
-    return parsed;
-  } catch {
-    window.localStorage.removeItem(AUTH_SNAPSHOT_KEY);
-    return null;
-  }
-}
-
-export function createAuthSnapshot(snapshot: Omit<AuthSnapshot, "refreshedAt">): AuthSnapshot {
-  return {
-    ...snapshot,
-    refreshedAt: Date.now(),
-  };
-}
-
-export function isAuthSnapshotFresh(snapshot: AuthSnapshot | null): boolean {
-  if (!snapshot?.token || !snapshot?.session?.profile?.id) {
-    return false;
-  }
-
-  return Date.now() - snapshot.refreshedAt < SESSION_REVALIDATE_MS;
-}
-
-export function clearPersistedAuth(): void {
-  persistAccessToken(null);
-  persistRefreshToken(null);
-  persistAuthSnapshot(null);
-}
-
-export async function fetchCurrentSession(token: string): Promise<AuthSession> {
+export async function fetchCurrentSession(): Promise<AuthSession> {
   return request<AuthSession>("/auth/me", {
     method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
   });
 }
 
@@ -320,19 +186,36 @@ export async function registerWithPassword(input: {
   });
 }
 
-export async function refreshWithToken(refreshToken: string): Promise<AuthTokenResponse> {
+export async function refreshWithCookie(): Promise<AuthTokenResponse> {
   return request<AuthTokenResponse>("/auth/refresh", {
     method: "POST",
-    body: JSON.stringify({ refreshToken }),
+    body: JSON.stringify({}),
+  });
+}
+
+export async function persistCookieSession(input: {
+  accessToken: string;
+  refreshToken?: string | null;
+}): Promise<void> {
+  await fetch("/api/auth-session", {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function clearCookieSession(): Promise<void> {
+  await fetch("/api/auth-session", {
+    method: "DELETE",
+    credentials: "include",
   });
 }
 
 export function getAccessToken(response: AuthTokenResponse): string {
   return response.accessToken || response.access_token || "";
-}
-
-export function getRefreshToken(response: AuthTokenResponse): string {
-  return response.refreshToken || response.refresh_token || "";
 }
 
 export function getDefaultAuthReason(mode: AuthModalMode): string {

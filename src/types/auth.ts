@@ -42,9 +42,3 @@ export interface AuthModalIntent {
   nextPath?: string;
   reason?: string;
 }
-
-export interface AuthSnapshot {
-  token: string;
-  session: AuthSession;
-  refreshedAt: number;
-}

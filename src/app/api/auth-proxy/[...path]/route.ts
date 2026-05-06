@@ -1,7 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  AUTH_ACCESS_COOKIE,
+  AUTH_PRESENCE_COOKIE,
+  AUTH_REFRESH_COOKIE,
+} from "@/lib/auth-cookies";
 
 type RouteContext = {
   params: Promise<{ path: string[] }>;
+};
+
+type AuthTokenPayload = {
+  accessToken?: string;
+  access_token?: string;
+  refreshToken?: string;
+  refresh_token?: string;
 };
 
 function resolveTargetBase(): string | null {
@@ -12,17 +24,122 @@ function resolveTargetBase(): string | null {
   return configured.replace(/\/$/, "");
 }
 
+function secureCookieEnabled(): boolean {
+  return process.env.NODE_ENV === "production";
+}
+
+function setAuthCookies(
+  response: NextResponse,
+  accessToken: string,
+  refreshToken?: string,
+): void {
+  response.cookies.set(AUTH_ACCESS_COOKIE, accessToken, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: secureCookieEnabled(),
+    path: "/",
+    maxAge: 60 * 60,
+  });
+  response.cookies.set(AUTH_PRESENCE_COOKIE, "1", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: secureCookieEnabled(),
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30,
+  });
+
+  if (refreshToken) {
+    response.cookies.set(AUTH_REFRESH_COOKIE, refreshToken, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: secureCookieEnabled(),
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30,
+    });
+  }
+}
+
+function clearAuthCookies(response: NextResponse): void {
+  const options = {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure: secureCookieEnabled(),
+    path: "/",
+    maxAge: 0,
+  };
+
+  response.cookies.set(AUTH_ACCESS_COOKIE, "", options);
+  response.cookies.set(AUTH_REFRESH_COOKIE, "", options);
+  response.cookies.set(AUTH_PRESENCE_COOKIE, "", options);
+}
+
+async function injectRefreshTokenIfNeeded(
+  bodyText: string,
+  request: NextRequest,
+  joinedPath: string,
+): Promise<string> {
+  if (joinedPath !== "auth/refresh") {
+    return bodyText;
+  }
+
+  const refreshToken = request.cookies.get(AUTH_REFRESH_COOKIE)?.value;
+  if (!refreshToken) {
+    return bodyText;
+  }
+
+  let payload: Record<string, unknown> = {};
+  if (bodyText.trim()) {
+    try {
+      payload = JSON.parse(bodyText) as Record<string, unknown>;
+    } catch {
+      payload = {};
+    }
+  }
+
+  if (payload.refreshToken) {
+    return bodyText;
+  }
+
+  return JSON.stringify({
+    ...payload,
+    refreshToken,
+  });
+}
+
+function applyAuthCookiesFromPayload(
+  response: NextResponse,
+  joinedPath: string,
+  upstreamOk: boolean,
+  payload: string,
+): void {
+  if (!upstreamOk || !["auth/login", "auth/register", "auth/refresh"].includes(joinedPath)) {
+    return;
+  }
+
+  try {
+    const parsed = JSON.parse(payload) as AuthTokenPayload;
+    const accessToken = parsed.accessToken || parsed.access_token;
+    const refreshToken = parsed.refreshToken || parsed.refresh_token;
+    if (accessToken) {
+      setAuthCookies(response, accessToken, refreshToken);
+    }
+  } catch {
+    // Keep upstream payload untouched if it is not JSON.
+  }
+}
+
 async function forward(request: NextRequest, context: RouteContext): Promise<NextResponse> {
   const base = resolveTargetBase();
   if (!base) {
     return NextResponse.json(
       { error: "Missing BACKEND_AUTH_API_URL (or NEXT_PUBLIC_AUTH_API_URL) on server" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
   const { path } = await context.params;
-  const upstreamUrl = new URL(`${base}/${path.join("/")}`);
+  const joinedPath = path.join("/");
+  const upstreamUrl = new URL(`${base}/${joinedPath}`);
   request.nextUrl.searchParams.forEach((value, key) => {
     upstreamUrl.searchParams.append(key, value);
   });
@@ -34,6 +151,12 @@ async function forward(request: NextRequest, context: RouteContext): Promise<Nex
   headers.delete("referer");
   headers.delete("access-control-request-method");
   headers.delete("access-control-request-headers");
+  headers.delete("cookie");
+
+  const accessToken = request.cookies.get(AUTH_ACCESS_COOKIE)?.value;
+  if (!headers.has("authorization") && accessToken) {
+    headers.set("authorization", `Bearer ${accessToken}`);
+  }
 
   const init: RequestInit = {
     method: request.method,
@@ -42,7 +165,8 @@ async function forward(request: NextRequest, context: RouteContext): Promise<Nex
   };
 
   if (request.method !== "GET" && request.method !== "HEAD") {
-    init.body = await request.text();
+    const bodyText = await request.text();
+    init.body = await injectRefreshTokenIfNeeded(bodyText, request, joinedPath);
   }
 
   let upstream: Response;
@@ -54,7 +178,7 @@ async function forward(request: NextRequest, context: RouteContext): Promise<Nex
         error: "Auth service is unavailable",
         detail: `Unable to reach ${base}`,
       },
-      { status: 502 }
+      { status: 502 },
     );
   }
 
@@ -73,17 +197,21 @@ async function forward(request: NextRequest, context: RouteContext): Promise<Nex
     responseHeaders.set("content-type", contentType);
   }
 
-  if (upstream.status === 204 || upstream.status === 304) {
-    return new NextResponse(null, {
+  const response = new NextResponse(
+    upstream.status === 204 || upstream.status === 304 ? null : payload,
+    {
       status: upstream.status,
       headers: responseHeaders,
-    });
+    },
+  );
+
+  applyAuthCookiesFromPayload(response, joinedPath, upstream.ok, payload);
+
+  if (joinedPath === "auth/logout" || (joinedPath === "auth/me" && upstream.status === 401)) {
+    clearAuthCookies(response);
   }
 
-  return new NextResponse(payload, {
-    status: upstream.status,
-    headers: responseHeaders,
-  });
+  return response;
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {
