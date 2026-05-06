@@ -162,9 +162,13 @@ export function normalizeAuthError(error: unknown, intent: AuthErrorIntent): str
     if (normalized.includes("already registered")
       || normalized.includes("already exists")
       || normalized.includes("duplicate")
-      || normalized.includes("username is already taken")
       || normalized.includes("email already")) {
-      return "That email or username is already in use.";
+      return "That email address is already in use.";
+    }
+
+    if (normalized.includes("username is already taken")
+      || normalized.includes("username already")) {
+      return "That username is already in use.";
     }
 
     if (normalized.includes("phone already")) {
@@ -211,6 +215,24 @@ export async function fetchCurrentSession(): Promise<AuthSession> {
   return request<AuthSession>("/auth/me", {
     method: "GET",
   });
+}
+
+export async function fetchAuthPresence(): Promise<boolean> {
+  const response = await fetch("/api/auth-session", {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    return false;
+  }
+
+  const payload = (await parseJson<{ authenticated?: boolean }>(response)) as {
+    authenticated?: boolean;
+  };
+
+  return Boolean(payload.authenticated);
 }
 
 export async function loginWithPassword(input: {

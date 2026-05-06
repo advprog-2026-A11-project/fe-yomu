@@ -13,6 +13,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   clearCookieSession,
   extractErrorMessage,
+  fetchAuthPresence,
   fetchCurrentSession,
   getAccessToken,
   getDefaultAuthReason,
@@ -104,7 +105,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    void syncSession().catch((error) => {
+    void (async () => {
+      const hasAuthPresence = await fetchAuthPresence();
+      if (!hasAuthPresence) {
+        clearAuth();
+        return;
+      }
+
+      await syncSession();
+    })().catch((error) => {
       clearAuth();
       if (!isUnauthorizedSessionError(error)) {
         setToast({
