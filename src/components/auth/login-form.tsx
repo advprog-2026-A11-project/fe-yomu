@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { GoogleAuthButton } from "@/components/auth/google-auth-button";
+import { runGoogleAuthAction } from "@/components/auth/google-auth-action";
 import { useAuth } from "@/components/providers/auth-provider";
 import { normalizeAuthError } from "@/lib/auth-client";
 
@@ -29,28 +31,16 @@ export function LoginForm() {
   }
 
   async function handleGoogleSignIn() {
-    setLoading(true);
-    setError(null);
-
-    try {
-      await startGoogleSignIn();
-    } catch (submitError) {
-      setError(normalizeAuthError(submitError, "google"));
-      setLoading(false);
-    }
+    await runGoogleAuthAction(startGoogleSignIn, setLoading, setError);
   }
 
   return (
     <div className="auth-panel-stack">
-      <button
-        type="button"
-        className="button button-secondary button-with-icon"
-        disabled={loading}
+      <GoogleAuthButton
+        loading={loading}
+        label="Continue with Google"
         onClick={() => void handleGoogleSignIn()}
-      >
-        <span className="button-icon">G</span>
-        Continue with Google
-      </button>
+      />
 
       <div className="divider-line">
         <span>or sign in with your account</span>

@@ -130,23 +130,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthModal(null);
   }, []);
 
+  const completeAuthenticatedSession = useCallback(
+    async (message: string, nextPath?: string) => {
+      await syncSession();
+      setAuthModal(null);
+      setToast({
+        message,
+        tone: "success",
+      });
+      router.replace(nextPath || authModal?.nextPath || "/dashboard");
+    },
+    [authModal?.nextPath, router, syncSession],
+  );
+
   const handleAuthSuccess = useCallback(
     async (
       response: AuthTokenResponse,
       fallbackNextPath?: string,
       successMessage = "Welcome back to Yomu.",
-    ) => {
-      await syncSession();
-      setAuthModal(null);
-      setToast({
-        message: response.message || successMessage,
-        tone: "success",
-      });
-
-      const nextPath = authModal?.nextPath || fallbackNextPath || "/dashboard";
-      router.replace(nextPath);
-    },
-    [authModal?.nextPath, router, syncSession],
+    ) => completeAuthenticatedSession(
+      response.message || successMessage,
+      fallbackNextPath,
+    ),
+    [completeAuthenticatedSession],
   );
 
   const signIn = useCallback(
@@ -227,15 +233,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         accessToken: data.session.access_token,
         refreshToken: data.session.refresh_token ?? null,
       });
-      await syncSession();
-      setAuthModal(null);
-      setToast({
-        message: "Welcome back to Yomu.",
-        tone: "success",
-      });
-      router.replace(input.nextPath || authModal?.nextPath || "/dashboard");
+      await completeAuthenticatedSession("Welcome back to Yomu.", input.nextPath);
     },
-    [authModal?.nextPath, router, syncSession],
+    [completeAuthenticatedSession],
   );
 
   const refreshSession = useCallback(async () => {
