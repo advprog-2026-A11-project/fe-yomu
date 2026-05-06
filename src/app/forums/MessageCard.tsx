@@ -112,7 +112,7 @@ async function sendReactionMutation(
 ): Promise<void> {
   const res = await fetch(`/api/messages/${messageId}/reactions`, {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
     body: JSON.stringify({ userId, reactionType }),
   });
 
