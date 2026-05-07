@@ -69,7 +69,7 @@ function shouldLogUpstreamFailure(joinedPath: string, status: number): boolean {
     return false;
   }
 
-  return !["auth/login", "auth/me", "auth/refresh"].includes(joinedPath);
+  return !["auth/change-password", "auth/login", "auth/me", "auth/refresh"].includes(joinedPath);
 }
 
 async function forward(request: NextRequest, context: RouteContext): Promise<NextResponse> {
