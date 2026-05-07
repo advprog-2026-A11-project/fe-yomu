@@ -8,13 +8,14 @@ export type ProxyRequestInit = RequestInit & BackendResolutionOptions;
 const BACKEND_SERVICE_URLS = buildBackendServiceUrls();
 const DEFAULT_BACKEND_SERVICE = "forum";
 
-export function buildBackendUrl(
+function buildBackendUrl(
   path: string,
   options: BackendResolutionOptions = {}
 ): string {
   const [firstCandidate] = buildBackendUrlCandidates(path, options);
   if (!firstCandidate) {
-    throw new Error("No backend URL candidates available for buildBackendUrl");
+    console.error("No backend URL candidates available for path:", path);
+    throw new Error("Backend service is not configured. Please contact support.");
   }
   return firstCandidate;
 }
@@ -58,11 +59,8 @@ function resolveBackendBaseUrls(
       return serviceUrls;
     }
 
-    throw new Error(
-      `No backend URL configured for service "${backendService}". Available services: ${
-        availableServices.length > 0 ? availableServices.join(", ") : "none"
-      }`
-    );
+    console.error(`No backend URL configured for service "${normalizedService}"`);
+    throw new Error("Backend service is not configured. Please contact support.");
   }
 
   if (BACKEND_SERVICE_URLS[DEFAULT_BACKEND_SERVICE]?.length) {
@@ -74,9 +72,8 @@ function resolveBackendBaseUrls(
     return fallbackUrls;
   }
 
-  throw new Error(
-    "No backend URLs configured. Please set at least one *_BACKEND_URL environment variable."
-  );
+  console.error("No backend URLs configured in environment variables");
+  throw new Error("Backend service is not configured. Please contact support.");
 }
 
 function buildBackendServiceUrls(): Record<string, string[]> {
@@ -128,9 +125,8 @@ async function fetchFromBackendCandidates(
     }
   }
 
-  throw new Error(
-    `Failed to reach backend using: ${candidateUrls.join(", ")}. Last error: ${String(lastError)}`
-  );
+  console.error(`Failed to reach backend for path ${backendPath}. Last error:`, lastError);
+  throw new Error("Failed to connect to backend service. Please try again later.");
 }
 
 export async function proxyToBackend(

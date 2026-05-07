@@ -16,8 +16,9 @@ export async function GET(request: Request) {
     
     return await proxyToBackend(path, FORUM_BACKEND_OPTIONS);
   } catch (error) {
+    console.error("Messages GET error:", error);
     return NextResponse.json(
-      { error: `Unable to reach backend: ${String(error)}` },
+      { error: "Unable to load messages. Please try again later." },
       { status: 502 }
     );
   }
@@ -33,8 +34,9 @@ export async function POST(request: Request) {
       body,
     });
   } catch (error) {
+    console.error("Messages POST error:", error);
     return NextResponse.json(
-      { error: `Unable to reach backend: ${String(error)}` },
+      { error: "Unable to create message. Please try again later." },
       { status: 502 }
     );
   }

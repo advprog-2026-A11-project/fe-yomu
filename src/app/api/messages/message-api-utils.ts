@@ -42,8 +42,9 @@ function readAuthorizationFromCookie(request: Request): string | null {
 }
 
 export function handleError(error: unknown) {
+  console.error("API error:", error);
   return NextResponse.json(
-    { error: `Unable to reach backend: ${String(error)}` },
+    { error: "An error occurred. Please try again later." },
     { status: 502 }
   );
 }

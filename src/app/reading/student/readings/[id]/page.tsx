@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import ReadingForum from "../../ReadingForum";
 
-const API_STUDENT = "http://localhost:8082/api/student/readings";
+const API_STUDENT = "http://172.25.35.224:8082/api/student/readings";
 
 export default function ReadingView() {
     const { id } = useParams();
