@@ -136,7 +136,7 @@ function sanitizeAuthMessage(message: string, fallback: string): string {
   return firstLine.length > 180 ? `${firstLine.slice(0, 177)}...` : firstLine;
 }
 
-export type AuthErrorIntent = "login" | "register" | "google" | "session";
+export type AuthErrorIntent = "login" | "register" | "google" | "session" | "password";
 
 export function normalizeAuthError(error: unknown, intent: AuthErrorIntent): string {
   const raw = sanitizeAuthMessage(extractErrorMessage(error, ""), "");
@@ -219,6 +219,40 @@ export function normalizeAuthError(error: unknown, intent: AuthErrorIntent): str
     return "We could not complete Google sign in right now. Please try again.";
   }
 
+  if (intent === "password") {
+    if (normalized.includes("invalid login credentials")
+      || normalized.includes("bad credentials")
+      || normalized.includes("invalid credentials")) {
+      return "Current password is incorrect.";
+    }
+
+    if (normalized.includes("currentpassword is required")) {
+      return "Current password is required.";
+    }
+
+    if (normalized.includes("newpassword must be at least 8 characters")) {
+      return "Password must be at least 8 characters.";
+    }
+
+    if (normalized.includes("weak password")) {
+      return raw || "Your new password is too weak.";
+    }
+
+    if (normalized.includes("cannot change password yet")) {
+      return "This account cannot change password yet.";
+    }
+
+    if (normalized.includes("same password")) {
+      return "Please choose a different password.";
+    }
+
+    if (raw) {
+      return raw;
+    }
+
+    return "We could not update your password right now. Please try again.";
+  }
+
   if (raw) {
     return raw;
   }
@@ -298,6 +332,19 @@ export async function clearCookieSession(): Promise<void> {
   await fetch("/api/auth-session", {
     method: "DELETE",
     credentials: "include",
+  });
+}
+
+export async function changePassword(input: {
+  currentPassword?: string;
+  newPassword: string;
+}): Promise<{ message?: string }> {
+  return request<{ message?: string }>("/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify({
+      currentPassword: input.currentPassword,
+      newPassword: input.newPassword,
+    }),
   });
 }
 
