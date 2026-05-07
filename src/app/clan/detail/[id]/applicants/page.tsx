@@ -3,6 +3,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/components/providers/auth-provider';
+import { fetchLiga } from '@/lib/fetch-liga';
 
 export default function ApplicantListPage() {
     const { id } = useParams();
@@ -49,7 +50,7 @@ export default function ApplicantListPage() {
     }, [token]);
 
     const refresh = useCallback(async () => {
-        const res = await fetch(`http://localhost:8080/api/clan/detail/${id}`);
+        const res = await fetchLiga(`/api/clan/detail/${id}`, token);
         if (res.ok) {
             const data = await res.json();
             setClan(data);
@@ -65,7 +66,7 @@ export default function ApplicantListPage() {
     }, [refresh]);
 
     const handleDecision = async (applicantId: string, action: 'accept' | 'reject') => {
-        await fetch(`http://localhost:8080/api/clan/${id}/${action}/${applicantId}`, {
+        await fetchLiga(`/api/clan/${id}/${action}/${applicantId}`, token, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}` }
         });

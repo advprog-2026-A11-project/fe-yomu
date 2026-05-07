@@ -3,6 +3,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/components/providers/auth-provider';
+import { fetchLiga } from '@/lib/fetch-liga';
 
 export default function ClanDetailPage() {
     const { session, token } = useAuth();
@@ -56,7 +57,7 @@ export default function ClanDetailPage() {
     }, [token]);
 
     const refresh = useCallback(async () => {
-        const clanRes = await fetch(`http://localhost:8080/api/clan/detail/${id}`);
+        const clanRes = await fetchLiga(`/api/clan/detail/${id}`, token);
         if (clanRes.ok) {
             const clanData = await clanRes.json();
             setClan(clanData);
@@ -68,7 +69,7 @@ export default function ClanDetailPage() {
             }
         }
 
-        const allRes = await fetch(`http://localhost:8080/api/clan/list`);
+        const allRes = await fetchLiga('/api/clan/list', token);
         if (allRes.ok) {
             const allData = await allRes.json();
             setAllClans(allData);
@@ -91,7 +92,7 @@ export default function ClanDetailPage() {
     const canApply = authUserId && !isUserInAnyClan && !isUserApplyingAnywhere;
 
     const handleAction = async (endpoint: string, method: string) => {
-        await fetch(`http://localhost:8080/api/clan/${id}${endpoint}`, {
+        await fetchLiga(`/api/clan/${id}${endpoint}`, token, {
             method,
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -100,7 +101,7 @@ export default function ClanDetailPage() {
 
     const deleteClan = async () => {
         if (confirm("Are you sure you want to delete this clan?")) {
-            await fetch(`http://localhost:8080/api/clan/delete/${id}`, {
+            await fetchLiga(`/api/clan/delete/${id}`, token, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -110,7 +111,7 @@ export default function ClanDetailPage() {
 
     const handleKick = async (memberId: string) => {
         if (confirm("Are you sure you want to kick this member?")) {
-            await fetch(`http://localhost:8080/api/clan/${id}/kick/${memberId}`, {
+            await fetchLiga(`/api/clan/${id}/kick/${memberId}`, token, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });

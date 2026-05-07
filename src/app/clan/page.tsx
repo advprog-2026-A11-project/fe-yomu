@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/providers/auth-provider';
+import { fetchLiga } from '@/lib/fetch-liga';
 
 export default function ClanListPage() {
     const [clans, setClans] = useState<any[]>([]);
@@ -12,7 +13,7 @@ export default function ClanListPage() {
     const authUserId = session?.profile?.id || null;
 
     useEffect(() => {
-        fetch('http://localhost:8080/api/clan/list')
+        fetchLiga('/api/clan/list', token)
             .then(async (res) => {
                 const text = await res.text();
                 if (!text) return [];

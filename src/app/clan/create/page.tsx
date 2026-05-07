@@ -1,8 +1,8 @@
 "use client";
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-
 import { useAuth } from '@/components/providers/auth-provider';
+import { fetchLiga } from '@/lib/fetch-liga';
 
 export default function CreateClanPage() {
     const [name, setName] = useState("");
@@ -19,7 +19,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         }
 
         try {
-            const response = await fetch('http://localhost:8080/api/clan/create', {
+            const response = await fetchLiga('/api/clan/create', token,{
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

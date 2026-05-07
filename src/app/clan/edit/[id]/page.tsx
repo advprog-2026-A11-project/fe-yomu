@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
+import { fetchLiga } from '@/lib/fetch-liga';
 
 export default function EditClanPage() {
     const { id } = useParams();
@@ -10,14 +11,14 @@ export default function EditClanPage() {
     const { token } = useAuth();
 
     useEffect(() => {
-        fetch(`http://localhost:8080/api/clan/detail/${id}`)
+        fetchLiga(`/api/clan/detail/${id}`, token)
             .then(res => res.json())
             .then(data => setName(data.clanName));
     }, [id]);
 
     const handleUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
-        await fetch(`http://localhost:8080/api/clan/edit`, {
+        await fetchLiga('/api/clan/edit', token, {
             method: 'PUT',
             headers: { 
                 'Content-Type': 'application/json',
