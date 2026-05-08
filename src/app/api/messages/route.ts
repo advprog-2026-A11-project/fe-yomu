@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { proxyToBackend } from "@/lib/backend-proxy";
-import { buildAuthHeaders } from "@/app/api/messages/message-api-utils";
 
 const FORUM_BACKEND_OPTIONS = { backendService: "forum" as const };
 
@@ -13,11 +12,12 @@ export async function GET(request: Request) {
     if (readingId) {
       path += `?readingId=${encodeURIComponent(readingId)}`;
     }
-    
-    return await proxyToBackend(path, FORUM_BACKEND_OPTIONS);
+
+    return await proxyToBackend(path, request, FORUM_BACKEND_OPTIONS);
   } catch (error) {
+    console.error("Messages GET error:", error);
     return NextResponse.json(
-      { error: `Unable to reach backend: ${String(error)}` },
+      { error: "Unable to load messages. Please try again later." },
       { status: 502 }
     );
   }
@@ -25,16 +25,14 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.text();
-    return await proxyToBackend("/api/messages", {
+    return await proxyToBackend("/api/messages", request, {
       ...FORUM_BACKEND_OPTIONS,
       method: "POST",
-      headers: buildAuthHeaders(request, true),
-      body,
     });
   } catch (error) {
+    console.error("Messages POST error:", error);
     return NextResponse.json(
-      { error: `Unable to reach backend: ${String(error)}` },
+      { error: "Unable to create message. Please try again later." },
       { status: 502 }
     );
   }

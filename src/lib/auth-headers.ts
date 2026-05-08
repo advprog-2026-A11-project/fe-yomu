@@ -1,9 +1,20 @@
-import { readAccessToken } from "@/lib/auth-client";
-
 export function getAuthHeaders(): HeadersInit {
-  const token = readAccessToken();
-  if (!token) {
+  if (typeof document === "undefined") {
     return {};
   }
-  return { Authorization: `Bearer ${token}` };
+
+  const cookies = document.cookie.split(";");
+  for (const cookie of cookies) {
+    const [name, ...valueParts] = cookie.trim().split("=");
+    if (name === "yomu-access-token") {
+      const token = decodeURIComponent(valueParts.join("="));
+      if (token) {
+        return {
+          Authorization: `Bearer ${token}`,
+        };
+      }
+    }
+  }
+
+  return {};
 }

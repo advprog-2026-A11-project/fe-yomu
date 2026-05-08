@@ -11,21 +11,19 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  clearPersistedAuth,
-  createAuthSnapshot,
-  completeGoogleAuth,
+  clearCookieSession,
+  extractErrorMessage,
+  fetchAuthPresence,
   fetchCurrentSession,
   getAccessToken,
   getDefaultAuthReason,
-  getGoogleAuthorizationUrl,
-  isAuthSnapshotFresh,
   loginWithPassword,
-  persistAccessToken,
-  persistAuthSnapshot,
-  readAccessToken,
-  readAuthSnapshot,
+  normalizeAuthError,
+  persistCookieSession,
+  refreshWithCookie,
   registerWithPassword,
 } from "@/lib/auth-client";
+import { getSupabaseClient } from "@/lib/supabase";
 import type {
   AuthModalIntent,
   AuthModalMode,
@@ -43,16 +41,15 @@ type ToastState = {
 
 type AuthContextValue = {
   status: AuthStatus;
-  token: string | null;
   session: AuthSession | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
   authModal: AuthModalIntent | null;
   toast: ToastState;
-  bootstrap: (token: string) => Promise<void>;
   signIn: (input: { identifier: string; password: string }) => Promise<void>;
   register: (input: {
     email: string;
+    phone: string;
     password: string;
     username?: string;
     displayName?: string;
@@ -60,11 +57,11 @@ type AuthContextValue = {
   startGoogleSignIn: (nextPath?: string) => Promise<void>;
   finishGoogleSignIn: (input: {
     code: string;
-    state: string;
+    state?: string;
     nextPath?: string;
   }) => Promise<void>;
   refreshSession: () => Promise<void>;
-  signOut: () => void;
+  signOut: () => Promise<void>;
   openAuthModal: (intent?: Partial<AuthModalIntent>) => void;
   closeAuthModal: () => void;
   clearToast: () => void;
@@ -80,99 +77,52 @@ function inferNextPath(pathname: string): string {
   return pathname;
 }
 
+function isUnauthorizedSessionError(error: unknown): boolean {
+  const raw = extractErrorMessage(error, "").toLowerCase();
+  return raw.includes("401")
+    || raw.includes("unauthorized")
+    || raw.includes("missing bearer token");
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
   const [status, setStatus] = useState<AuthStatus>("loading");
-  const [token, setToken] = useState<string | null>(null);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [authModal, setAuthModal] = useState<AuthModalIntent | null>(null);
   const [toast, setToast] = useState<ToastState>(null);
 
-  const syncSession = useCallback(async (nextToken: string) => {
-    const nextSession = await fetchCurrentSession(nextToken);
-    setToken(nextToken);
+  const syncSession = useCallback(async () => {
+    const nextSession = await fetchCurrentSession();
     setSession(nextSession);
     setStatus("authenticated");
-    persistAccessToken(nextToken);
-    persistAuthSnapshot(createAuthSnapshot({ token: nextToken, session: nextSession }));
   }, []);
 
   const clearAuth = useCallback(() => {
-    setToken(null);
     setSession(null);
     setStatus("unauthenticated");
-    clearPersistedAuth();
   }, []);
 
-  const bootstrap = useCallback(async (nextToken: string) => {
-    try {
-      await syncSession(nextToken);
-    } catch (error) {
-      clearAuth();
-      throw error;
-    }
-  }, [clearAuth, syncSession]);
-
   useEffect(() => {
-    const snapshot = readAuthSnapshot();
-    const storedToken = readAccessToken();
-
-    if (snapshot?.session) {
-      setToken(snapshot.token);
-      setSession(snapshot.session);
-      setStatus("authenticated");
-      persistAccessToken(snapshot.token);
-    }
-
-    if (!storedToken) {
-      setStatus("unauthenticated");
-      return;
-    }
-
-    if (snapshot && snapshot.token === storedToken && isAuthSnapshotFresh(snapshot)) {
-      return;
-    }
-
-    void bootstrap(storedToken).catch(() => {
-      setToast({
-        message: "Your session expired. Please sign in again.",
-        tone: "error",
-      });
-    });
-  }, [bootstrap]);
-
-  useEffect(() => {
-    function handleStorage(event: StorageEvent) {
-      if (!event.key) {
+    void (async () => {
+      const hasAuthPresence = await fetchAuthPresence();
+      if (!hasAuthPresence) {
+        clearAuth();
         return;
       }
 
-      if (event.key === "yomu.auth.access-token" && !event.newValue) {
-        clearAuth();
+      await syncSession();
+    })().catch((error) => {
+      clearAuth();
+      if (!isUnauthorizedSessionError(error)) {
+        setToast({
+          message: normalizeAuthError(error, "session"),
+          tone: "error",
+        });
       }
-
-      if (event.key === "yomu.auth.snapshot" && event.newValue) {
-        try {
-          const snapshot = JSON.parse(event.newValue) as {
-            token: string;
-            session: AuthSession;
-            refreshedAt?: number;
-          };
-
-          setToken(snapshot.token);
-          setSession(snapshot.session);
-          setStatus("authenticated");
-        } catch {
-          clearAuth();
-        }
-      }
-    }
-
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, [clearAuth]);
+    });
+  }, [clearAuth, syncSession]);
 
   const openAuthModal = useCallback(
     (intent?: Partial<AuthModalIntent>) => {
@@ -190,30 +140,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthModal(null);
   }, []);
 
-  const handleAuthSuccess = useCallback(
-    async (response: AuthTokenResponse, fallbackNextPath?: string) => {
-      const nextToken = getAccessToken(response);
-      if (!nextToken) {
-        throw new Error("Auth response did not contain an access token");
-      }
-
-      await bootstrap(nextToken);
+  const completeAuthenticatedSession = useCallback(
+    async (message: string, nextPath?: string) => {
+      await syncSession();
       setAuthModal(null);
       setToast({
-        message: "Welcome back to Yomu.",
+        message,
         tone: "success",
       });
-
-      const nextPath = authModal?.nextPath || fallbackNextPath || "/dashboard";
-      router.replace(nextPath);
+      router.replace(nextPath || authModal?.nextPath || "/dashboard");
     },
-    [authModal?.nextPath, bootstrap, router],
+    [authModal?.nextPath, router, syncSession],
+  );
+
+  const handleAuthSuccess = useCallback(
+    async (
+      response: AuthTokenResponse,
+      fallbackNextPath?: string,
+      successMessage = "Welcome back to Yomu.",
+    ) => completeAuthenticatedSession(
+      response.message || successMessage,
+      fallbackNextPath,
+    ),
+    [completeAuthenticatedSession],
   );
 
   const signIn = useCallback(
     async (input: { identifier: string; password: string }) => {
       const response = await loginWithPassword(input);
-      await handleAuthSuccess(response);
+      await handleAuthSuccess(response, undefined, "Welcome back to Yomu.");
     },
     [handleAuthSuccess],
   );
@@ -221,43 +176,102 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = useCallback(
     async (input: {
       email: string;
+      phone: string;
       password: string;
       username?: string;
       displayName?: string;
     }) => {
       const response = await registerWithPassword(input);
-      await handleAuthSuccess(response);
+      const nextToken = getAccessToken(response);
+      if (nextToken) {
+        await handleAuthSuccess(response, undefined, "Your Yomu account is ready.");
+        return;
+      }
+
+      setAuthModal((currentModal) => currentModal
+        ? {
+            ...currentModal,
+            mode: "login",
+            reason: "Account created. Verify your email, then sign in.",
+          }
+        : null);
+      setToast({
+        message: response.message || "Account created. Please verify your email before signing in.",
+        tone: "success",
+      });
     },
     [handleAuthSuccess],
   );
 
   const startGoogleSignIn = useCallback(
     async (nextPath?: string) => {
-      const authorizationUrl = await getGoogleAuthorizationUrl(
-        nextPath || authModal?.nextPath || inferNextPath(pathname || "/"),
-      );
-      window.location.assign(authorizationUrl);
+      const redirectTo = `${window.location.origin}/auth/callback${
+        nextPath || authModal?.nextPath || pathname
+          ? `?next=${encodeURIComponent(nextPath || authModal?.nextPath || inferNextPath(pathname || "/"))}`
+          : ""
+      }`;
+
+      const { data, error } = await getSupabaseClient().auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.url) {
+        window.location.assign(data.url);
+      }
     },
     [authModal?.nextPath, pathname],
   );
 
   const finishGoogleSignIn = useCallback(
-    async (input: { code: string; state: string; nextPath?: string }) => {
-      const response = await completeGoogleAuth(input);
-      await handleAuthSuccess(response, input.nextPath || "/dashboard");
+    async (input: { code: string; state?: string; nextPath?: string }) => {
+      const { data, error } = await getSupabaseClient().auth.exchangeCodeForSession(input.code);
+      if (error) {
+        throw error;
+      }
+
+      if (!data.session?.access_token) {
+        throw new Error("Google sign in did not return an access token");
+      }
+
+      await persistCookieSession({
+        accessToken: data.session.access_token,
+        refreshToken: data.session.refresh_token ?? null,
+      });
+      await completeAuthenticatedSession("Welcome back to Yomu.", input.nextPath);
     },
-    [handleAuthSuccess],
+    [completeAuthenticatedSession],
   );
 
   const refreshSession = useCallback(async () => {
-    if (!token) {
-      return;
+    await refreshWithCookie();
+    await syncSession();
+  }, [syncSession]);
+
+  const signOut = useCallback(async () => {
+    try {
+      await fetch("/api/auth-proxy/auth/logout", {
+        method: "POST",
+        credentials: "include",
+        cache: "no-store",
+      });
+    } catch {
+      // Local sign-out still wins even if backend logout is unavailable.
     }
 
-    await bootstrap(token);
-  }, [bootstrap, token]);
+    try {
+      await getSupabaseClient().auth.signOut();
+    } catch {
+      // Local sign-out still wins even if Supabase cleanup fails.
+    }
 
-  const signOut = useCallback(() => {
+    await clearCookieSession();
     clearAuth();
     setAuthModal(null);
     setToast({
@@ -274,13 +288,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(
     () => ({
       status,
-      token,
       session,
       isAuthenticated: status === "authenticated" && !!session?.profile?.id,
       isAdmin: session?.profile?.role === "ADMIN",
       authModal,
       toast,
-      bootstrap,
       signIn,
       register,
       startGoogleSignIn,
@@ -293,9 +305,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }),
     [
       authModal,
-      bootstrap,
       clearToast,
       closeAuthModal,
+      finishGoogleSignIn,
       openAuthModal,
       refreshSession,
       register,
@@ -305,8 +317,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       startGoogleSignIn,
       status,
       toast,
-      token,
-      finishGoogleSignIn,
     ],
   );
 
