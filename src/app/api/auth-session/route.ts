@@ -4,6 +4,7 @@ import {
   clearAuthCookies,
   setAuthCookies,
 } from "@/lib/auth-cookie-session";
+import { verifyTrustedOrigin } from "@/lib/csrf";
 
 type SessionPayload = {
   accessToken?: string;
@@ -17,6 +18,11 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const csrfViolation = verifyTrustedOrigin(request);
+  if (csrfViolation) {
+    return csrfViolation;
+  }
+
   const payload = (await request.json()) as SessionPayload;
   if (!payload.accessToken) {
     return NextResponse.json(
@@ -30,7 +36,12 @@ export async function POST(request: NextRequest) {
   return response;
 }
 
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
+  const csrfViolation = verifyTrustedOrigin(request);
+  if (csrfViolation) {
+    return csrfViolation;
+  }
+
   const response = NextResponse.json({ ok: true });
   clearAuthCookies(response);
   return response;

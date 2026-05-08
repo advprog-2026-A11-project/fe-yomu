@@ -8,6 +8,7 @@ import {
   AuthCookiePayload,
   clearAuthCookies,
 } from "@/lib/auth-cookie-session";
+import { verifyTrustedOrigin } from "@/lib/csrf";
 
 type RouteContext = {
   params: Promise<{ path: string[] }>;
@@ -73,6 +74,13 @@ function shouldLogUpstreamFailure(joinedPath: string, status: number): boolean {
 }
 
 async function forward(request: NextRequest, context: RouteContext): Promise<NextResponse> {
+  if (!["GET", "HEAD", "OPTIONS"].includes(request.method)) {
+    const csrfViolation = verifyTrustedOrigin(request);
+    if (csrfViolation) {
+      return csrfViolation;
+    }
+  }
+
   const base = resolveTargetBase();
   if (!base) {
     return NextResponse.json(
