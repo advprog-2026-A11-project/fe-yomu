@@ -24,17 +24,34 @@ function allowedOriginsForRequest(request: NextRequest): Set<string> {
   return origins;
 }
 
-export function verifyTrustedOrigin(request: NextRequest): NextResponse | null {
+function extractRequestOrigin(request: NextRequest): string | null {
   const origin = request.headers.get("origin");
-  if (!origin) {
+  if (origin) {
+    return normalizeOrigin(origin);
+  }
+
+  const referer = request.headers.get("referer");
+  if (!referer) {
+    return null;
+  }
+
+  try {
+    return normalizeOrigin(new URL(referer).origin);
+  } catch {
+    return null;
+  }
+}
+
+export function verifyTrustedOrigin(request: NextRequest): NextResponse | null {
+  const requestOrigin = extractRequestOrigin(request);
+  if (!requestOrigin) {
     return NextResponse.json(
-      { error: "Missing Origin header" },
+      { error: "Missing Origin or Referer header" },
       { status: 403 },
     );
   }
 
-  const normalizedOrigin = normalizeOrigin(origin);
-  if (allowedOriginsForRequest(request).has(normalizedOrigin)) {
+  if (allowedOriginsForRequest(request).has(requestOrigin)) {
     return null;
   }
 
