@@ -1,12 +1,14 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { ReadingAPI } from "@/lib/readings";
 import ReadingLayout from "@/components/layout/ReadingLayout";
 import QuizSection from "@/components/layout/QuizSection";
 
 export default function ReadingViewStudent() {
     const { id } = useParams();
+    const router = useRouter();
+
     const [reading, setReading] = useState<any>(null);
     const userId = "user123";
 
@@ -28,7 +30,9 @@ export default function ReadingViewStudent() {
         >
             <QuizSection
                 onStart={() => {
-                    console.log("Student quiz start");
+                    router.push(
+                        `/reading/student/readings/${reading.id}/quiz`
+                    );
                 }}
             />
         </ReadingLayout>
