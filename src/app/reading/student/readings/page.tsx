@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { ProtectedRoute } from "@/components/auth/protected-route";
 
 const API_STUDENT = "http://localhost:8082/api/student/readings";
 const USER_ID = "user-123";     // hanya contoh, yg benar didapat dr Auth
@@ -34,38 +35,42 @@ export default function StudentReadingPage() {
     }, []);
 
     if (loading) return (
-        <div className="flex items-center justify-center min-h-screen">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
-        </div>
+        <ProtectedRoute description="Sign in to browse reading materials.">
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+            </div>
+        </ProtectedRoute>
     );
 
     return (
-        <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-7xl mx-auto">
+        <ProtectedRoute description="Sign in to browse reading materials.">
+            <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
+                <div className="max-w-7xl mx-auto">
                 {/* Header Section */}
-                <header className="mb-12 text-center">
-                    <h1 className="text-4xl font-extrabold text-slate-900 sm:text-5xl">
-                        Reading <span className="text-orange-500">Materials</span>
-                    </h1>
-                    <p className="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">
-                        Discover a reading that excites you today and take your comprehension to the next level!
-                    </p>
-                </header>
+                    <header className="mb-12 text-center">
+                        <h1 className="text-4xl font-extrabold text-slate-900 sm:text-5xl">
+                            Reading <span className="text-orange-500">Materials</span>
+                        </h1>
+                        <p className="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">
+                            Discover a reading that excites you today and take your comprehension to the next level!
+                        </p>
+                    </header>
 
-                {/* Grid Layout */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {readings.map((reading: any) => (
-                        <ReadingCard key={reading.id} reading={reading} />
-                    ))}
-                </div>
-
-                {readings.length === 0 && (
-                    <div className="text-center py-20 bg-white rounded-3xl shadow-sm border-2 border-dashed border-slate-200">
-                        <p className="text-slate-400 text-lg">There's not material yet.</p>
+                    {/* Grid Layout */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {readings.map((reading: any) => (
+                            <ReadingCard key={reading.id} reading={reading} />
+                        ))}
                     </div>
-                )}
+
+                    {readings.length === 0 && (
+                        <div className="text-center py-20 bg-white rounded-3xl shadow-sm border-2 border-dashed border-slate-200">
+                            <p className="text-slate-400 text-lg">There's not material yet.</p>
+                        </div>
+                    )}
+                </div>
             </div>
-        </div>
+        </ProtectedRoute>
     );
 }
 
