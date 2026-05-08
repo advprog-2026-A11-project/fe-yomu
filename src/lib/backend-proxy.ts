@@ -3,6 +3,11 @@ type BackendResolutionOptions = {
   backendBaseUrl?: string;
 };
 
+type ProxyOptions = BackendResolutionOptions & {
+  method?: string;
+  headers?: Record<string, string>;
+};
+
 export type ProxyRequestInit = RequestInit & BackendResolutionOptions;
 
 const BACKEND_SERVICE_URLS = buildBackendServiceUrls();
@@ -112,25 +117,14 @@ function flatten<T>(items: T[][]): T[] {
 async function fetchFromBackendCandidates(
   backendPath: string,
   options: BackendResolutionOptions,
-  init: RequestInit,
-  sourceRequest?: Request
+  init: RequestInit
 ): Promise<Response> {
   let lastError: unknown;
   const candidateUrls = buildBackendUrlCandidates(backendPath, options);
 
-  const proxyHeaders = buildProxyHeaders(sourceRequest);
-  const mergedHeaders = {
-    ...proxyHeaders,
-    ...(init.headers || {}),
-  };
-  const mergedInit: RequestInit = {
-    ...init,
-    headers: mergedHeaders,
-  };
-
   for (const url of candidateUrls) {
     try {
-      return await fetch(url, mergedInit);
+      return await fetch(url, init);
     } catch (error) {
       lastError = error;
     }
@@ -140,80 +134,90 @@ async function fetchFromBackendCandidates(
   throw new Error("Failed to connect to backend service. Please try again later.");
 }
 
-export async function proxyToBackend(
-  backendPath: string,
-  init: ProxyRequestInit = {},
-  sourceRequest?: Request
-): Promise<Response> {
-  const { backendBaseUrl, backendService, ...fetchInit } = init;
+function extractTokenFromCookie(cookieHeader: string | null): string | null {
+  if (!cookieHeader) return null;
 
-  const response = await fetchFromBackendCandidates(
-    backendPath,
-    { backendBaseUrl, backendService },
-    {
-      ...fetchInit,
-      cache: "no-store",
-    },
-    sourceRequest
-  );
-
-  const status = response.status;
-  const bodyAllowed = status !== 204 && status !== 205 && status !== 304;
-  const headers = new Headers();
-
-  copyHeaderIfPresent(response.headers, headers, "content-type");
-  copyHeaderIfPresent(response.headers, headers, "cache-control");
-
-  if (!bodyAllowed) {
-    return new Response(null, {
-      status,
-      headers,
-    });
-  }
-
-  return new Response(response.body, {
-    status,
-    headers,
-  });
-}
-
-function extractBearerToken(headers: Headers): string | null {
-  const authHeader = headers.get("authorization");
-  if (authHeader?.startsWith("Bearer ")) {
-    return authHeader;
+  const cookies = cookieHeader.split(";");
+  for (const cookie of cookies) {
+    const [name, ...valueParts] = cookie.trim().split("=");
+    if (name === "yomu-access-token") {
+      const token = decodeURIComponent(valueParts.join("="));
+      if (token) {
+        return `Bearer ${token}`;
+      }
+    }
   }
   return null;
 }
 
-function buildProxyHeaders(sourceRequest?: Request): Record<string, string> {
-  const headers: Record<string, string> = {};
+export async function proxyToBackend(
+  backendPath: string,
+  sourceRequest: Request,
+  options: ProxyOptions = {}
+): Promise<Response> {
+  const { backendBaseUrl, backendService, method, headers: customHeaders = {}, ...rest } = options;
 
-  if (!sourceRequest) {
-    return headers;
-  }
+  try {
+    // Extract auth from cookie
+    const cookieHeader = sourceRequest.headers.get("cookie");
+    const authHeader = extractTokenFromCookie(cookieHeader);
 
-  const headersToForward = [
-    "content-type",
-    "accept",
-    "accept-language",
-    "user-agent",
-    "cache-control",
-    "pragma",
-  ];
+    // Determine if we need to read the body
+    const shouldReadBody = ["POST", "PUT", "PATCH"].includes(method || sourceRequest.method);
+    const body = shouldReadBody ? await sourceRequest.text() : undefined;
 
-  for (const headerName of headersToForward) {
-    const value = sourceRequest.headers.get(headerName);
-    if (value) {
-      headers[headerName] = value;
+    // Build request init
+    const fetchInit: RequestInit = {
+      method: method || sourceRequest.method,
+      cache: "no-store",
+      headers: {
+        // Forward common headers from source request
+        ...(sourceRequest.headers.get("content-type") && {
+          "content-type": sourceRequest.headers.get("content-type")!,
+        }),
+        ...(sourceRequest.headers.get("accept") && {
+          "accept": sourceRequest.headers.get("accept")!,
+        }),
+        ...(sourceRequest.headers.get("accept-language") && {
+          "accept-language": sourceRequest.headers.get("accept-language")!,
+        }),
+        // Add auth header if available
+        ...(authHeader && { authorization: authHeader }),
+        // Apply custom headers (overrides defaults)
+        ...customHeaders,
+      },
+      ...(body && { body }),
+      ...rest,
+    };
+
+    const response = await fetchFromBackendCandidates(
+      backendPath,
+      { backendBaseUrl, backendService },
+      fetchInit
+    );
+
+    const status = response.status;
+    const bodyAllowed = status !== 204 && status !== 205 && status !== 304;
+    const headers = new Headers();
+
+    copyHeaderIfPresent(response.headers, headers, "content-type");
+    copyHeaderIfPresent(response.headers, headers, "cache-control");
+
+    if (!bodyAllowed) {
+      return new Response(null, {
+        status,
+        headers,
+      });
     }
-  }
 
-  const bearerToken = extractBearerToken(sourceRequest.headers);
-  if (bearerToken) {
-    headers.authorization = bearerToken;
+    return new Response(response.body, {
+      status,
+      headers,
+    });
+  } catch (error) {
+    console.error("[proxyToBackend] Error:", error);
+    throw error;
   }
-
-  return headers;
 }
 
 function copyHeaderIfPresent(

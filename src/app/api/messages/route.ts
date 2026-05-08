@@ -12,8 +12,8 @@ export async function GET(request: Request) {
     if (readingId) {
       path += `?readingId=${encodeURIComponent(readingId)}`;
     }
-    
-    return await proxyToBackend(path, FORUM_BACKEND_OPTIONS, request);
+
+    return await proxyToBackend(path, request, FORUM_BACKEND_OPTIONS);
   } catch (error) {
     console.error("Messages GET error:", error);
     return NextResponse.json(
@@ -25,12 +25,10 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.text();
-    return await proxyToBackend("/api/messages", {
+    return await proxyToBackend("/api/messages", request, {
       ...FORUM_BACKEND_OPTIONS,
       method: "POST",
-      body,
-    }, request);
+    });
   } catch (error) {
     console.error("Messages POST error:", error);
     return NextResponse.json(

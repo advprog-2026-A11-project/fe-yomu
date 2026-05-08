@@ -9,12 +9,15 @@ import {
 export async function PUT(request: Request, context: RouteContext) {
   try {
     const id = await getId(context);
-    const body = await request.text();
-    return await proxyToBackend(`/api/messages/${encodeURIComponent(id)}`, {
-      ...FORUM_BACKEND_OPTIONS,
-      method: "PUT",
-      body,
-    }, request);
+    
+    return await proxyToBackend(
+      `/api/messages/${encodeURIComponent(id)}`,
+      request,
+      {
+        ...FORUM_BACKEND_OPTIONS,
+        method: "PUT",
+      }
+    );
   } catch (error) {
     return handleError(error);
   }
@@ -23,10 +26,15 @@ export async function PUT(request: Request, context: RouteContext) {
 export async function DELETE(request: Request, context: RouteContext) {
   try {
     const id = await getId(context);
-    return await proxyToBackend(`/api/messages/${encodeURIComponent(id)}`, {
-      ...FORUM_BACKEND_OPTIONS,
-      method: "DELETE",
-    }, request);
+    
+    return await proxyToBackend(
+      `/api/messages/${encodeURIComponent(id)}`,
+      request,
+      {
+        ...FORUM_BACKEND_OPTIONS,
+        method: "DELETE",
+      }
+    );
   } catch (error) {
     return handleError(error);
   }

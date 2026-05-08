@@ -15,15 +15,14 @@ async function getParams(context: RouteContext): Promise<{ id: string; replyId: 
 export async function PUT(request: Request, context: RouteContext) {
   try {
     const { id, replyId } = await getParams(context);
-    const body = await request.text();
+    
     return await proxyToBackend(
       `/api/messages/${encodeURIComponent(id)}/replies/${encodeURIComponent(replyId)}`,
+      request,
       {
         ...FORUM_BACKEND_OPTIONS,
         method: "PUT",
-        body,
-      },
-      request
+      }
     );
   } catch (error) {
     return handleError(error);
@@ -33,13 +32,14 @@ export async function PUT(request: Request, context: RouteContext) {
 export async function DELETE(request: Request, context: RouteContext) {
   try {
     const { id, replyId } = await getParams(context);
+    
     return await proxyToBackend(
       `/api/messages/${encodeURIComponent(id)}/replies/${encodeURIComponent(replyId)}`,
+      request,
       {
         ...FORUM_BACKEND_OPTIONS,
         method: "DELETE",
-      },
-      request
+      }
     );
   } catch (error) {
     return handleError(error);
