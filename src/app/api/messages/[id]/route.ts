@@ -3,7 +3,6 @@ import {
   FORUM_BACKEND_OPTIONS,
   RouteContext,
   getId,
-  buildAuthHeaders,
   handleError,
 } from "@/app/api/messages/message-api-utils";
 
@@ -14,9 +13,8 @@ export async function PUT(request: Request, context: RouteContext) {
     return await proxyToBackend(`/api/messages/${encodeURIComponent(id)}`, {
       ...FORUM_BACKEND_OPTIONS,
       method: "PUT",
-      headers: buildAuthHeaders(request, true),
       body,
-    });
+    }, request);
   } catch (error) {
     return handleError(error);
   }
@@ -28,8 +26,7 @@ export async function DELETE(request: Request, context: RouteContext) {
     return await proxyToBackend(`/api/messages/${encodeURIComponent(id)}`, {
       ...FORUM_BACKEND_OPTIONS,
       method: "DELETE",
-      headers: buildAuthHeaders(request),
-    });
+    }, request);
   } catch (error) {
     return handleError(error);
   }

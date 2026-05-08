@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { proxyToBackend } from "@/lib/backend-proxy";
-import { buildAuthHeaders } from "@/app/api/messages/message-api-utils";
 
 const FORUM_BACKEND_OPTIONS = { backendService: "forum" as const };
 
@@ -14,7 +13,7 @@ export async function GET(request: Request) {
       path += `?readingId=${encodeURIComponent(readingId)}`;
     }
     
-    return await proxyToBackend(path, FORUM_BACKEND_OPTIONS);
+    return await proxyToBackend(path, FORUM_BACKEND_OPTIONS, request);
   } catch (error) {
     console.error("Messages GET error:", error);
     return NextResponse.json(
@@ -30,9 +29,8 @@ export async function POST(request: Request) {
     return await proxyToBackend("/api/messages", {
       ...FORUM_BACKEND_OPTIONS,
       method: "POST",
-      headers: buildAuthHeaders(request, true),
       body,
-    });
+    }, request);
   } catch (error) {
     console.error("Messages POST error:", error);
     return NextResponse.json(

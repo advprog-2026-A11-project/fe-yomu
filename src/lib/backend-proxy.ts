@@ -112,14 +112,25 @@ function flatten<T>(items: T[][]): T[] {
 async function fetchFromBackendCandidates(
   backendPath: string,
   options: BackendResolutionOptions,
-  init: RequestInit
+  init: RequestInit,
+  sourceRequest?: Request
 ): Promise<Response> {
   let lastError: unknown;
   const candidateUrls = buildBackendUrlCandidates(backendPath, options);
 
+  const proxyHeaders = buildProxyHeaders(sourceRequest);
+  const mergedHeaders = {
+    ...proxyHeaders,
+    ...(init.headers || {}),
+  };
+  const mergedInit: RequestInit = {
+    ...init,
+    headers: mergedHeaders,
+  };
+
   for (const url of candidateUrls) {
     try {
-      return await fetch(url, init);
+      return await fetch(url, mergedInit);
     } catch (error) {
       lastError = error;
     }
@@ -131,7 +142,8 @@ async function fetchFromBackendCandidates(
 
 export async function proxyToBackend(
   backendPath: string,
-  init: ProxyRequestInit = {}
+  init: ProxyRequestInit = {},
+  sourceRequest?: Request
 ): Promise<Response> {
   const { backendBaseUrl, backendService, ...fetchInit } = init;
 
@@ -141,7 +153,8 @@ export async function proxyToBackend(
     {
       ...fetchInit,
       cache: "no-store",
-    }
+    },
+    sourceRequest
   );
 
   const status = response.status;
@@ -162,6 +175,45 @@ export async function proxyToBackend(
     status,
     headers,
   });
+}
+
+function extractBearerToken(headers: Headers): string | null {
+  const authHeader = headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    return authHeader;
+  }
+  return null;
+}
+
+function buildProxyHeaders(sourceRequest?: Request): Record<string, string> {
+  const headers: Record<string, string> = {};
+
+  if (!sourceRequest) {
+    return headers;
+  }
+
+  const headersToForward = [
+    "content-type",
+    "accept",
+    "accept-language",
+    "user-agent",
+    "cache-control",
+    "pragma",
+  ];
+
+  for (const headerName of headersToForward) {
+    const value = sourceRequest.headers.get(headerName);
+    if (value) {
+      headers[headerName] = value;
+    }
+  }
+
+  const bearerToken = extractBearerToken(sourceRequest.headers);
+  if (bearerToken) {
+    headers.authorization = bearerToken;
+  }
+
+  return headers;
 }
 
 function copyHeaderIfPresent(
