@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/auth-provider";
 import { LoadingState } from "@/components/states/loading-state";
 import { EmptyState } from "@/components/states/empty-state";
-import { extractErrorMessage } from "@/lib/auth-client";
+import { normalizeAuthError } from "@/lib/auth-client";
 
 export function CallbackClient({
   code,
@@ -21,24 +21,32 @@ export function CallbackClient({
   const router = useRouter();
   const { finishGoogleSignIn } = useAuth();
   const [error, setError] = useState<string | null>(null);
+  const hasHandledCallback = useRef(false);
 
   useEffect(() => {
+    if (hasHandledCallback.current) {
+      return;
+    }
+
     if (oauthError) {
-      setError(oauthError);
+      hasHandledCallback.current = true;
+      setError(normalizeAuthError(oauthError, "google"));
       return;
     }
 
-    if (!code || !state) {
-      setError("Missing Google callback parameters.");
+    if (!code) {
+      hasHandledCallback.current = true;
+      setError(normalizeAuthError("Missing Google callback code.", "google"));
       return;
     }
 
+    hasHandledCallback.current = true;
     void finishGoogleSignIn({
       code,
       state,
       nextPath: nextPath || "/dashboard",
     }).catch((authError) => {
-      setError(extractErrorMessage(authError, "Google sign in could not be completed"));
+      setError(normalizeAuthError(authError, "google"));
     });
   }, [code, finishGoogleSignIn, nextPath, oauthError, state]);
 

@@ -11,21 +11,10 @@ export async function getId(context: RouteContext): Promise<string> {
   return params.id;
 }
 
-export function buildAuthHeaders(request: Request, includeContentType = false): HeadersInit {
-  const headers: Record<string, string> = {};
-  if (includeContentType) {
-    headers["Content-Type"] = "application/json";
-  }
-  const authorization = request.headers.get("authorization");
-  if (authorization) {
-    headers.Authorization = authorization;
-  }
-  return headers;
-}
-
 export function handleError(error: unknown) {
+  console.error("API error:", error);
   return NextResponse.json(
-    { error: `Unable to reach backend: ${String(error)}` },
+    { error: "An error occurred. Please try again later." },
     { status: 502 }
   );
 }

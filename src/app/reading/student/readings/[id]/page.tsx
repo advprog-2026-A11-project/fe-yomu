@@ -3,8 +3,9 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import ReadingForum from "../../ReadingForum";
+import { ProtectedRoute } from "@/components/auth/protected-route";
 
-const API_STUDENT = "http://localhost:8082/api/student/readings";
+const API_STUDENT = "http://172.25.35.224:8082/api/student/readings";
 
 export default function ReadingView() {
     const { id } = useParams();
@@ -25,7 +26,11 @@ export default function ReadingView() {
         fetchDetail();
     }, [id]);
 
-    if (!reading) return <div className="p-10 text-center">Loading material...</div>;
+    if (!reading) return (
+        <ProtectedRoute description="Sign in to read this material.">
+            <div className="p-10 text-center">Loading material...</div>
+        </ProtectedRoute>
+    );
 
     const difficultyColor = {
         BEGINNER: "bg-emerald-100 text-emerald-700",
@@ -34,10 +39,11 @@ export default function ReadingView() {
     };
 
     return (
-        <div className="min-h-screen bg-white">
-            <div className="max-w-3xl mx-auto px-6 py-12">
+        <ProtectedRoute description="Sign in to read this material.">
+            <div className="min-h-screen bg-white">
+                <div className="max-w-3xl mx-auto px-6 py-12">
                 {/* Container Utama untuk Header Navigasi */}
-                <div className="flex justify-between items-center mb-10">
+                    <div className="flex justify-between items-center mb-10">
 
                     {/* Sisi Kiri: Tombol Back */}
                     <Link
@@ -59,26 +65,27 @@ export default function ReadingView() {
                             {reading.difficultyLevel}
                         </span>
                     </div>
+                    </div>
+
+                    <h1 className="text-4xl font-extrabold text-gray-900 mb-8 text-center">{reading.title}</h1>
+
+                    <div className="prose prose-lg text-gray-700 leading-relaxed whitespace-pre-wrap">
+                        {reading.content}
+                    </div>
+
+                    <div className="mt-12 p-8 bg-green-50 rounded-2xl text-center">
+                        <h4 className="font-bold text-green-900 mb-2">Finish reading?</h4>
+                        <p className="text-green-700 mb-6 text-sm">Let's test your knowledge by taking this quiz.</p>
+                        <button className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-green-700 transition-all
+                        shadow-lg shadow-green-200 active:scale-95">
+                            Start Quiz
+                        </button>
+                    </div>
+
+                    {/* Forum Section */}
+                    {id && typeof id === "string" && <ReadingForum readingId={id} />}
                 </div>
-
-                <h1 className="text-4xl font-extrabold text-gray-900 mb-8 text-center">{reading.title}</h1>
-
-                <div className="prose prose-lg text-gray-700 leading-relaxed whitespace-pre-wrap">
-                    {reading.content}
-                </div>
-
-                <div className="mt-12 p-8 bg-green-50 rounded-2xl text-center">
-                    <h4 className="font-bold text-green-900 mb-2">Finish reading?</h4>
-                    <p className="text-green-700 mb-6 text-sm">Let's test your knowledge by taking this quiz.</p>
-                    <button className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-green-700 transition-all
-                    shadow-lg shadow-green-200 active:scale-95">
-                        Start Quiz
-                    </button>
-                </div>
-
-                {/* Forum Section */}
-                {id && typeof id === 'string' && <ReadingForum readingId={id} />}
             </div>
-        </div>
+        </ProtectedRoute>
     );
 }

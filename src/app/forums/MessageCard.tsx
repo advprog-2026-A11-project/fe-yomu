@@ -97,7 +97,7 @@ function buildReactionCounts(reactions: Reaction[]): ReactionCounts {
 async function fetchMessageReactions(messageId: string): Promise<Reaction[]> {
   const res = await fetch(`/api/messages/${messageId}/reactions`, { cache: "no-store" });
   if (!res.ok) {
-    throw new Error(`Reaction load failed: ${res.status} ${await res.text()}`);
+    throw new Error("Failed to load reactions. Please try again.");
   }
 
   const data: unknown = await res.json();
@@ -112,16 +112,16 @@ async function sendReactionMutation(
 ): Promise<void> {
   const res = await fetch(`/api/messages/${messageId}/reactions`, {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
     body: JSON.stringify({ userId, reactionType }),
   });
 
   if (method === "POST" && !res.ok && res.status !== 409) {
-    throw new Error(`Add reaction failed: ${res.status} ${await res.text()}`);
+    throw new Error("Failed to add reaction. Please try again.");
   }
 
   if (method === "DELETE" && !res.ok && res.status !== 404) {
-    throw new Error(`Remove reaction failed: ${res.status} ${await res.text()}`);
+    throw new Error("Failed to remove reaction. Please try again.");
   }
 }
 
@@ -138,7 +138,7 @@ async function createReplyRequest(messageId: string, content: string): Promise<v
     body: JSON.stringify({ content }),
   });
   if (!res.ok) {
-    throw new Error(`Reply failed: ${res.status} ${await res.text()}`);
+    throw new Error("Failed to create reply. Please try again.");
   }
 }
 
@@ -149,7 +149,7 @@ async function updateMessageRequest(endpoint: string, content: string): Promise<
     body: JSON.stringify({ content }),
   });
   if (!res.ok) {
-    throw new Error(`Update failed: ${res.status} ${await res.text()}`);
+    throw new Error("Failed to update message. Please try again.");
   }
 }
 
@@ -159,7 +159,7 @@ async function deleteMessageRequest(endpoint: string): Promise<void> {
     headers: getAuthHeaders(),
   });
   if (!res.ok) {
-    throw new Error(`Delete failed: ${res.status} ${await res.text()}`);
+    throw new Error("Failed to delete message. Please try again.");
   }
 }
 
