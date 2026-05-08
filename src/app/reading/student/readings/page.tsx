@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 
-const API_STUDENT = "http://localhost:8082/api/student/readings";
+const API_STUDENT = "http://172.25.35.224:8082/api/student/readings";
 const USER_ID = "user-123";     // hanya contoh, yg benar didapat dr Auth
 
 export default function StudentReadingPage() {

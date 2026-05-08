@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { AUTH_ACCESS_COOKIE } from "@/lib/auth-cookies";
 
 export const FORUM_BACKEND_OPTIONS = { backendService: "forum" as const };
 
@@ -12,38 +11,10 @@ export async function getId(context: RouteContext): Promise<string> {
   return params.id;
 }
 
-export function buildAuthHeaders(request: Request, includeContentType = false): HeadersInit {
-  const headers: Record<string, string> = {};
-  if (includeContentType) {
-    headers["Content-Type"] = "application/json";
-  }
-  const authorization = request.headers.get("authorization") || readAuthorizationFromCookie(request);
-  if (authorization) {
-    headers.Authorization = authorization;
-  }
-  return headers;
-}
-
-function readAuthorizationFromCookie(request: Request): string | null {
-  const cookieHeader = request.headers.get("cookie");
-  if (!cookieHeader) {
-    return null;
-  }
-
-  for (const part of cookieHeader.split(";")) {
-    const [rawName, ...valueParts] = part.trim().split("=");
-    if (rawName === AUTH_ACCESS_COOKIE) {
-      const token = decodeURIComponent(valueParts.join("="));
-      return token ? `Bearer ${token}` : null;
-    }
-  }
-
-  return null;
-}
-
 export function handleError(error: unknown) {
+  console.error("API error:", error);
   return NextResponse.json(
-    { error: `Unable to reach backend: ${String(error)}` },
+    { error: "An error occurred. Please try again later." },
     { status: 502 }
   );
 }
