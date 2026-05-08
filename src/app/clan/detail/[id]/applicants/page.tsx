@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/components/providers/auth-provider';
 import { fetchLiga } from '@/lib/fetch-liga';
@@ -55,7 +55,7 @@ export default function ApplicantListPage() {
             const data = await res.json();
             setClan(data);
 
-            if (data && data.applicantIds && token) {
+            if (data?.applicantIds && token) {
                 fetchUserNames(data.applicantIds);
             }
         }
