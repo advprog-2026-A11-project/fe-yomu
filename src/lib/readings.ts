@@ -1,17 +1,46 @@
-const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BACAAN_QUIZ_URL;
+// lib/reading.ts
+import { proxyToBackend } from "@/lib/backend-proxy";
+
+// Gunakan backendBaseUrl dari environment variable
+const READING_BACKEND_OPTIONS = {
+    backendBaseUrl: process.env.NEXT_PUBLIC_BACKEND_BACAAN_QUIZ_URL
+};
+
+async function proxyToBacaanQuiz(path: string, method: string, headers?: Record<string, string>, body?: any) {
+    if (!READING_BACKEND_OPTIONS.backendBaseUrl) {
+        throw new Error("NEXT_PUBLIC_BACKEND_BACAAN_QUIZ_URL is not configured");
+    }
+
+    // Buat Request object (required oleh proxyToBackend)
+    const request = new Request(`http://internal${path}`, {
+        method,
+        headers: {
+            ...headers,
+            ...(body && { "Content-Type": "application/json" }),
+        },
+        ...(body && { body: JSON.stringify(body) }),
+    });
+
+    // Gunakan proxyToBackend (akan otomatis mengambil token dari cookie)
+    const response = await proxyToBackend(path, request, READING_BACKEND_OPTIONS);
+
+    if (!response.ok) {
+        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    }
+
+    return response.json();
+}
 
 export const ReadingAPI = {
     getStudentReadingById: async (id: string, userId: string) => {
-        const res = await fetch(`${BASE_URL}/api/student/readings/${id}`, {
-            headers: { userId },
-        });
-        return res.json();
+        return proxyToBacaanQuiz(`/api/student/readings/${id}`, "GET", { userId });
     },
 
     getReadingById: async (id: string, userId: string) => {
-        const res = await fetch(`${BASE_URL}/api/admin/readings/${id}`, {
-            headers: { userId },
-        });
-        return res.json();
+        return proxyToBacaanQuiz(`/api/admin/readings/${id}`, "GET", { userId });
+    },
+
+    getQuestionsCount: async (id: string, userId: string) => {
+        return proxyToBacaanQuiz(`/api/admin/readings/${id}/questions/count`, "GET", { userId });
     },
 };

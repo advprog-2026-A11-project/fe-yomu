@@ -24,10 +24,18 @@ export default function ReadingViewAdmin() {
 
     useEffect(() => {
         if (!id) return;
-        fetch(`${API_BASE}/api/admin/readings/${id}/questions/count`)
-            .then((r) => r.json())
-            .then((n) => setQuestionCount(n))
-            .catch(() => setQuestionCount(null));
+
+        const fetchQuestionCount = async () => {
+            try {
+                const count = await ReadingAPI.getQuestionsCount(id as string, userId);
+                setQuestionCount(count);
+            } catch (error) {
+                console.error("Failed to fetch question count:", error);
+                setQuestionCount(null);
+            }
+        };
+
+        fetchQuestionCount();
     }, [id]);
 
     if (!reading) return <div className="p-10 text-center">Loading material...</div>;
