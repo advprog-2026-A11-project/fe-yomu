@@ -41,11 +41,25 @@ function mockAuthFetch(mode: "guest" | "authenticated") {
         );
       }
 
+      if (url === "/api/auth-session" && method === "GET" && mode === "guest") {
+        return new Response(JSON.stringify({ authenticated: false }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
       if (url === "/api/auth-proxy/auth/me" && mode === "authenticated") {
         return new Response(
           JSON.stringify(authenticatedSession),
           { status: 200, headers: { "Content-Type": "application/json" } },
         );
+      }
+
+      if (url === "/api/auth-session" && method === "GET" && mode === "authenticated") {
+        return new Response(JSON.stringify({ authenticated: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
       }
 
       if (url === "/api/auth-proxy/auth/logout" && method === "POST") {

@@ -13,6 +13,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   clearCookieSession,
   extractErrorMessage,
+  fetchAuthPresence,
   fetchCurrentSession,
   getAccessToken,
   getDefaultAuthReason,
@@ -48,6 +49,7 @@ type AuthContextValue = {
   signIn: (input: { identifier: string; password: string }) => Promise<void>;
   register: (input: {
     email: string;
+    phone: string;
     password: string;
     username?: string;
     displayName?: string;
@@ -103,7 +105,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    void syncSession().catch((error) => {
+    void (async () => {
+      const hasAuthPresence = await fetchAuthPresence();
+      if (!hasAuthPresence) {
+        clearAuth();
+        return;
+      }
+
+      await syncSession();
+    })().catch((error) => {
       clearAuth();
       if (!isUnauthorizedSessionError(error)) {
         setToast({
@@ -166,6 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = useCallback(
     async (input: {
       email: string;
+      phone: string;
       password: string;
       username?: string;
       displayName?: string;

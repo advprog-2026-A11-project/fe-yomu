@@ -89,7 +89,18 @@ export function extractErrorMessage(error: unknown, fallback = "Request failed")
       message?: unknown;
       error?: unknown;
       detail?: unknown;
+      validationErrors?: unknown;
+      validation_errors?: unknown;
     };
+
+    const validationErrors = payload.validationErrors ?? payload.validation_errors;
+    if (validationErrors && typeof validationErrors === "object") {
+      const firstValidationMessage = Object.values(validationErrors as Record<string, unknown>)
+        .find((value) => typeof value === "string" && value.trim());
+      if (typeof firstValidationMessage === "string") {
+        return firstValidationMessage;
+      }
+    }
 
     if (typeof payload.message === "string" && payload.message.trim()) {
       return payload.message;
@@ -125,7 +136,7 @@ function sanitizeAuthMessage(message: string, fallback: string): string {
   return firstLine.length > 180 ? `${firstLine.slice(0, 177)}...` : firstLine;
 }
 
-export type AuthErrorIntent = "login" | "register" | "google" | "session";
+export type AuthErrorIntent = "login" | "register" | "google" | "session" | "password";
 
 export function normalizeAuthError(error: unknown, intent: AuthErrorIntent): string {
   const raw = sanitizeAuthMessage(extractErrorMessage(error, ""), "");
@@ -137,6 +148,14 @@ export function normalizeAuthError(error: unknown, intent: AuthErrorIntent): str
       || normalized.includes("invalid credentials")
       || normalized.includes("unauthorized")) {
       return "Invalid email, username, or password.";
+    }
+
+    if (normalized.includes("phone number is not registered")) {
+      return "That phone number is not registered.";
+    }
+
+    if (normalized.includes("phone login is not available for this account")) {
+      return "This account cannot sign in with a phone number yet.";
     }
 
     if (normalized.includes("email not confirmed") || normalized.includes("verify your email")) {
@@ -154,9 +173,21 @@ export function normalizeAuthError(error: unknown, intent: AuthErrorIntent): str
     if (normalized.includes("already registered")
       || normalized.includes("already exists")
       || normalized.includes("duplicate")
-      || normalized.includes("username is already taken")
       || normalized.includes("email already")) {
-      return "That email or username is already in use.";
+      return "That email address is already in use.";
+    }
+
+    if (normalized.includes("username is already taken")
+      || normalized.includes("username already")) {
+      return "That username is already in use.";
+    }
+
+    if (normalized.includes("phone already")) {
+      return "That phone number is already in use.";
+    }
+
+    if (normalized.includes("phone must contain 8-15 digits")) {
+      return "Phone number must contain 8-15 digits.";
     }
 
     if (normalized.includes("password should")
@@ -188,6 +219,40 @@ export function normalizeAuthError(error: unknown, intent: AuthErrorIntent): str
     return "We could not complete Google sign in right now. Please try again.";
   }
 
+  if (intent === "password") {
+    if (normalized.includes("invalid login credentials")
+      || normalized.includes("bad credentials")
+      || normalized.includes("invalid credentials")) {
+      return "Current password is incorrect.";
+    }
+
+    if (normalized.includes("currentpassword is required")) {
+      return "Current password is required.";
+    }
+
+    if (normalized.includes("newpassword must be at least 8 characters")) {
+      return "Password must be at least 8 characters.";
+    }
+
+    if (normalized.includes("weak password")) {
+      return raw || "Your new password is too weak.";
+    }
+
+    if (normalized.includes("cannot change password yet")) {
+      return "This account cannot change password yet.";
+    }
+
+    if (normalized.includes("same password")) {
+      return "Please choose a different password.";
+    }
+
+    if (raw) {
+      return raw;
+    }
+
+    return "We could not update your password right now. Please try again.";
+  }
+
   if (raw) {
     return raw;
   }
@@ -199,6 +264,24 @@ export async function fetchCurrentSession(): Promise<AuthSession> {
   return request<AuthSession>("/auth/me", {
     method: "GET",
   });
+}
+
+export async function fetchAuthPresence(): Promise<boolean> {
+  const response = await fetch("/api/auth-session", {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    return false;
+  }
+
+  const payload = (await parseJson<{ authenticated?: boolean }>(response)) as {
+    authenticated?: boolean;
+  };
+
+  return Boolean(payload.authenticated);
 }
 
 export async function loginWithPassword(input: {
@@ -213,6 +296,7 @@ export async function loginWithPassword(input: {
 
 export async function registerWithPassword(input: {
   email: string;
+  phone: string;
   password: string;
   username?: string;
   displayName?: string;
@@ -248,6 +332,19 @@ export async function clearCookieSession(): Promise<void> {
   await fetch("/api/auth-session", {
     method: "DELETE",
     credentials: "include",
+  });
+}
+
+export async function changePassword(input: {
+  currentPassword?: string;
+  newPassword: string;
+}): Promise<{ message?: string }> {
+  return request<{ message?: string }>("/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify({
+      currentPassword: input.currentPassword,
+      newPassword: input.newPassword,
+    }),
   });
 }
 

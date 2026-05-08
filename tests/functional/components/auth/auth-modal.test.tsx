@@ -48,7 +48,7 @@ describe("AuthModal functional behavior", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Create an account" }));
     expect(screen.getByText("Create your Yomu profile")).toBeInTheDocument();
-    expect(screen.getByText("or create an account with email")).toBeInTheDocument();
+    expect(screen.getByText("or create an account with email and phone")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Close authentication modal" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

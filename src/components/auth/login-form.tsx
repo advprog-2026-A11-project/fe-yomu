@@ -54,10 +54,13 @@ export function LoginForm() {
             onChange={(event) => setIdentifier(event.target.value)}
             type="text"
             autoComplete="username"
-            placeholder="you@yomu.id"
+            placeholder="you@yomu.id / username / 0812..."
             required
           />
         </label>
+        <p className="form-feedback">
+          You can sign in with your email, username, or registered phone number.
+        </p>
 
         <label className="field">
           <span>Password</span>
