@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { AUTH_PRESENCE_COOKIE } from "@/lib/auth-cookies";
+import { AUTH_ACCESS_COOKIE } from "@/lib/auth-cookies";
 const PROTECTED_PATH_PREFIXES = [
   "/dashboard",
   "/users/account",
@@ -23,7 +23,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const authCookie = request.cookies.get(AUTH_PRESENCE_COOKIE)?.value;
+  const authCookie = request.cookies.get(AUTH_ACCESS_COOKIE)?.value;
   if (authCookie) {
     return NextResponse.next();
   }

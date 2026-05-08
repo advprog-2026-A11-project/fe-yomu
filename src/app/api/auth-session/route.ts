@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AUTH_PRESENCE_COOKIE } from "@/lib/auth-cookies";
+import { AUTH_ACCESS_COOKIE } from "@/lib/auth-cookies";
 import {
   clearAuthCookies,
   setAuthCookies,
@@ -12,7 +12,7 @@ type SessionPayload = {
 
 export async function GET(request: NextRequest) {
   return NextResponse.json({
-    authenticated: request.cookies.has(AUTH_PRESENCE_COOKIE),
+    authenticated: request.cookies.has(AUTH_ACCESS_COOKIE),
   });
 }
 
