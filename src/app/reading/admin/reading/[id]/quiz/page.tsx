@@ -21,7 +21,7 @@ interface QuizQuestionRequest {
 }
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_BACAAN_QUIZ_URL ?? "";
+const API_BASE = "/api/reading-admin";
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     const res = await fetch(`${API_BASE}${path}`, {
@@ -426,7 +426,7 @@ export default function AdminQuizPage() {
 
         try {
             const data = await apiFetch<Question[]>(
-                `/api/admin/readings/${readingId}/questions`
+                `/${readingId}/questions`
             );
 
             console.log("API RESPONSE:", data);
@@ -448,7 +448,7 @@ export default function AdminQuizPage() {
 
     // ── Handlers ──
     const handleAdd = async (data: QuizQuestionRequest) => {
-        await apiFetch(`/api/admin/readings/${readingId}/questions`, {
+        await apiFetch(`/${readingId}/questions`, {
             method: "POST",
             body: JSON.stringify(data),
         });
@@ -459,7 +459,7 @@ export default function AdminQuizPage() {
     const handleUpdate = async (data: QuizQuestionRequest) => {
         if (!editingQuestion) return;
         await apiFetch(
-            `/api/admin/readings/${readingId}/questions/${editingQuestion.id}`,
+            `/${readingId}/questions/${editingQuestion.id}`,
             { method: "PUT", body: JSON.stringify(data) }
         );
         setEditingQuestion(null);
@@ -468,7 +468,7 @@ export default function AdminQuizPage() {
 
     const handleDelete = async (questionId: string) => {
         await apiFetch(
-            `/api/admin/readings/${readingId}/questions/${questionId}`,
+            `/${readingId}/questions/${questionId}`,
             { method: "DELETE" }
         );
         fetchQuestions();
@@ -476,7 +476,7 @@ export default function AdminQuizPage() {
 
     const handleDeleteAll = async () => {
         if (!confirm("Delete ALL questions for this reading? This cannot be undone.")) return;
-        await apiFetch(`/api/admin/readings/${readingId}/questions`, {
+        await apiFetch(`/${readingId}/questions`, {
             method: "DELETE",
         });
         fetchQuestions();

@@ -2,24 +2,34 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ReadingAPI } from "@/lib/readings";
 import ReadingLayout from "@/components/layout/ReadingLayout";
 
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_BACAAN_QUIZ_URL ?? "";
+const API_BASE = "/api/reading-admin";
+const USER_ID = "user123";
 
 export default function ReadingViewAdmin() {
     const { id } = useParams();
     const router = useRouter();
     const [reading, setReading] = useState<any>(null);
     const [questionCount, setQuestionCount] = useState<number | null>(null);
-    const userId = "user123";
 
     useEffect(() => {
         const fetchDetail = async () => {
-            const data = await ReadingAPI.getReadingById(id as string, userId);
+            const response = await fetch(`${API_BASE}/${id}`, {
+                headers: {
+                    userId: USER_ID,
+                },
+            });
+            if (!response.ok) {
+                const detail = await response.text().catch(() => "");
+                throw new Error(`Failed to fetch reading detail (${response.status}): ${detail}`);
+            }
+            const data = await response.json();
             setReading(data);
         };
-        fetchDetail();
+        fetchDetail().catch((error) => {
+            console.error("Failed to fetch reading detail:", error);
+        });
     }, [id]);
 
     useEffect(() => {
@@ -27,7 +37,16 @@ export default function ReadingViewAdmin() {
 
         const fetchQuestionCount = async () => {
             try {
-                const count = await ReadingAPI.getQuestionsCount(id as string, userId);
+                const response = await fetch(`${API_BASE}/${id}/questions/count`, {
+                    headers: {
+                        userId: USER_ID,
+                    },
+                });
+                if (!response.ok) {
+                    const detail = await response.text().catch(() => "");
+                    throw new Error(`Failed to fetch question count (${response.status}): ${detail}`);
+                }
+                const count = await response.json();
                 setQuestionCount(count);
             } catch (error) {
                 console.error("Failed to fetch question count:", error);

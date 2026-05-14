@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 
-const API_BASE_URL= `${process.env.NEXT_PUBLIC_BACKEND_BACAAN_QUIZ_URL}/api/admin/readings`;
+const API_BASE_URL = "/api/reading-admin";
 
 export default function BacaanPage() {
     const [readings, setReadings] = useState([]);
