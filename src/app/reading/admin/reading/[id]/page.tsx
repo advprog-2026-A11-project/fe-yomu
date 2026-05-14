@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import ReadingLayout from "@/components/layout/ReadingLayout";
+import ReadingForum from "@/app/reading/ReadingForum";
 
 const API_BASE = "/api/reading-admin";
 const USER_ID = "user123";
@@ -107,6 +108,8 @@ export default function ReadingViewAdmin() {
                     </div>
                 )}
             </div>
+
+            <ReadingForum readingId={id as string} />
         </ReadingLayout>
     );
 }

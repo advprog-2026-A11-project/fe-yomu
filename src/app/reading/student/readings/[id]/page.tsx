@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import ReadingLayout from "@/components/layout/ReadingLayout";
 import QuizSection from "@/components/layout/QuizSection";
+import ReadingForum from "@/app/reading/ReadingForum";
 
 const API_BASE = "/api/reading-student";
 
@@ -40,6 +41,7 @@ export default function ReadingViewStudent() {
                     );
                 }}
             />
+            <ReadingForum readingId={id as string} />
         </ReadingLayout>
     );
 }

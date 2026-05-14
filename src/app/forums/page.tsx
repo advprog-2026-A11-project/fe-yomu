@@ -21,6 +21,7 @@ export default function ForumsPage() {
     try {
       const res = await fetch("/api/messages", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
           ...getAuthHeaders(),
@@ -30,7 +31,7 @@ export default function ForumsPage() {
       if (!res.ok) throw new Error(`Create failed: ${res.status} ${await res.text()}`);
       setFormContent("");
       setShowCreate(false);
-      load();
+      await load();
     } catch (err) {
       setError(String(err));
     } finally {

@@ -163,7 +163,9 @@ export async function proxyToBackend(
     const authHeader = extractTokenFromCookie(cookieHeader);
 
     // Determine if we need to read the body
-    const shouldReadBody = ["POST", "PUT", "PATCH"].includes(method || sourceRequest.method);
+    const shouldReadBody = ["POST", "PUT", "PATCH", "DELETE"].includes(
+      method || sourceRequest.method
+    );
     const body = shouldReadBody ? await sourceRequest.text() : undefined;
 
     // Build request init

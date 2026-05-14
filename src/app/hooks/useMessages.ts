@@ -10,7 +10,7 @@ export function useMessages({ readingId }: UseMessagesOptions = {}) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = () => {
+  const load = async () => {
     setLoading(true);
     setError(null);
     
@@ -19,22 +19,31 @@ export function useMessages({ readingId }: UseMessagesOptions = {}) {
       url += `?readingId=${encodeURIComponent(readingId)}`;
     }
     
-    fetch(url, { cache: "no-store" })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((data) => {
-        const allMessages = Array.isArray(data) ? data : [];
-        const topLevelMessages = allMessages.filter((m: Message) => !m.parentId);
-        setMessages(topLevelMessages);
-      })
-      .catch((err) => setError(String(err)))
-      .finally(() => setLoading(false));
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) {
+        const detail = (await res.text()).trim();
+        const suffix = detail ? ` - ${detail.slice(0, 240)}` : "";
+        throw new Error(`GET ${url} failed: HTTP ${res.status}${suffix}`);
+      }
+      const data: unknown = await res.json();
+      const allMessages = Array.isArray(data) ? data : [];
+      const topLevelMessages = allMessages.filter((m: Message) => !m.parentId);
+      setMessages(topLevelMessages);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.toLowerCase().includes("failed to fetch")) {
+        setError(`GET ${url} failed before response (network/proxy/backend unreachable).`);
+      } else {
+        setError(message);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    load();
+    void load();
   }, [readingId]);
 
   return { messages, loading, error, load };
