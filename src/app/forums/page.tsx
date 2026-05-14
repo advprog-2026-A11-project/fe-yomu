@@ -31,7 +31,7 @@ export default function ForumsPage() {
       if (!res.ok) throw new Error(`Create failed: ${res.status} ${await res.text()}`);
       setFormContent("");
       setShowCreate(false);
-      await load();
+      await load(true);
     } catch (err) {
       setError(String(err));
     } finally {
@@ -98,7 +98,7 @@ export default function ForumsPage() {
                 key={m.id}
                 message={m}
                 depth={0}
-                onReload={load}
+                onReload={() => load(true)}
                 onError={handleError}
               />
             ))}
