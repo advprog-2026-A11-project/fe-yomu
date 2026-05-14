@@ -53,6 +53,7 @@ type ReactionCounts = Record<ReactionType, number>;
 type SubmitEvent = React.FormEvent | undefined;
 
 const ACTIVE_REACTION_COLOR = "#f97316";
+const EXCLUSIVE_REACTION_GROUPS: ReactionType[][] = [["UPVOTE", "DOWNVOTE"]];
 
 const EMOJI_REACTIONS: EmojiReactionDescriptor[] = [
   { type: "FIRE", emoji: "🔥", label: "Fire" },
@@ -360,19 +361,29 @@ export function MessageCard({
     cancelReply,
   } = useMessageComposer({ message, isTopLevel, onReload, onError });
 
-  const reactionCounts: ReactionCounts = {
-    ...emptyReactionCounts(),
-    ...(message.reactionCounts ?? {}),
-  };
-  const userReactionTypes = useMemo(
+  const initialReactionCounts: ReactionCounts = useMemo(
+    () => ({
+      ...emptyReactionCounts(),
+      ...(message.reactionCounts ?? {}),
+    }),
+    [message.reactionCounts]
+  );
+  const initialUserReactionTypes = useMemo(
     () =>
       new Set(
         (message.reactions ?? [])
-            .filter((reaction) => reaction.userId === currentUserId)
-            .map((reaction) => reaction.reactionType)
+          .filter((reaction) => reaction.userId === currentUserId)
+          .map((reaction) => reaction.reactionType)
       ),
     [message.reactions, currentUserId]
   );
+  const [reactionCounts, setReactionCounts] = useState<ReactionCounts>(initialReactionCounts);
+  const [userReactionTypes, setUserReactionTypes] = useState<Set<ReactionType>>(initialUserReactionTypes);
+
+  useEffect(() => {
+    setReactionCounts(initialReactionCounts);
+    setUserReactionTypes(initialUserReactionTypes);
+  }, [initialReactionCounts, initialUserReactionTypes]);
   const visibleEmojiCounts = useMemo(
     () => EMOJI_REACTIONS.filter(({ type }) => reactionCounts[type] > 0),
     [reactionCounts]
@@ -402,11 +413,44 @@ export function MessageCard({
     }
 
     setReactionBusy(true);
+    const currentlyActive = userReactionTypes.has(reactionType);
+    const method: "POST" | "DELETE" = currentlyActive ? "DELETE" : "POST";
+    const prevCounts = reactionCounts;
+    const prevUserTypes = userReactionTypes;
+
+    // Optimistic UI update: avoid full message list refetch for reaction toggles.
+    const nextCounts: ReactionCounts = {
+      ...reactionCounts,
+      [reactionType]: Math.max(
+        0,
+        reactionCounts[reactionType] + (method === "POST" ? 1 : -1)
+      ),
+    };
+    const nextUserTypes = new Set(userReactionTypes);
+    if (method === "POST") {
+      // Mirror backend exclusive behavior (currently UPVOTE vs DOWNVOTE).
+      const exclusiveGroup = EXCLUSIVE_REACTION_GROUPS.find((group) => group.includes(reactionType));
+      if (exclusiveGroup) {
+        for (const conflictType of exclusiveGroup) {
+          if (conflictType !== reactionType && nextUserTypes.has(conflictType)) {
+            nextUserTypes.delete(conflictType);
+            nextCounts[conflictType] = Math.max(0, nextCounts[conflictType] - 1);
+          }
+        }
+      }
+      nextUserTypes.add(reactionType);
+    } else {
+      nextUserTypes.delete(reactionType);
+    }
+    setReactionCounts(nextCounts);
+    setUserReactionTypes(nextUserTypes);
+
     try {
-      const method = userReactionTypes.has(reactionType) ? "DELETE" : "POST";
       await sendReactionMutation(message.id, reactionType, method);
-      await onReload();
     } catch (err) {
+      // Roll back optimistic state if request fails.
+      setReactionCounts(prevCounts);
+      setUserReactionTypes(prevUserTypes);
       onError(String(err));
     } finally {
       setReactionBusy(false);
