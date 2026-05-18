@@ -17,11 +17,11 @@ function cacheKey(readingId?: string): string {
 }
 
 function readCachedMessages(readingId?: string): Message[] | null {
-  if (typeof window === "undefined") {
+  if (typeof globalThis.window === "undefined") {
     return null;
   }
   try {
-    const raw = window.sessionStorage.getItem(cacheKey(readingId));
+    const raw = globalThis.window.sessionStorage.getItem(cacheKey(readingId));
     if (!raw) {
       return null;
     }
@@ -29,8 +29,8 @@ function readCachedMessages(readingId?: string): Message[] | null {
     if (!parsed || !Array.isArray(parsed.data) || typeof parsed.ts !== "number") {
       return null;
     }
-    if (Date.now() - parsed.ts > MESSAGE_CACHE_TTL_MS) {
-      window.sessionStorage.removeItem(cacheKey(readingId));
+    if (globalThis.Date.now() - parsed.ts > MESSAGE_CACHE_TTL_MS) {
+      globalThis.window.sessionStorage.removeItem(cacheKey(readingId));
       return null;
     }
     return parsed.data;
@@ -40,18 +40,19 @@ function readCachedMessages(readingId?: string): Message[] | null {
 }
 
 function writeCachedMessages(readingId: string | undefined, messages: Message[]): void {
-  if (typeof window === "undefined") {
+  if (typeof globalThis.window === "undefined") {
     return;
   }
   try {
-    const payload: CachedMessages = { ts: Date.now(), data: messages };
-    window.sessionStorage.setItem(cacheKey(readingId), JSON.stringify(payload));
+    const payload: CachedMessages = { ts: globalThis.Date.now(), data: messages };
+    globalThis.window.sessionStorage.setItem(cacheKey(readingId), globalThis.JSON.stringify(payload));
   } catch {
     // no-op
   }
 }
 
-export function useMessages({ readingId }: UseMessagesOptions = {}) {
+export function useMessages(options?: UseMessagesOptions) {
+  const readingId = options?.readingId;
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

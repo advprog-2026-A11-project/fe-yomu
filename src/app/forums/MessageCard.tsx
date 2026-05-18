@@ -106,6 +106,24 @@ function emptyReactionCounts(): ReactionCounts {
   };
 }
 
+function applyExclusiveReactionConflicts(
+  reactionType: ReactionType,
+  nextUserTypes: Set<ReactionType>,
+  nextCounts: ReactionCounts
+): void {
+  const exclusiveGroup = EXCLUSIVE_REACTION_GROUPS.find((group) => group.includes(reactionType));
+  if (!exclusiveGroup) {
+    return;
+  }
+
+  for (const conflictType of exclusiveGroup) {
+    if (conflictType !== reactionType && nextUserTypes.has(conflictType)) {
+      nextUserTypes.delete(conflictType);
+      nextCounts[conflictType] = Math.max(0, nextCounts[conflictType] - 1);
+    }
+  }
+}
+
 async function sendReactionMutation(
   messageId: string,
   reactionType: ReactionType,
@@ -332,6 +350,8 @@ export function MessageCard({
   const [loadedReplies, setLoadedReplies] = useState<Message[] | null>(message.replies ?? null);
   const [loadingReplies, setLoadingReplies] = useState(false);
   const replyCount = loadedReplies?.length ?? message.replyCount ?? 0;
+  const replyLabel = replyCount === 1 ? "Reply" : "Replies";
+  const replyButtonText = loadingReplies ? "Loading replies..." : `${replyCount} ${replyLabel}`;
   const maxIndent = 10;
 
   const { session, isAdmin, isAuthenticated } = useAuth();
@@ -429,15 +449,7 @@ export function MessageCard({
     const nextUserTypes = new Set(userReactionTypes);
     if (method === "POST") {
       // Mirror backend exclusive behavior (currently UPVOTE vs DOWNVOTE).
-      const exclusiveGroup = EXCLUSIVE_REACTION_GROUPS.find((group) => group.includes(reactionType));
-      if (exclusiveGroup) {
-        for (const conflictType of exclusiveGroup) {
-          if (conflictType !== reactionType && nextUserTypes.has(conflictType)) {
-            nextUserTypes.delete(conflictType);
-            nextCounts[conflictType] = Math.max(0, nextCounts[conflictType] - 1);
-          }
-        }
-      }
+      applyExclusiveReactionConflicts(reactionType, nextUserTypes, nextCounts);
       nextUserTypes.add(reactionType);
     } else {
       nextUserTypes.delete(reactionType);
@@ -760,7 +772,7 @@ export function MessageCard({
               }}
             >
               <span style={{ fontSize: "0.7rem" }}>{collapsed ? "▶" : "▼"}</span>
-              {loadingReplies ? "Loading replies..." : `${replyCount} ${replyCount === 1 ? "Reply" : "Replies"}`}
+              {replyButtonText}
             </button>
             {!collapsed && (
               <div style={{ marginTop: 8 }}>
