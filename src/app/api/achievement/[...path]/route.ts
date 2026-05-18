@@ -16,26 +16,11 @@ async function forward(request: NextRequest, context: RouteContext): Promise<Res
   });
 }
 
+// Only export GET and PUT since achievements only require these two HTTP methods
 export async function GET(request: NextRequest, context: RouteContext) {
   return forward(request, context);
 }
 
-export async function POST(request: NextRequest, context: RouteContext) {
-  return forward(request, context);
-}
-
 export async function PUT(request: NextRequest, context: RouteContext) {
-  return forward(request, context);
-}
-
-export async function PATCH(request: NextRequest, context: RouteContext) {
-  return forward(request, context);
-}
-
-export async function DELETE(request: NextRequest, context: RouteContext) {
-  return forward(request, context);
-}
-
-export async function OPTIONS(request: NextRequest, context: RouteContext) {
   return forward(request, context);
 }
