@@ -22,9 +22,7 @@ type UserAchievement = {
   unlockedAt: string;
   showcased?: boolean;
   isShowcased?: boolean;
-  // If returned via /me (direct entity)
   achievement?: AchievementDetail;
-  // If returned via /users/{userId}/achievements (DTO)
   achievementId?: number;
   title?: string;
   description?: string;
@@ -51,6 +49,64 @@ type UserDailyMission = {
   currentProgress: number;
   completed: boolean;
 };
+
+// Global Helper Functions (Defined outside to reduce Cognitive Complexity)
+function getMissionIcon(type: string): string {
+  switch (type) {
+    case "READ_NEWS":
+      return "📰";
+    case "QUIZ_ACCURACY":
+      return "🎯";
+    case "READ_FICTION":
+      return "📚";
+    case "QUIZ_COUNT":
+      return "⚡";
+    default:
+      return "🏆";
+  }
+}
+
+function getRankName(pts: number): string {
+  if (pts >= 100) return "Master Literasi 🌟";
+  if (pts >= 50) return "Ksatria Buku 📚";
+  if (pts >= 20) return "Pembaca Aktif ⚡";
+  return "Pemula Yomu 🌱";
+}
+
+function getShowcaseButtonText(itemId: number, showcased: boolean, togglingId: number | null): string {
+  if (togglingId === itemId) {
+    return "...";
+  }
+  return showcased ? "★ Dipajang" : "☆ Pajang";
+}
+
+function normalizeAchievement(item: UserAchievement) {
+  const isShowcased = item.showcased ?? item.isShowcased ?? false;
+  if (item.achievement) {
+    return {
+      id: item.id,
+      achievementId: item.achievement.id,
+      title: item.achievement.title,
+      description: item.achievement.description,
+      milestone: item.achievement.milestone,
+      milestoneType: item.achievement.milestoneType,
+      iconUrl: item.achievement.iconUrl,
+      unlockedAt: item.unlockedAt,
+      showcased: isShowcased,
+    };
+  }
+  return {
+    id: item.id,
+    achievementId: item.achievementId || item.id,
+    title: item.title || "Unlocked Title",
+    description: item.description || "Description",
+    milestone: item.milestone || 0,
+    milestoneType: item.milestoneType || "UNKNOWN",
+    iconUrl: item.iconUrl,
+    unlockedAt: item.unlockedAt,
+    showcased: isShowcased,
+  };
+}
 
 export default function AchievementPage() {
   const { session, isAuthenticated } = useAuth();
@@ -153,35 +209,8 @@ export default function AchievementPage() {
     }
   }, [isAuthenticated, userId]);
 
-  // Normalize Achievement Properties (handles both Entity and DTO response schema)
-  const normalizedAchievements = achievements.map((item) => {
-    const isShowcased = item.showcased ?? item.isShowcased ?? false;
-    if (item.achievement) {
-      return {
-        id: item.id,
-        achievementId: item.achievement.id,
-        title: item.achievement.title,
-        description: item.achievement.description,
-        milestone: item.achievement.milestone,
-        milestoneType: item.achievement.milestoneType,
-        iconUrl: item.achievement.iconUrl,
-        unlockedAt: item.unlockedAt,
-        showcased: isShowcased,
-      };
-    }
-    return {
-      id: item.id,
-      achievementId: item.achievementId || item.id,
-      title: item.title || "Unlocked Title",
-      description: item.description || "Description",
-      milestone: item.milestone || 0,
-      milestoneType: item.milestoneType || "UNKNOWN",
-      iconUrl: item.iconUrl,
-      unlockedAt: item.unlockedAt,
-      showcased: isShowcased,
-    };
-  });
-
+  // Normalize Achievement Properties
+  const normalizedAchievements = achievements.map(normalizeAchievement);
   const featuredAchievements = normalizedAchievements.filter((a) => a.showcased);
 
   // Toggle Showcase status
@@ -201,7 +230,6 @@ export default function AchievementPage() {
     }
 
     try {
-      // Endpoint: PUT /api/achievements/featured/{achievementId}?showcased=true/false
       const response = await fetch(
         `/api/achievement/achievements/featured/${achievementId}?showcased=${nextStatus}`,
         {
@@ -219,7 +247,6 @@ export default function AchievementPage() {
             ? "Piala berhasil dipajang di Showcase!"
             : "Piala berhasil diturunkan dari Showcase."
         );
-        // Refresh local data
         await fetchAchievements();
       } else {
         throw new Error(data.message || "Failed to update showcase status");
@@ -231,28 +258,257 @@ export default function AchievementPage() {
     }
   }
 
-  // Helper Emojis depending on Milestone/Mission Type
-  const getMissionIcon = (type: string) => {
-    switch (type) {
-      case "READ_NEWS":
-        return "📰";
-      case "QUIZ_ACCURACY":
-        return "🎯";
-      case "READ_FICTION":
-        return "📚";
-      case "QUIZ_COUNT":
-        return "⚡";
-      default:
-        return "🏆";
+  // Sub-renderers to eliminate nested ternaries and reduce complexity
+  function renderMissionsTab() {
+    if (loadingMissions) {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "4rem 0" }}>
+          <div className="loading-orb"></div>
+          <p style={{ marginTop: "1rem", color: "var(--text-soft)", fontWeight: 700 }}>Memuat Misi Harian Anda...</p>
+        </div>
+      );
     }
-  };
 
-  const getRankName = (pts: number) => {
-    if (pts >= 100) return "Master Literasi 🌟";
-    if (pts >= 50) return "Ksatria Buku 📚";
-    if (pts >= 20) return "Pembaca Aktif ⚡";
-    return "Pemula Yomu 🌱";
-  };
+    if (missions.length === 0) {
+      return (
+        <div className="card text-center" style={{ padding: "3rem", textAlign: "center" }}>
+          <div style={{ fontSize: "3rem" }}>😴</div>
+          <h3 style={{ margin: "1rem 0 0.5rem" }}>Tidak Ada Misi Hari Ini</h3>
+          <p className="muted-copy">Belum ada misi harian yang diaktifkan untuk hari ini. Silahkan cek lagi nanti!</p>
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1rem" }}>
+        {missions.map((userMission) => {
+          const progressPercent = Math.min(
+            100,
+            Math.round((userMission.currentProgress / userMission.dailyMission.targetMilestone) * 100)
+          );
+
+          return (
+            <div
+              key={userMission.id}
+              className="card"
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "1.5rem",
+                border: userMission.completed ? "1.5px solid var(--success)" : "1px solid var(--border)",
+                background: userMission.completed ? "rgba(21, 128, 61, 0.02)" : "var(--surface)",
+                borderRadius: "var(--radius-lg)",
+                transition: "transform 0.2s, box-shadow 0.2s",
+                flexWrap: "wrap",
+                gap: "1.5rem"
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "1.2rem", flex: 1, minWidth: "260px" }}>
+                <div style={{
+                  fontSize: "2.2rem",
+                  background: userMission.completed ? "rgba(21, 128, 61, 0.1)" : "var(--background)",
+                  borderRadius: "var(--radius-md)",
+                  width: "3.8rem",
+                  height: "3.8rem",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center"
+                }}>
+                  {getMissionIcon(userMission.dailyMission.missionType)}
+                </div>
+                
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800 }}>
+                      {userMission.dailyMission.title}
+                    </h3>
+                    <span style={{
+                      fontSize: "0.75rem",
+                      background: "#fef3c7",
+                      color: "#d97706",
+                      padding: "0.2rem 0.5rem",
+                      borderRadius: "999px",
+                      fontWeight: 800
+                    }}>
+                      +{userMission.dailyMission.rewardPoints} Pts
+                    </span>
+                  </div>
+                  <p style={{ margin: "0.25rem 0 0.75rem", color: "var(--text-soft)", fontSize: "0.9rem" }}>
+                    {userMission.dailyMission.description}
+                  </p>
+
+                  <div style={{ width: "100%", maxWidth: "450px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", fontWeight: 700, marginBottom: "0.3rem", color: "var(--text-soft)" }}>
+                      <span>Progres Misi</span>
+                      <span>{userMission.currentProgress} / {userMission.dailyMission.targetMilestone}</span>
+                    </div>
+                    <div style={{ width: "100%", background: "var(--border)", height: "8px", borderRadius: "999px", overflow: "hidden" }}>
+                      <div style={{
+                        width: `${progressPercent}%`,
+                        background: userMission.completed ? "var(--success)" : "var(--primary-soft)",
+                        height: "100%",
+                        borderRadius: "999px",
+                        transition: "width 0.4s ease-out"
+                      }}></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ textAlign: "right" }}>
+                {userMission.completed ? (
+                  <span style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                    background: "rgba(21, 128, 61, 0.12)",
+                    color: "var(--success)",
+                    padding: "0.6rem 1.2rem",
+                    borderRadius: "999px",
+                    fontWeight: 800,
+                    fontSize: "0.9rem"
+                  }}>
+                    ✓ Selesai
+                  </span>
+                ) : (
+                  <span style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    background: "var(--background)",
+                    color: "var(--text-soft)",
+                    padding: "0.6rem 1.2rem",
+                    borderRadius: "999px",
+                    fontWeight: 800,
+                    fontSize: "0.9rem"
+                  }}>
+                    Aktif
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  function renderGalleryTab() {
+    if (loadingAchievements) {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "4rem 0" }}>
+          <div className="loading-orb"></div>
+          <p style={{ marginTop: "1rem", color: "var(--text-soft)", fontWeight: 700 }}>Memuat Galeri Piala...</p>
+        </div>
+      );
+    }
+
+    if (normalizedAchievements.length === 0) {
+      return (
+        <div className="card text-center" style={{ padding: "3rem", textAlign: "center" }}>
+          <div style={{ fontSize: "3rem" }}>📭</div>
+          <h3 style={{ margin: "1rem 0 0.5rem" }}>Belum Ada Piala Terkunci</h3>
+          <p className="muted-copy">Lanjutkan membaca buku dan menyelesaikan kuis untuk membuka piala-piala pertamamu!</p>
+        </div>
+      );
+    }
+
+    return (
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+        gap: "1.5rem"
+      }}>
+        {normalizedAchievements.map((item) => (
+          <div
+            key={item.id}
+            className="card"
+            style={{
+              padding: "1.5rem",
+              borderRadius: "var(--radius-lg)",
+              border: item.showcased ? "2px solid #fbbf24" : "1px solid var(--border)",
+              background: "var(--surface)",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              transition: "all 0.2s"
+            }}
+          >
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "1rem" }}>
+                <span style={{
+                  fontSize: "2.4rem",
+                  background: "var(--background)",
+                  width: "3.8rem",
+                  height: "3.8rem",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: "var(--radius-md)"
+                }}>
+                  🏆
+                </span>
+                <span style={{
+                  fontSize: "0.7rem",
+                  background: "rgba(0,0,0,0.05)",
+                  color: "var(--text-soft)",
+                  padding: "0.25rem 0.5rem",
+                  borderRadius: "999px",
+                  fontWeight: 800
+                }}>
+                  {item.milestoneType}
+                </span>
+              </div>
+
+              <h3 style={{ margin: "0 0 0.4rem 0", fontSize: "1.15rem", fontWeight: 800, color: "var(--text)" }}>
+                {item.title}
+              </h3>
+              <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-soft)", lineHeight: 1.5 }}>
+                {item.description}
+              </p>
+              <small style={{ display: "block", marginTop: "0.5rem", color: "var(--text-muted)", fontSize: "0.75rem", fontWeight: 700 }}>
+                Milestone: {item.milestone}
+              </small>
+            </div>
+
+            {/* Showcase action button */}
+            <div style={{
+              marginTop: "1.2rem",
+              paddingTop: "0.8rem",
+              borderTop: "1px solid var(--border)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center"
+            }}>
+              <span style={{ fontSize: "0.75rem", color: "var(--text-soft)", fontWeight: 600 }}>
+                Showcase status
+              </span>
+              
+              <button
+                type="button"
+                onClick={() => void handleToggleShowcase(item.achievementId, item.showcased)}
+                disabled={togglingId !== null}
+                className="btn"
+                style={{
+                  background: item.showcased ? "#fbbf24" : "var(--background)",
+                  color: item.showcased ? "#1e1b4b" : "var(--text)",
+                  border: "none",
+                  borderRadius: "999px",
+                  padding: "0.4rem 0.8rem",
+                  fontSize: "0.78rem",
+                  fontWeight: 800,
+                  cursor: togglingId === null ? "pointer" : "not-allowed"
+                }}
+              >
+                {getShowcaseButtonText(item.achievementId, item.showcased, togglingId)}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <ProtectedRoute description="Masuk ke akun Anda untuk melihat koleksi piala & misi harian Anda.">
@@ -485,248 +741,7 @@ export default function AchievementPage() {
 
         {/* TAB CONTENTS */}
         <div>
-          {activeTab === "missions" ? (
-            <div>
-              {loadingMissions ? (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "4rem 0" }}>
-                  <div className="loading-orb"></div>
-                  <p style={{ marginTop: "1rem", color: "var(--text-soft)", fontWeight: 700 }}>Memuat Misi Harian Anda...</p>
-                </div>
-              ) : missions.length === 0 ? (
-                <div className="card text-center" style={{ padding: "3rem", textAlign: "center" }}>
-                  <div style={{ fontSize: "3rem" }}>😴</div>
-                  <h3 style={{ margin: "1rem 0 0.5rem" }}>Tidak Ada Misi Hari Ini</h3>
-                  <p className="muted-copy">Belum ada misi harian yang diaktifkan untuk hari ini. Silahkan cek lagi nanti!</p>
-                </div>
-              ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1rem" }}>
-                  {missions.map((userMission) => {
-                    const progressPercent = Math.min(
-                      100,
-                      Math.round((userMission.currentProgress / userMission.dailyMission.targetMilestone) * 100)
-                    );
-
-                    return (
-                      <div
-                        key={userMission.id}
-                        className="card"
-                        style={{
-                          display: "flex",
-                          flexDirection: "row",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          padding: "1.5rem",
-                          border: userMission.completed ? "1.5px solid var(--success)" : "1px solid var(--border)",
-                          background: userMission.completed ? "rgba(21, 128, 61, 0.02)" : "var(--surface)",
-                          borderRadius: "var(--radius-lg)",
-                          transition: "transform 0.2s, box-shadow 0.2s",
-                          flexWrap: "wrap",
-                          gap: "1.5rem"
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: "1.2rem", flex: 1, minWidth: "260px" }}>
-                          <div style={{
-                            fontSize: "2.2rem",
-                            background: userMission.completed ? "rgba(21, 128, 61, 0.1)" : "var(--background)",
-                            borderRadius: "var(--radius-md)",
-                            width: "3.8rem",
-                            height: "3.8rem",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center"
-                          }}>
-                            {getMissionIcon(userMission.dailyMission.missionType)}
-                          </div>
-                          
-                          <div style={{ flex: 1 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                              <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800 }}>
-                                {userMission.dailyMission.title}
-                              </h3>
-                              <span style={{
-                                fontSize: "0.75rem",
-                                background: "#fef3c7",
-                                color: "#d97706",
-                                padding: "0.2rem 0.5rem",
-                                borderRadius: "999px",
-                                fontWeight: 800
-                              }}>
-                                +{userMission.dailyMission.rewardPoints} Pts
-                              </span>
-                            </div>
-                            <p style={{ margin: "0.25rem 0 0.75rem", color: "var(--text-soft)", fontSize: "0.9rem" }}>
-                              {userMission.dailyMission.description}
-                            </p>
-
-                            {/* Progress bar container */}
-                            <div style={{ width: "100%", maxWidth: "450px" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", fontWeight: 700, marginBottom: "0.3rem", color: "var(--text-soft)" }}>
-                                <span>Progres Misi</span>
-                                <span>{userMission.currentProgress} / {userMission.dailyMission.targetMilestone}</span>
-                              </div>
-                              <div style={{ width: "100%", background: "var(--border)", height: "8px", borderRadius: "999px", overflow: "hidden" }}>
-                                <div style={{
-                                  width: `${progressPercent}%`,
-                                  background: userMission.completed ? "var(--success)" : "var(--primary-soft)",
-                                  height: "100%",
-                                  borderRadius: "999px",
-                                  transition: "width 0.4s ease-out"
-                                }}></div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Status button / Checkbox */}
-                        <div style={{ textAlign: "right" }}>
-                          {userMission.completed ? (
-                            <span style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "0.4rem",
-                              background: "rgba(21, 128, 61, 0.12)",
-                              color: "var(--success)",
-                              padding: "0.6rem 1.2rem",
-                              borderRadius: "999px",
-                              fontWeight: 800,
-                              fontSize: "0.9rem"
-                            }}>
-                              ✓ Selesai
-                            </span>
-                          ) : (
-                            <span style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              background: "var(--background)",
-                              color: "var(--text-soft)",
-                              padding: "0.6rem 1.2rem",
-                              borderRadius: "999px",
-                              fontWeight: 800,
-                              fontSize: "0.9rem"
-                            }}>
-                              Aktif
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div>
-              {loadingAchievements ? (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "4rem 0" }}>
-                  <div className="loading-orb"></div>
-                  <p style={{ marginTop: "1rem", color: "var(--text-soft)", fontWeight: 700 }}>Memuat Galeri Piala...</p>
-                </div>
-              ) : normalizedAchievements.length === 0 ? (
-                <div className="card text-center" style={{ padding: "3rem", textAlign: "center" }}>
-                  <div style={{ fontSize: "3rem" }}>📭</div>
-                  <h3 style={{ margin: "1rem 0 0.5rem" }}>Belum Ada Piala Terkunci</h3>
-                  <p className="muted-copy">Lanjutkan membaca buku dan menyelesaikan kuis untuk membuka piala-piala pertamamu!</p>
-                </div>
-              ) : (
-                <div style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-                  gap: "1.5rem"
-                }}>
-                  {normalizedAchievements.map((item) => (
-                    <div
-                      key={item.id}
-                      className="card"
-                      style={{
-                        padding: "1.5rem",
-                        borderRadius: "var(--radius-lg)",
-                        border: item.showcased ? "2px solid #fbbf24" : "1px solid var(--border)",
-                        background: "var(--surface)",
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "space-between",
-                        transition: "all 0.2s"
-                      }}
-                    >
-                      <div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "1rem" }}>
-                          <span style={{
-                            fontSize: "2.4rem",
-                            background: "var(--background)",
-                            width: "3.8rem",
-                            height: "3.8rem",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            borderRadius: "var(--radius-md)"
-                          }}>
-                            🏆
-                          </span>
-                          <span style={{
-                            fontSize: "0.7rem",
-                            background: "rgba(0,0,0,0.05)",
-                            color: "var(--text-soft)",
-                            padding: "0.25rem 0.5rem",
-                            borderRadius: "999px",
-                            fontWeight: 800
-                          }}>
-                            {item.milestoneType}
-                          </span>
-                        </div>
-
-                        <h3 style={{ margin: "0 0 0.4rem 0", fontSize: "1.15rem", fontWeight: 800, color: "var(--text)" }}>
-                          {item.title}
-                        </h3>
-                        <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-soft)", lineHeight: 1.5 }}>
-                          {item.description}
-                        </p>
-                        <small style={{ display: "block", marginTop: "0.5rem", color: "var(--text-muted)", fontSize: "0.75rem", fontWeight: 700 }}>
-                          Milestone: {item.milestone}
-                        </small>
-                      </div>
-
-                      {/* Showcase action button */}
-                      <div style={{
-                        marginTop: "1.2rem",
-                        paddingTop: "0.8rem",
-                        borderTop: "1px solid var(--border)",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center"
-                      }}>
-                        <span style={{ fontSize: "0.75rem", color: "var(--text-soft)", fontWeight: 600 }}>
-                          Showcase status
-                        </span>
-                        
-                        <button
-                          type="button"
-                          onClick={() => void handleToggleShowcase(item.achievementId, item.showcased)}
-                          disabled={togglingId !== null}
-                          className="btn"
-                          style={{
-                            background: item.showcased ? "#fbbf24" : "var(--background)",
-                            color: item.showcased ? "#1e1b4b" : "var(--text)",
-                            border: "none",
-                            borderRadius: "999px",
-                            padding: "0.4rem 0.8rem",
-                            fontSize: "0.78rem",
-                            fontWeight: 800,
-                            cursor: togglingId !== null ? "not-allowed" : "pointer"
-                          }}
-                        >
-                          {togglingId === item.achievementId
-                            ? "..."
-                            : item.showcased
-                              ? "★ Dipajang"
-                              : "☆ Pajang"}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          {activeTab === "missions" ? renderMissionsTab() : renderGalleryTab()}
         </div>
       </div>
     </ProtectedRoute>
