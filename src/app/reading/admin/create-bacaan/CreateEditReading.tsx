@@ -4,7 +4,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/providers/auth-provider";
 import Link from "next/link";
 
-const API_ADMIN = "http://172.25.35.224:8082/api/admin/readings";
+const API_ADMIN = "/api/reading-admin";
+
 
 export default function CreateEditReading() {
     const router = useRouter();

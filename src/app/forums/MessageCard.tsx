@@ -11,6 +11,9 @@ export type Message = {
   replies?: Message[];
   parentId?: string | null;
   userId?: string;
+  replyCount?: number;
+  reactions?: Reaction[];
+  reactionCounts?: Partial<Record<ReactionType, number>>;
 };
 
 type ReactionType =
@@ -34,7 +37,7 @@ type Reaction = {
 type MessageCardProps = Readonly<{
   message: Message;
   depth?: number;
-  onReload: () => void;
+  onReload: () => Promise<void>;
   onError: (err: string) => void;
 }>;
 
@@ -49,8 +52,8 @@ type EmojiReactionDescriptor = Readonly<{
 type ReactionCounts = Record<ReactionType, number>;
 type SubmitEvent = React.FormEvent | undefined;
 
-const USER_ID_STORAGE_KEY = "forum-user-id";
 const ACTIVE_REACTION_COLOR = "#f97316";
+const EXCLUSIVE_REACTION_GROUPS: ReactionType[][] = [["UPVOTE", "DOWNVOTE"]];
 
 const EMOJI_REACTIONS: EmojiReactionDescriptor[] = [
   { type: "FIRE", emoji: "🔥", label: "Fire" },
@@ -60,24 +63,39 @@ const EMOJI_REACTIONS: EmojiReactionDescriptor[] = [
   { type: "THINKING", emoji: "🤔", label: "Thinking" },
 ];
 
-function createAnonymousUserId(): string {
-  const browserWindow = globalThis.window;
-  if (browserWindow === undefined) {
-    throw new Error("createAnonymousUserId must run in a browser context");
-  }
-
-  const existing = browserWindow.localStorage.getItem(USER_ID_STORAGE_KEY);
-  if (existing) {
-    return existing;
-  }
-
-  const generated = globalThis.crypto.randomUUID();
-  browserWindow.localStorage.setItem(USER_ID_STORAGE_KEY, generated);
-  return generated;
+async function buildDetailedFetchError(response: Response, context: string): Promise<Error> {
+  const detail = (await response.text()).trim();
+  const suffix = detail ? ` - ${detail.slice(0, 240)}` : "";
+  return new Error(`${context} failed: HTTP ${response.status}${suffix}`);
 }
 
-function buildReactionCounts(reactions: Reaction[]): ReactionCounts {
-  const counts: ReactionCounts = {
+function buildNetworkFetchError(error: unknown, context: string): Error {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.toLowerCase().includes("failed to fetch")) {
+    return new Error(
+      `${context} failed before response (network/proxy/backend unreachable).`
+    );
+  }
+  return new Error(`${context} failed: ${message}`);
+}
+
+async function fetchRepliesRequest(messageId: string): Promise<Message[]> {
+  const endpoint = `/api/messages/${messageId}/replies`;
+  let res: Response;
+  try {
+    res = await fetch(endpoint, { cache: "no-store" });
+  } catch (error) {
+    throw buildNetworkFetchError(error, `GET ${endpoint}`);
+  }
+  if (!res.ok) {
+    throw await buildDetailedFetchError(res, `GET ${endpoint}`);
+  }
+  const data: unknown = await res.json();
+  return Array.isArray(data) ? (data as Message[]) : [];
+}
+
+function emptyReactionCounts(): ReactionCounts {
+  return {
     UPVOTE: 0,
     DOWNVOTE: 0,
     FIRE: 0,
@@ -86,42 +104,56 @@ function buildReactionCounts(reactions: Reaction[]): ReactionCounts {
     PARTY: 0,
     THINKING: 0,
   };
-
-  for (const reaction of reactions) {
-    counts[reaction.reactionType] += 1;
-  }
-
-  return counts;
 }
 
-async function fetchMessageReactions(messageId: string): Promise<Reaction[]> {
-  const res = await fetch(`/api/messages/${messageId}/reactions`, { cache: "no-store" });
-  if (!res.ok) {
-    throw new Error("Failed to load reactions. Please try again.");
+function applyExclusiveReactionConflicts(
+  reactionType: ReactionType,
+  nextUserTypes: Set<ReactionType>,
+  nextCounts: ReactionCounts
+): void {
+  const exclusiveGroup = EXCLUSIVE_REACTION_GROUPS.find((group) => group.includes(reactionType));
+  if (!exclusiveGroup) {
+    return;
   }
 
-  const data: unknown = await res.json();
-  return Array.isArray(data) ? (data as Reaction[]) : [];
+  for (const conflictType of exclusiveGroup) {
+    if (conflictType !== reactionType && nextUserTypes.has(conflictType)) {
+      nextUserTypes.delete(conflictType);
+      nextCounts[conflictType] = Math.max(0, nextCounts[conflictType] - 1);
+    }
+  }
 }
 
 async function sendReactionMutation(
   messageId: string,
-  userId: string,
   reactionType: ReactionType,
   method: "POST" | "DELETE"
 ): Promise<void> {
-  const res = await fetch(`/api/messages/${messageId}/reactions`, {
-    method,
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-    body: JSON.stringify({ userId, reactionType }),
-  });
+  const endpoint = `/api/messages/${messageId}/reactions`;
+  let res: Response;
+  try {
+    res = await fetch(endpoint, {
+      method,
+      credentials: "include",
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      body: JSON.stringify({ reactionType }),
+    });
+  } catch (error) {
+    throw buildNetworkFetchError(error, `${method} ${endpoint}`);
+  }
 
   if (method === "POST" && !res.ok && res.status !== 409) {
-    throw new Error("Failed to add reaction. Please try again.");
+    throw await buildDetailedFetchError(
+      res,
+      `${method} /api/messages/${messageId}/reactions`
+    );
   }
 
   if (method === "DELETE" && !res.ok && res.status !== 404) {
-    throw new Error("Failed to remove reaction. Please try again.");
+    throw await buildDetailedFetchError(
+      res,
+      `${method} /api/messages/${messageId}/reactions`
+    );
   }
 }
 
@@ -132,41 +164,60 @@ function getMessageEndpoint(message: Message, isTopLevel: boolean): string {
 }
 
 async function createReplyRequest(messageId: string, content: string): Promise<void> {
-  const res = await fetch(`/api/messages/${messageId}/replies`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-    body: JSON.stringify({ content }),
-  });
+  const endpoint = `/api/messages/${messageId}/replies`;
+  let res: Response;
+  try {
+    res = await fetch(endpoint, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      body: JSON.stringify({ content }),
+    });
+  } catch (error) {
+    throw buildNetworkFetchError(error, `POST ${endpoint}`);
+  }
   if (!res.ok) {
-    throw new Error("Failed to create reply. Please try again.");
+    throw await buildDetailedFetchError(res, `POST ${endpoint}`);
   }
 }
 
 async function updateMessageRequest(endpoint: string, content: string): Promise<void> {
-  const res = await fetch(endpoint, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-    body: JSON.stringify({ content }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(endpoint, {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      body: JSON.stringify({ content }),
+    });
+  } catch (error) {
+    throw buildNetworkFetchError(error, `PUT ${endpoint}`);
+  }
   if (!res.ok) {
-    throw new Error("Failed to update message. Please try again.");
+    throw await buildDetailedFetchError(res, `PUT ${endpoint}`);
   }
 }
 
 async function deleteMessageRequest(endpoint: string): Promise<void> {
-  const res = await fetch(endpoint, {
-    method: "DELETE",
-    headers: getAuthHeaders(),
-  });
+  let res: Response;
+  try {
+    res = await fetch(endpoint, {
+      method: "DELETE",
+      credentials: "include",
+      headers: getAuthHeaders(),
+    });
+  } catch (error) {
+    throw buildNetworkFetchError(error, `DELETE ${endpoint}`);
+  }
   if (!res.ok) {
-    throw new Error("Failed to delete message. Please try again.");
+    throw await buildDetailedFetchError(res, `DELETE ${endpoint}`);
   }
 }
 
 function useMessageComposer(params: Readonly<{
   message: Message;
   isTopLevel: boolean;
-  onReload: () => void;
+  onReload: () => Promise<void>;
   onError: (err: string) => void;
 }>) {
   const { message, isTopLevel, onReload, onError } = params;
@@ -174,7 +225,7 @@ function useMessageComposer(params: Readonly<{
   const [replyContent, setReplyContent] = useState("");
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   const runWithErrorHandling = async (operation: () => Promise<void>) => {
     try {
@@ -190,7 +241,7 @@ function useMessageComposer(params: Readonly<{
       await createReplyRequest(message.id, replyContent);
       setReplyContent("");
       setShowReplyForm(false);
-      onReload();
+      await onReload();
     });
   };
 
@@ -200,7 +251,7 @@ function useMessageComposer(params: Readonly<{
     void runWithErrorHandling(async () => {
       await updateMessageRequest(endpoint, editContent);
       setEditing(false);
-      onReload();
+      await onReload();
     });
   };
 
@@ -213,7 +264,7 @@ function useMessageComposer(params: Readonly<{
     const endpoint = getMessageEndpoint(message, isTopLevel);
     void runWithErrorHandling(async () => {
       await deleteMessageRequest(endpoint);
-      onReload();
+      await onReload();
     });
   };
 
@@ -243,107 +294,6 @@ function useMessageComposer(params: Readonly<{
     deleteMessage,
     beginEditing,
     cancelReply,
-  };
-}
-
-function useMessageReactions(messageId: string, onError: (err: string) => void) {
-  const [reactions, setReactions] = useState<Reaction[]>([]);
-  const [reactionBusy, setReactionBusy] = useState(false);
-  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const emojiPickerRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    setUserId(createAnonymousUserId());
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      try {
-        const next = await fetchMessageReactions(messageId);
-        if (!cancelled) {
-          setReactions(next);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          onError(String(err));
-        }
-      }
-    };
-
-    void load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [messageId, onError]);
-
-  useEffect(() => {
-    if (!emojiPickerOpen) {
-      return;
-    }
-
-    const handleOutsideClick = (event: MouseEvent) => {
-      if (!emojiPickerRef.current?.contains(event.target as Node)) {
-        setEmojiPickerOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => {
-      document.removeEventListener("mousedown", handleOutsideClick);
-    };
-  }, [emojiPickerOpen]);
-
-  const userReactionTypes = useMemo(() => {
-    if (!userId) {
-      return new Set<ReactionType>();
-    }
-
-    return new Set(
-      reactions
-        .filter((reaction) => reaction.userId === userId)
-        .map((reaction) => reaction.reactionType)
-    );
-  }, [reactions, userId]);
-
-  const reactionCounts = useMemo(() => buildReactionCounts(reactions), [reactions]);
-
-  const visibleEmojiCounts = useMemo(
-    () => EMOJI_REACTIONS.filter(({ type }) => reactionCounts[type] > 0),
-    [reactionCounts]
-  );
-
-  const reactionButtonEnabled = Boolean(userId) && !reactionBusy;
-
-  const handleReactionClick = async (reactionType: ReactionType) => {
-    if (!userId || reactionBusy) {
-      return;
-    }
-
-    setReactionBusy(true);
-    try {
-      const method = userReactionTypes.has(reactionType) ? "DELETE" : "POST";
-      await sendReactionMutation(messageId, userId, reactionType, method);
-      setReactions(await fetchMessageReactions(messageId));
-    } catch (err) {
-      onError(String(err));
-    } finally {
-      setReactionBusy(false);
-    }
-  };
-
-  return {
-    emojiPickerOpen,
-    setEmojiPickerOpen,
-    emojiPickerRef,
-    reactionCounts,
-    userReactionTypes,
-    visibleEmojiCounts,
-    reactionButtonEnabled,
-    handleReactionClick,
   };
 }
 
@@ -397,15 +347,21 @@ export function MessageCard({
   onError,
 }: Readonly<MessageCardProps>) {
   const isTopLevel = depth === 0;
-  const hasReplies = message.replies && message.replies.length > 0;
-  const replyCount = message.replies?.length || 0;
+  const [loadedReplies, setLoadedReplies] = useState<Message[] | null>(message.replies ?? null);
+  const [loadingReplies, setLoadingReplies] = useState(false);
+  const replyCount = loadedReplies?.length ?? message.replyCount ?? 0;
+  const replyLabel = replyCount === 1 ? "Reply" : "Replies";
+  const replyButtonText = loadingReplies ? "Loading replies..." : `${replyCount} ${replyLabel}`;
   const maxIndent = 10;
 
-  const { session, isAdmin } = useAuth();
+  const { session, isAdmin, isAuthenticated } = useAuth();
   const currentUserId = session?.profile?.id;
 
   const canEdit = currentUserId === message.userId;
   const canDelete = isAdmin || currentUserId === message.userId;
+  const [reactionBusy, setReactionBusy] = useState(false);
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const emojiPickerRef = useRef<HTMLDivElement | null>(null);
 
   const {
     showReplyForm,
@@ -425,16 +381,126 @@ export function MessageCard({
     cancelReply,
   } = useMessageComposer({ message, isTopLevel, onReload, onError });
 
-  const {
-    emojiPickerOpen,
-    setEmojiPickerOpen,
-    emojiPickerRef,
-    reactionCounts,
-    userReactionTypes,
-    visibleEmojiCounts,
-    reactionButtonEnabled,
-    handleReactionClick,
-  } = useMessageReactions(message.id, onError);
+  const initialReactionCounts: ReactionCounts = useMemo(
+    () => ({
+      ...emptyReactionCounts(),
+      ...(message.reactionCounts ?? {}),
+    }),
+    [message.reactionCounts]
+  );
+  const initialUserReactionTypes = useMemo(
+    () =>
+      new Set(
+        (message.reactions ?? [])
+          .filter((reaction) => reaction.userId === currentUserId)
+          .map((reaction) => reaction.reactionType)
+      ),
+    [message.reactions, currentUserId]
+  );
+  const [reactionCounts, setReactionCounts] = useState<ReactionCounts>(initialReactionCounts);
+  const [userReactionTypes, setUserReactionTypes] = useState<Set<ReactionType>>(initialUserReactionTypes);
+
+  useEffect(() => {
+    setReactionCounts(initialReactionCounts);
+    setUserReactionTypes(initialUserReactionTypes);
+  }, [initialReactionCounts, initialUserReactionTypes]);
+  const visibleEmojiCounts = useMemo(
+    () => EMOJI_REACTIONS.filter(({ type }) => reactionCounts[type] > 0),
+    [reactionCounts]
+  );
+  const reactionButtonEnabled = isAuthenticated && !reactionBusy;
+
+  useEffect(() => {
+    if (!emojiPickerOpen) {
+      return;
+    }
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (!emojiPickerRef.current?.contains(event.target as Node)) {
+        setEmojiPickerOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [emojiPickerOpen]);
+
+  const handleReactionClick = async (reactionType: ReactionType) => {
+    if (!isAuthenticated || reactionBusy) {
+      return;
+    }
+
+    setReactionBusy(true);
+    const currentlyActive = userReactionTypes.has(reactionType);
+    const method: "POST" | "DELETE" = currentlyActive ? "DELETE" : "POST";
+    const prevCounts = reactionCounts;
+    const prevUserTypes = userReactionTypes;
+
+    // Optimistic UI update: avoid full message list refetch for reaction toggles.
+    const nextCounts: ReactionCounts = {
+      ...reactionCounts,
+      [reactionType]: Math.max(
+        0,
+        reactionCounts[reactionType] + (method === "POST" ? 1 : -1)
+      ),
+    };
+    const nextUserTypes = new Set(userReactionTypes);
+    if (method === "POST") {
+      // Mirror backend exclusive behavior (currently UPVOTE vs DOWNVOTE).
+      applyExclusiveReactionConflicts(reactionType, nextUserTypes, nextCounts);
+      nextUserTypes.add(reactionType);
+    } else {
+      nextUserTypes.delete(reactionType);
+    }
+    setReactionCounts(nextCounts);
+    setUserReactionTypes(nextUserTypes);
+
+    try {
+      await sendReactionMutation(message.id, reactionType, method);
+    } catch (err) {
+      // Roll back optimistic state if request fails.
+      setReactionCounts(prevCounts);
+      setUserReactionTypes(prevUserTypes);
+      onError(String(err));
+    } finally {
+      setReactionBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    setLoadedReplies(message.replies ?? null);
+  }, [message.id, message.replies]);
+
+  const toggleReplies = async () => {
+    if (collapsed) {
+      if (loadedReplies == null) {
+        setLoadingReplies(true);
+        try {
+          const replies = await fetchRepliesRequest(message.id);
+          setLoadedReplies(replies);
+        } catch (err) {
+          onError(String(err));
+          setLoadingReplies(false);
+          return;
+        } finally {
+          setLoadingReplies(false);
+        }
+      }
+      setCollapsed(false);
+      return;
+    }
+    setCollapsed(true);
+  };
+
+  const reloadRepliesForCurrentMessage = async () => {
+    if (loadedReplies == null) {
+      return;
+    }
+    const replies = await fetchRepliesRequest(message.id);
+    setLoadedReplies(replies);
+  };
 
   const containerStyle: React.CSSProperties = isTopLevel
     ? { marginBottom: "1rem" }
@@ -689,11 +755,12 @@ export function MessageCard({
           </form>
         )}
 
-        {hasReplies && (
-          <div style={{ marginTop: 12 }}>
+        <div style={{ marginTop: 12 }}>
             <button
               type="button"
-              onClick={() => setCollapsed(!collapsed)}
+              onClick={() => {
+                void toggleReplies();
+              }}
               className="btn-ghost"
               style={{
                 fontSize: smallFontSize,
@@ -705,23 +772,31 @@ export function MessageCard({
               }}
             >
               <span style={{ fontSize: "0.7rem" }}>{collapsed ? "▶" : "▼"}</span>
-              {replyCount} {replyCount === 1 ? "Reply" : "Replies"}
+              {replyButtonText}
             </button>
             {!collapsed && (
               <div style={{ marginTop: 8 }}>
-                {message.replies!.map((reply) => (
-                  <MessageCard
-                    key={reply.id}
-                    message={{ ...reply, parentId: message.id }}
-                    depth={depth + 1}
-                    onReload={onReload}
-                    onError={onError}
-                  />
-                ))}
+                {loadedReplies && loadedReplies.length > 0 ? (
+                  loadedReplies.map((reply) => (
+                    <MessageCard
+                      key={reply.id}
+                      message={{ ...reply, parentId: message.id }}
+                      depth={depth + 1}
+                      onReload={async () => {
+                        await onReload();
+                        await reloadRepliesForCurrentMessage();
+                      }}
+                      onError={onError}
+                    />
+                  ))
+                ) : (
+                  <div style={{ fontSize: smallFontSize, color: "var(--text-muted, #666)" }}>
+                    No replies yet.
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
       </div>
     </div>
   );
