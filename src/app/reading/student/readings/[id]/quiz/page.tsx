@@ -1,54 +1,79 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useState, useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { ReadingAPI } from "@/lib/readings";
 
 interface Question {
     id: string;
     text: string;
-    questionType: "MULTIPLE_CHOICE" | "TRUE_FALSE" | "ESSAY";
+    questionType: "MULTIPLE_CHOICE" | "TRUE_FALSE" | "ESSAY" | string;
     options?: string[];
 }
 
-const SAMPLE_QUESTIONS: Question[] = [
-    {
-        id: "1",
-        text: "What is the main idea of the passage?",
-        questionType: "MULTIPLE_CHOICE",
-        options: [
-            "Environmental awareness",
-            "Technology development",
-            "Historical events",
-            "Scientific research",
-        ],
-    },
-    {
-        id: "2",
-        text: "The writer agrees that reading daily improves comprehension.",
-        questionType: "TRUE_FALSE",
-        options: ["True", "False"],
-    },
-    {
-        id: "3",
-        text: "Write one benefit of reading books regularly.",
-        questionType: "ESSAY",
-    },
-];
+interface QuizSubmitResponse {
+    score: number;
+    accuracy: number;
+    totalQuestions: number;
+    correctAnswers: number;
+    timeTaken: number;
+    questionResults: Record<string, boolean>;
+}
 
 export default function StudentQuizPage() {
     const router = useRouter();
+    const params = useParams();
+    const readingId = params.id as string;
+    const userId = "user123"; // Or from auth provider/context
+
+    const [questions, setQuestions] = useState<Question[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
 
     const [currentIndex, setCurrentIndex] = useState(0);
     const [answers, setAnswers] = useState<Record<string, string>>({});
+    const [timeTakenSeconds, setTimeTakenSeconds] = useState(0);
     const [submitted, setSubmitted] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [result, setResult] = useState<QuizSubmitResponse | null>(null);
 
-    const currentQuestion = SAMPLE_QUESTIONS[currentIndex];
+    useEffect(() => {
+        const fetchQuestions = async () => {
+            try {
+                setLoading(true);
+                const data = await ReadingAPI.getQuizQuestions(readingId, userId);
+                setQuestions(data);
+            } catch (err: any) {
+                setError(err.message || "Failed to load questions");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (readingId) {
+            fetchQuestions();
+        }
+    }, [readingId, userId]);
+
+    useEffect(() => {
+        let timer: NodeJS.Timeout;
+        if (!loading && !submitted && questions.length > 0) {
+            timer = setInterval(() => {
+                setTimeTakenSeconds((prev) => prev + 1);
+            }, 1000);
+        }
+        return () => clearInterval(timer);
+    }, [loading, submitted, questions.length]);
+
+    const currentQuestion = questions[currentIndex];
 
     const progress = useMemo(() => {
-        return ((currentIndex + 1) / SAMPLE_QUESTIONS.length) * 100;
-    }, [currentIndex]);
+        if (questions.length === 0) return 0;
+        return ((currentIndex + 1) / questions.length) * 100;
+    }, [currentIndex, questions.length]);
 
     const handleAnswer = (value: string) => {
+        if (!currentQuestion) return;
         setAnswers((prev) => ({
             ...prev,
             [currentQuestion.id]: value,
@@ -56,7 +81,7 @@ export default function StudentQuizPage() {
     };
 
     const nextQuestion = () => {
-        if (currentIndex < SAMPLE_QUESTIONS.length - 1) {
+        if (currentIndex < questions.length - 1) {
             setCurrentIndex((prev) => prev + 1);
         }
     };
@@ -67,12 +92,36 @@ export default function StudentQuizPage() {
         }
     };
 
-    const handleSubmit = () => {
-        setSubmitted(true);
-        console.log("Submitted Answers:", answers);
+    const handleSubmit = async () => {
+        try {
+            setSubmitting(true);
+            const payload = {
+                answers,
+                timeTakenSeconds,
+            };
+            const response = await ReadingAPI.submitQuiz(readingId, userId, payload);
+            setResult(response);
+            setSubmitted(true);
+        } catch (err: any) {
+            alert("Failed to submit quiz: " + err.message);
+        } finally {
+            setSubmitting(false);
+        }
     };
 
-    if (submitted) {
+    if (loading) {
+        return <div className="min-h-screen flex items-center justify-center">Loading quiz...</div>;
+    }
+
+    if (error) {
+        return <div className="min-h-screen flex items-center justify-center text-rose-500">{error}</div>;
+    }
+
+    if (questions.length === 0) {
+        return <div className="min-h-screen flex items-center justify-center">No questions available.</div>;
+    }
+
+    if (submitted && result) {
         return (
             <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
                 <div className="bg-white max-w-xl w-full rounded-3xl shadow-lg border border-slate-200 p-10 text-center">
@@ -85,33 +134,47 @@ export default function StudentQuizPage() {
                             stroke="currentColor"
                             strokeWidth={2}
                         >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M5 13l4 4L19 7"
-                            />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                     </div>
 
-                    <h1 className="text-3xl font-bold text-slate-800 mb-3">
-                        Quiz Submitted!
-                    </h1>
+                    <h1 className="text-3xl font-bold text-slate-800 mb-3">Quiz Submitted!</h1>
 
-                    <p className="text-slate-500 leading-relaxed mb-8">
-                        Your answers have been submitted successfully. Great job completing
-                        the reading quiz.
-                    </p>
+                    <div className="bg-slate-50 p-6 rounded-2xl mb-8 space-y-4 text-left border border-slate-100">
+                        <div className="flex justify-between border-b pb-2">
+                            <span className="text-slate-500 font-medium">Score</span>
+                            <span className="font-bold text-indigo-600">{result.score.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between border-b pb-2">
+                            <span className="text-slate-500 font-medium">Accuracy</span>
+                            <span className="font-bold text-indigo-600">{result.accuracy}%</span>
+                        </div>
+                        <div className="flex justify-between border-b pb-2">
+                            <span className="text-slate-500 font-medium">Correct Answers</span>
+                            <span className="font-bold text-slate-800">{result.correctAnswers} / {result.totalQuestions}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-slate-500 font-medium">Time Taken</span>
+                            <span className="font-bold text-slate-800">{result.timeTaken} seconds</span>
+                        </div>
+                    </div>
 
                     <button
-                        onClick={() => router.push("/reading/student/readings")}
-                        className="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-all"
+                        onClick={() => router.push(`/reading/student/readings/${readingId}`)}
+                        className="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-all w-full"
                     >
-                        Back to Readings
+                        Back to Reading
                     </button>
                 </div>
             </div>
         );
     }
+
+    const formatTime = (seconds: number) => {
+        const m = Math.floor(seconds / 60).toString().padStart(2, "0");
+        const s = (seconds % 60).toString().padStart(2, "0");
+        return `${m}:${s}`;
+    };
 
     return (
         <div className="min-h-screen bg-slate-50 py-10 px-4">
@@ -127,11 +190,19 @@ export default function StudentQuizPage() {
                             </h1>
                         </div>
 
-                        <div className="bg-white border border-slate-200 rounded-2xl px-5 py-3 shadow-sm">
-                            <p className="text-xs text-slate-500 mb-1">Question</p>
-                            <p className="text-lg font-bold text-slate-800">
-                                {currentIndex + 1} / {SAMPLE_QUESTIONS.length}
-                            </p>
+                        <div className="flex gap-4">
+                            <div className="bg-white border border-slate-200 rounded-2xl px-5 py-3 shadow-sm flex flex-col items-center">
+                                <p className="text-xs text-slate-500 mb-1">Time</p>
+                                <p className="text-lg font-bold text-slate-800">
+                                    {formatTime(timeTakenSeconds)}
+                                </p>
+                            </div>
+                            <div className="bg-white border border-slate-200 rounded-2xl px-5 py-3 shadow-sm flex flex-col items-center">
+                                <p className="text-xs text-slate-500 mb-1">Question</p>
+                                <p className="text-lg font-bold text-slate-800">
+                                    {currentIndex + 1} / {questions.length}
+                                </p>
+                            </div>
                         </div>
                     </div>
 
@@ -150,19 +221,18 @@ export default function StudentQuizPage() {
                         </div>
 
                         <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold uppercase tracking-wide">
-              {currentQuestion.questionType.replace("_", " ")}
-            </span>
+                            {currentQuestion?.questionType?.replace("_", " ") || "QUESTION"}
+                        </span>
                     </div>
 
                     <h2 className="text-2xl font-bold text-slate-800 leading-relaxed mb-8">
-                        {currentQuestion.text}
+                        {currentQuestion?.text}
                     </h2>
 
-                    {currentQuestion.questionType === "MULTIPLE_CHOICE" && (
+                    {currentQuestion?.questionType === "MULTIPLE_CHOICE" && (
                         <div className="space-y-4">
                             {currentQuestion.options?.map((option, index) => {
-                                const selected =
-                                    answers[currentQuestion.id] === option;
+                                const selected = answers[currentQuestion.id] === option;
 
                                 return (
                                     <button
@@ -184,7 +254,6 @@ export default function StudentQuizPage() {
                                             >
                                                 {String.fromCharCode(65 + index)}
                                             </div>
-
                                             <p className="font-medium text-slate-700">{option}</p>
                                         </div>
                                     </button>
@@ -193,11 +262,10 @@ export default function StudentQuizPage() {
                         </div>
                     )}
 
-                    {currentQuestion.questionType === "TRUE_FALSE" && (
+                    {currentQuestion?.questionType === "TRUE_FALSE" && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             {currentQuestion.options?.map((option) => {
-                                const selected =
-                                    answers[currentQuestion.id] === option;
+                                const selected = answers[currentQuestion.id] === option;
 
                                 return (
                                     <button
@@ -205,7 +273,7 @@ export default function StudentQuizPage() {
                                         onClick={() => handleAnswer(option)}
                                         className={`rounded-2xl border p-8 text-center transition-all ${
                                             selected
-                                                ? option === "True"
+                                                ? option.toLowerCase() === "true"
                                                     ? "border-emerald-500 bg-emerald-50"
                                                     : "border-rose-500 bg-rose-50"
                                                 : "border-slate-200 hover:border-slate-300"
@@ -220,41 +288,43 @@ export default function StudentQuizPage() {
                         </div>
                     )}
 
-                    {currentQuestion.questionType === "ESSAY" && (
+                    {currentQuestion?.questionType === "ESSAY" && (
                         <div>
-              <textarea
-                  rows={6}
-                  value={answers[currentQuestion.id] || ""}
-                  onChange={(e) => handleAnswer(e.target.value)}
-                  placeholder="Write your answer here..."
-                  className="w-full rounded-2xl border border-slate-200 px-5 py-4 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
-              />
+                            <textarea
+                                rows={6}
+                                value={answers[currentQuestion.id] || ""}
+                                onChange={(e) => handleAnswer(e.target.value)}
+                                placeholder="Write your answer here..."
+                                className="w-full rounded-2xl border border-slate-200 px-5 py-4 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                            />
                         </div>
                     )}
 
                     <div className="flex items-center justify-between mt-10 gap-4 flex-wrap">
                         <button
                             onClick={previousQuestion}
-                            disabled={currentIndex === 0}
+                            disabled={currentIndex === 0 || submitting}
                             className="px-6 py-3 rounded-2xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                         >
                             Previous
                         </button>
 
                         <div className="flex gap-3">
-                            {currentIndex < SAMPLE_QUESTIONS.length - 1 ? (
+                            {currentIndex < questions.length - 1 ? (
                                 <button
                                     onClick={nextQuestion}
-                                    className="px-7 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-all shadow-sm"
+                                    disabled={submitting}
+                                    className="px-7 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-all shadow-sm disabled:opacity-50"
                                 >
                                     Next Question
                                 </button>
                             ) : (
                                 <button
                                     onClick={handleSubmit}
-                                    className="px-7 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-all shadow-sm"
+                                    disabled={submitting}
+                                    className="px-7 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-all shadow-sm flex items-center gap-2 disabled:opacity-75"
                                 >
-                                    Submit Quiz
+                                    {submitting ? "Submitting..." : "Submit Quiz"}
                                 </button>
                             )}
                         </div>
@@ -267,7 +337,7 @@ export default function StudentQuizPage() {
                     </h3>
 
                     <div className="flex flex-wrap gap-3">
-                        {SAMPLE_QUESTIONS.map((question, index) => {
+                        {questions.map((question, index) => {
                             const answered = !!answers[question.id];
                             const active = currentIndex === index;
 

@@ -43,4 +43,12 @@ export const ReadingAPI = {
     getQuestionsCount: async (id: string, userId: string) => {
         return proxyToBacaanQuiz(`/api/admin/readings/${id}/questions/count`, "GET", { userId });
     },
+
+    getQuizQuestions: async (readingId: string, userId: string) => {
+        return proxyToBacaanQuiz(`/api/student/quiz/readings/${readingId}/questions`, "GET", { userId });
+    },
+
+    submitQuiz: async (readingId: string, userId: string, data: any) => {
+        return proxyToBacaanQuiz(`/api/student/quiz/readings/${readingId}/submit`, "POST", { userId }, data);
+    },
 };
