@@ -20,30 +20,7 @@ interface QuizQuestionRequest {
     correctAnswer: string;
 }
 
-// ─── API helpers ──────────────────────────────────────────────────────────────
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_BACAAN_QUIZ_URL ?? "";
-
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-    const res = await fetch(`${API_BASE}${path}`, {
-        headers: { "Content-Type": "application/json" },
-        ...init,
-    });
-
-    if (!res.ok) {
-        const msg = await res.text().catch(() => res.statusText);
-        throw new Error(msg || `HTTP ${res.status}`);
-    }
-
-    // kalau tidak ada body
-    const text = await res.text();
-
-    // kosong
-    if (!text) {
-        return undefined as T;
-    }
-
-    return JSON.parse(text);
-}
+import { ReadingAPI } from "@/lib/readings";
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -408,6 +385,7 @@ export default function AdminQuizPage() {
     const params = useParams();
     const router = useRouter();
     const readingId = params?.id as string;
+    const userId = "admin123"; // TODO: Replace with actual auth user ID
 
     const [questions, setQuestions] = useState<Question[]>([]);
     const [loading, setLoading] = useState(true);
@@ -425,9 +403,7 @@ export default function AdminQuizPage() {
         setError(null);
 
         try {
-            const data = await apiFetch<Question[]>(
-                `/api/admin/readings/${readingId}/questions`
-            );
+            const data = await ReadingAPI.getAdminQuizQuestions(readingId, userId);
 
             console.log("API RESPONSE:", data);
 
@@ -448,37 +424,26 @@ export default function AdminQuizPage() {
 
     // ── Handlers ──
     const handleAdd = async (data: QuizQuestionRequest) => {
-        await apiFetch(`/api/admin/readings/${readingId}/questions`, {
-            method: "POST",
-            body: JSON.stringify(data),
-        });
+        await ReadingAPI.createAdminQuizQuestion(readingId, userId, data);
         setShowForm(false);
         fetchQuestions();
     };
 
     const handleUpdate = async (data: QuizQuestionRequest) => {
         if (!editingQuestion) return;
-        await apiFetch(
-            `/api/admin/readings/${readingId}/questions/${editingQuestion.id}`,
-            { method: "PUT", body: JSON.stringify(data) }
-        );
+        await ReadingAPI.updateAdminQuizQuestion(readingId, editingQuestion.id, userId, data);
         setEditingQuestion(null);
         fetchQuestions();
     };
 
     const handleDelete = async (questionId: string) => {
-        await apiFetch(
-            `/api/admin/readings/${readingId}/questions/${questionId}`,
-            { method: "DELETE" }
-        );
+        await ReadingAPI.deleteAdminQuizQuestion(readingId, questionId, userId);
         fetchQuestions();
     };
 
     const handleDeleteAll = async () => {
         if (!confirm("Delete ALL questions for this reading? This cannot be undone.")) return;
-        await apiFetch(`/api/admin/readings/${readingId}/questions`, {
-            method: "DELETE",
-        });
+        await ReadingAPI.deleteAllAdminQuizQuestions(readingId, userId);
         fetchQuestions();
     };
 

@@ -51,4 +51,25 @@ export const ReadingAPI = {
     submitQuiz: async (readingId: string, userId: string, data: any) => {
         return proxyToBacaanQuiz(`/api/student/quiz/readings/${readingId}/submit`, "POST", { userId }, data);
     },
+
+    // Admin Quiz APIs
+    getAdminQuizQuestions: async (readingId: string, userId: string) => {
+        return proxyToBacaanQuiz(`/api/admin/readings/${readingId}/questions`, "GET", { userId });
+    },
+
+    createAdminQuizQuestion: async (readingId: string, userId: string, data: any) => {
+        return proxyToBacaanQuiz(`/api/admin/readings/${readingId}/questions`, "POST", { userId }, data);
+    },
+
+    updateAdminQuizQuestion: async (readingId: string, questionId: string, userId: string, data: any) => {
+        return proxyToBacaanQuiz(`/api/admin/readings/${readingId}/questions/${questionId}`, "PUT", { userId }, data);
+    },
+
+    deleteAdminQuizQuestion: async (readingId: string, questionId: string, userId: string) => {
+        return proxyToBacaanQuiz(`/api/admin/readings/${readingId}/questions/${questionId}`, "DELETE", { userId });
+    },
+
+    deleteAllAdminQuizQuestions: async (readingId: string, userId: string) => {
+        return proxyToBacaanQuiz(`/api/admin/readings/${readingId}/questions`, "DELETE", { userId });
+    },
 };
