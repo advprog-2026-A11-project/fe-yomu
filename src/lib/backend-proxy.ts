@@ -3,18 +3,24 @@ type BackendResolutionOptions = {
   backendBaseUrl?: string;
 };
 
+type ProxyOptions = BackendResolutionOptions & {
+  method?: string;
+  headers?: Record<string, string>;
+};
+
 export type ProxyRequestInit = RequestInit & BackendResolutionOptions;
 
 const BACKEND_SERVICE_URLS = buildBackendServiceUrls();
 const DEFAULT_BACKEND_SERVICE = "forum";
 
-export function buildBackendUrl(
+function buildBackendUrl(
   path: string,
   options: BackendResolutionOptions = {}
 ): string {
   const [firstCandidate] = buildBackendUrlCandidates(path, options);
   if (!firstCandidate) {
-    throw new Error("No backend URL candidates available for buildBackendUrl");
+    console.error("No backend URL candidates available for path:", path);
+    throw new Error("Backend service is not configured. Please contact support.");
   }
   return firstCandidate;
 }
@@ -58,11 +64,8 @@ function resolveBackendBaseUrls(
       return serviceUrls;
     }
 
-    throw new Error(
-      `No backend URL configured for service "${backendService}". Available services: ${
-        availableServices.length > 0 ? availableServices.join(", ") : "none"
-      }`
-    );
+    console.error(`No backend URL configured for service "${normalizedService}"`);
+    throw new Error("Backend service is not configured. Please contact support.");
   }
 
   if (BACKEND_SERVICE_URLS[DEFAULT_BACKEND_SERVICE]?.length) {
@@ -74,9 +77,8 @@ function resolveBackendBaseUrls(
     return fallbackUrls;
   }
 
-  throw new Error(
-    "No backend URLs configured. Please set at least one *_BACKEND_URL environment variable."
-  );
+  console.error("No backend URLs configured in environment variables");
+  throw new Error("Backend service is not configured. Please contact support.");
 }
 
 function buildBackendServiceUrls(): Record<string, string[]> {
@@ -128,44 +130,94 @@ async function fetchFromBackendCandidates(
     }
   }
 
-  throw new Error(
-    `Failed to reach backend using: ${candidateUrls.join(", ")}. Last error: ${String(lastError)}`
-  );
+  console.error(`Failed to reach backend for path ${backendPath}. Last error:`, lastError);
+  throw new Error("Failed to connect to backend service. Please try again later.");
+}
+
+function extractTokenFromCookie(cookieHeader: string | null): string | null {
+  if (!cookieHeader) return null;
+
+  const cookies = cookieHeader.split(";");
+  for (const cookie of cookies) {
+    const [name, ...valueParts] = cookie.trim().split("=");
+    if (name === "yomu-access-token") {
+      const token = decodeURIComponent(valueParts.join("="));
+      if (token) {
+        return `Bearer ${token}`;
+      }
+    }
+  }
+  return null;
 }
 
 export async function proxyToBackend(
   backendPath: string,
-  init: ProxyRequestInit = {}
+  sourceRequest: Request,
+  options: ProxyOptions = {}
 ): Promise<Response> {
-  const { backendBaseUrl, backendService, ...fetchInit } = init;
+  const { backendBaseUrl, backendService, method, headers: customHeaders = {}, ...rest } = options;
 
-  const response = await fetchFromBackendCandidates(
-    backendPath,
-    { backendBaseUrl, backendService },
-    {
-      ...fetchInit,
+  try {
+    // Extract auth from cookie
+    const cookieHeader = sourceRequest.headers.get("cookie");
+    const authHeader = extractTokenFromCookie(cookieHeader);
+
+    // Determine if we need to read the body
+    const shouldReadBody = ["POST", "PUT", "PATCH"].includes(method || sourceRequest.method);
+    const body = shouldReadBody ? await sourceRequest.text() : undefined;
+
+    // Build request init
+    const fetchInit: RequestInit = {
+      method: method || sourceRequest.method,
       cache: "no-store",
+      headers: {
+        // Forward common headers from source request
+        ...(sourceRequest.headers.get("content-type") && {
+          "content-type": sourceRequest.headers.get("content-type")!,
+        }),
+        ...(sourceRequest.headers.get("accept") && {
+          "accept": sourceRequest.headers.get("accept")!,
+        }),
+        ...(sourceRequest.headers.get("accept-language") && {
+          "accept-language": sourceRequest.headers.get("accept-language")!,
+        }),
+        // Add auth header if available
+        ...(authHeader && { authorization: authHeader }),
+        // Apply custom headers (overrides defaults)
+        ...customHeaders,
+      },
+      ...(body && { body }),
+      ...rest,
+    };
+
+    const response = await fetchFromBackendCandidates(
+      backendPath,
+      { backendBaseUrl, backendService },
+      fetchInit
+    );
+
+    const status = response.status;
+    const bodyAllowed = status !== 204 && status !== 205 && status !== 304;
+    const headers = new Headers();
+
+    copyHeaderIfPresent(response.headers, headers, "content-type");
+    copyHeaderIfPresent(response.headers, headers, "cache-control");
+
+    if (!bodyAllowed) {
+      return new Response(null, {
+        status,
+        headers,
+      });
     }
-  );
 
-  const status = response.status;
-  const bodyAllowed = status !== 204 && status !== 205 && status !== 304;
-  const headers = new Headers();
-
-  copyHeaderIfPresent(response.headers, headers, "content-type");
-  copyHeaderIfPresent(response.headers, headers, "cache-control");
-
-  if (!bodyAllowed) {
-    return new Response(null, {
+    return new Response(response.body, {
       status,
       headers,
     });
+  } catch (error) {
+    console.error("[proxyToBackend] Error:", error);
+    throw error;
   }
-
-  return new Response(response.body, {
-    status,
-    headers,
-  });
 }
 
 function copyHeaderIfPresent(
