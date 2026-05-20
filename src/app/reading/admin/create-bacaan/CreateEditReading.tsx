@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/providers/auth-provider";
 import Link from "next/link";
 
-const API_ADMIN= `${process.env.NEXT_PUBLIC_BACKEND_BACAAN_QUIZ_URL}/api/admin/readings`;
+const API_ADMIN = "/api/reading-admin";
 
 
 export default function CreateEditReading() {

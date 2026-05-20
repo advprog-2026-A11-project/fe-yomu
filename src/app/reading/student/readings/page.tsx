@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 
-const API_STUDENT = `${process.env.NEXT_PUBLIC_BACKEND_BACAAN_QUIZ_URL}/api/student/readings`;
+const API_STUDENT = "/api/reading-student";
 const USER_ID = "user-123";
 
 export default function StudentReadingPage() {
