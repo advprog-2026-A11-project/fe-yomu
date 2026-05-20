@@ -25,10 +25,37 @@ async function proxyToBacaanQuiz(path: string, method: string, headers?: Record<
     const response = await proxyToBackend(path, request, READING_BACKEND_OPTIONS);
 
     if (!response.ok) {
-        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+        let errorMsg = `API Error: ${response.status} ${response.statusText}`;
+        try {
+            const errorText = await response.text();
+            try {
+                const errorData = JSON.parse(errorText);
+                if (errorData && errorData.message) {
+                    errorMsg += ` - ${errorData.message}`;
+                } else if (errorText) {
+                    errorMsg += ` - ${errorText}`;
+                }
+            } catch (e) {
+                if (errorText) {
+                    errorMsg += ` - ${errorText}`;
+                }
+            }
+        } catch (e) {
+            // Ignore
+        }
+        throw new Error(errorMsg);
     }
 
-    return response.json();
+    if (response.status === 204) {
+        return null;
+    }
+
+    const text = await response.text();
+    if (!text) {
+        return null;
+    }
+
+    return JSON.parse(text);
 }
 
 export const ReadingAPI = {
