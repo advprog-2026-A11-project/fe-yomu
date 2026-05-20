@@ -22,7 +22,10 @@ async function proxyToBacaanQuiz(path: string, method: string, headers?: Record<
     });
 
     // Gunakan proxyToBackend (akan otomatis mengambil token dari cookie)
-    const response = await proxyToBackend(path, request, READING_BACKEND_OPTIONS);
+    const response = await proxyToBackend(path, request, {
+        ...READING_BACKEND_OPTIONS,
+        headers,
+    });
 
     if (!response.ok) {
         let errorMsg = `API Error: ${response.status} ${response.statusText}`;
@@ -77,6 +80,10 @@ export const ReadingAPI = {
 
     submitQuiz: async (readingId: string, userId: string, data: any) => {
         return proxyToBacaanQuiz(`/api/student/quiz/readings/${readingId}/submit`, "POST", { userId }, data);
+    },
+
+    getQuizResult: async (readingId: string, userId: string) => {
+        return proxyToBacaanQuiz(`/api/student/quiz/readings/${readingId}/result`, "GET", { userId });
     },
 
     // Admin Quiz APIs

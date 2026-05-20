@@ -191,11 +191,14 @@ function QuestionForm({ initial, onSubmit, onCancel }: QuestionFormProps) {
         <option value="">Select correct option…</option>
         {options
             .filter((o) => o.trim())
-            .map((o, idx) => (
-                <option key={idx} value={o}>
-            {String.fromCharCode(65 + idx)}. {o}
+            .map((o, idx) => {
+                const letter = String.fromCharCode(65 + idx);
+                return (
+                <option key={idx} value={letter}>
+            {letter}. {o}
             </option>
-        ))}
+                );
+            })}
         </select>
         </div>
         </div>
@@ -297,24 +300,27 @@ function QuestionCard({ q, index, onEdit, onDelete }: QuestionCardProps) {
     {/* Options preview */}
     {q.questionType === "MULTIPLE_CHOICE" && q.options && (
         <ul className="mt-3 space-y-1">
-        {q.options.map((opt, i) => (
+        {q.options.map((opt, i) => {
+            const letter = String.fromCharCode(65 + i);
+            return (
                 <li
                     key={i}
             className={`flex items-center gap-2 text-xs rounded-lg px-3 py-1.5 ${
-                opt === q.correctAnswer
+                letter === q.correctAnswer
                     ? "bg-emerald-50 text-emerald-700 font-semibold"
                     : "bg-gray-50 text-gray-600"
             }`}
         >
         <span className="font-bold">
-            {String.fromCharCode(65 + i)}.
+            {letter}.
             </span>
         {opt}
-        {opt === q.correctAnswer && (
+        {letter === q.correctAnswer && (
             <span className="ml-auto">✓</span>
         )}
         </li>
-    ))}
+            );
+        })}
         </ul>
     )}
 

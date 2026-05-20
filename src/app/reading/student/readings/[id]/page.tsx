@@ -10,13 +10,31 @@ export default function ReadingViewStudent() {
     const router = useRouter();
 
     const [reading, setReading] = useState<any>(null);
+    const [isQuizCompleted, setIsQuizCompleted] = useState<boolean>(false);
     const userId = "user123";
 
     useEffect(() => {
         const fetchDetail = async () => {
-            const data = await ReadingAPI.getStudentReadingById(id as string,
-                userId);
-            setReading(data)
+            try {
+                const data = await ReadingAPI.getStudentReadingById(id as string, userId);
+                setReading(data);
+
+                // Jika API memiliki flag quizCompleted atau sejenisnya, gunakan itu
+                if (data?.quizCompleted || data?.hasCompletedQuiz) {
+                    setIsQuizCompleted(true);
+                } else {
+                    // Alternatif: Coba fetch questions, kalau 400 completed berarti sudah selesai
+                    try {
+                        await ReadingAPI.getQuizQuestions(id as string, userId);
+                    } catch (e: any) {
+                        if (e.message?.toLowerCase().includes("completed")) {
+                            setIsQuizCompleted(true);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+            }
         };
         fetchDetail();
     }, [id]);
@@ -29,7 +47,14 @@ export default function ReadingViewStudent() {
             backHref="/reading/student/readings"
         >
             <QuizSection
+                isCompleted={isQuizCompleted}
                 onStart={() => {
+                    router.push(
+                        `/reading/student/readings/${reading.id}/quiz`
+                    );
+                }}
+                onShowResult={() => {
+                    // Navigate ke halaman hasil (jika belum ada endpoint, bisa ke halaman quiz yang sekarang akan tampil "Quiz Already Completed")
                     router.push(
                         `/reading/student/readings/${reading.id}/quiz`
                     );

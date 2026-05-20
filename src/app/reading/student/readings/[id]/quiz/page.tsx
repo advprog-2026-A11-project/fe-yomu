@@ -44,6 +44,18 @@ export default function StudentQuizPage() {
                 const data = await ReadingAPI.getQuizQuestions(readingId, userId);
                 setQuestions(data);
             } catch (err: any) {
+                if (err.message?.toLowerCase().includes("completed")) {
+                    try {
+                        const resultData = await ReadingAPI.getQuizResult(readingId, userId);
+                        setResult(resultData);
+                        setSubmitted(true);
+                        setLoading(false);
+                        return; // Successfully got result, don't set error
+                    } catch (resultErr) {
+                        // Fallback to error popup if result fetching fails
+                        console.error("Failed to fetch result:", resultErr);
+                    }
+                }
                 setError(err.message || "Failed to load questions");
             } finally {
                 setLoading(false);
@@ -114,7 +126,39 @@ export default function StudentQuizPage() {
     }
 
     if (error) {
-        return <div className="min-h-screen flex items-center justify-center text-rose-500">{error}</div>;
+        const isCompleted = error.toLowerCase().includes("completed");
+        
+        return (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+                <div className="bg-white max-w-md w-full rounded-3xl shadow-lg border border-slate-200 p-8 text-center">
+                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5 ${isCompleted ? 'bg-indigo-100 text-indigo-600' : 'bg-rose-100 text-rose-600'}`}>
+                        {isCompleted ? (
+                            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                            </svg>
+                        ) : (
+                            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        )}
+                    </div>
+                    <h2 className="text-2xl font-bold text-slate-800 mb-3">
+                        {isCompleted ? "Quiz Already Completed" : "Oops! Something went wrong"}
+                    </h2>
+                    <p className="text-slate-500 mb-8">
+                        {isCompleted 
+                            ? "You have already taken the quiz for this reading material. Great job!" 
+                            : error.replace(/API Error: \d+ - /, "")}
+                    </p>
+                    <button
+                        onClick={() => router.push(`/reading/student/readings/${readingId}`)}
+                        className="px-6 py-3 w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-all shadow-sm"
+                    >
+                        Back to Reading
+                    </button>
+                </div>
+            </div>
+        );
     }
 
     if (questions.length === 0) {
