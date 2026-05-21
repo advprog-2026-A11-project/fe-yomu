@@ -12,6 +12,12 @@ import { ROUTES } from "@/constants";
 
 const API_BASE_URL = "/api/reading-admin";
 
+function getDifficultyBadgeVariant(level: string): "success" | "warning" | "danger" {
+  if (level === "BEGINNER") return "success";
+  if (level === "INTERMEDIATE") return "warning";
+  return "danger";
+}
+
 export default function BacaanPage() {
   const [readings, setReadings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,10 +118,7 @@ export default function BacaanPage() {
                       </Link>
                       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                         <Badge variant="brand">{item.category || "General"}</Badge>
-                        <Badge variant={
-                          item.difficultyLevel === "BEGINNER" ? "success" :
-                          item.difficultyLevel === "INTERMEDIATE" ? "warning" : "danger"
-                        }>
+                        <Badge variant={getDifficultyBadgeVariant(item.difficultyLevel)}>
                           {diffConfig.label}
                         </Badge>
                       </div>

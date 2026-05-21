@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Avatar } from "@/components/ui/Avatar";
-import { Button } from "@/components/ui/Button";
 
 const primaryLinks = [
   { href: "/", label: "Home" },
@@ -136,7 +135,7 @@ export function SiteHeader() {
                     className="site-dropdown-logout"
                     onClick={() => {
                       setDropdownOpen(false);
-                      void signOut();
+                      signOut();
                     }}
                   >
                     Sign Out

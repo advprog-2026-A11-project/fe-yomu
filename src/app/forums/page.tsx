@@ -96,7 +96,7 @@ export default function ForumsPage() {
           {error && <div className="auth-error" style={{ marginBottom: "1rem" }}>Error: {error}</div>}
           {loading && <LoadingState message="Loading messages..." />}
 
-          {!loading && messages && messages.length === 0 && (
+          {!loading && messages?.length === 0 && (
             <EmptyState
               icon="💬"
               title="No Messages Yet"

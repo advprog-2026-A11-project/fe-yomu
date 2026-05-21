@@ -121,8 +121,9 @@ export default function CreateEditReading() {
               />
 
               <div className="yomu-input-wrapper">
-                <label className="yomu-input-label">Difficulty</label>
+                <label className="yomu-input-label" htmlFor="difficulty-select">Difficulty</label>
                 <select
+                  id="difficulty-select"
                   className="yomu-input"
                   value={formData.difficultyLevel}
                   onChange={(e) => setFormData({ ...formData, difficultyLevel: e.target.value })}

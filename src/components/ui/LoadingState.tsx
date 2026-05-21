@@ -1,5 +1,3 @@
-import { type ReactNode } from "react";
-
 export type LoadingVariant = "orb" | "dots";
 
 export interface LoadingStateProps {
@@ -9,7 +7,7 @@ export interface LoadingStateProps {
   className?: string;
 }
 
-export function LoadingState({ variant = "orb", message, size = "md", className = "" }: LoadingStateProps) {
+export function LoadingState({ variant = "orb", message, size = "md", className = "" }: Readonly<LoadingStateProps>) {
   const sizeMap: Record<"sm" | "md" | "lg", string> = {
     sm: "0.5rem",
     md: "0.75rem",

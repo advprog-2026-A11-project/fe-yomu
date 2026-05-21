@@ -14,6 +14,12 @@ import { ROUTES } from "@/constants";
 
 const API_STUDENT = "/api/reading-student";
 
+function getDifficultyBadgeVariant(level: string): "success" | "warning" | "danger" {
+  if (level === "BEGINNER") return "success";
+  if (level === "INTERMEDIATE") return "warning";
+  return "danger";
+}
+
 export default function StudentReadingPage() {
   const [readings, setReadings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,10 +118,7 @@ function ReadingCard({ reading }: { reading: any }) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "1rem", gap: "0.5rem" }}>
           <Badge variant="brand">{reading.category || "General"}</Badge>
           {reading.difficultyLevel && (
-            <Badge variant={
-              reading.difficultyLevel === "BEGINNER" ? "success" :
-              reading.difficultyLevel === "INTERMEDIATE" ? "warning" : "danger"
-            }>
+            <Badge variant={getDifficultyBadgeVariant(reading.difficultyLevel)}>
               {diffConfig.label}
             </Badge>
           )}

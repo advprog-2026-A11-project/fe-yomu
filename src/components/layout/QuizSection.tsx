@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 
-export default function StartQuizSection({ onStart }: { onStart?: () => void }) {
+export default function StartQuizSection({ onStart }: Readonly<{ onStart?: () => void }>) {
   return (
     <Card variant="pressed" style={{ marginTop: "3rem", textAlign: "center", background: "var(--success-soft)", borderColor: "var(--success)" }}>
       <h4 style={{ margin: "0 0 0.5rem", fontSize: "1.25rem", fontWeight: 700, color: "var(--success-shadow)" }}>

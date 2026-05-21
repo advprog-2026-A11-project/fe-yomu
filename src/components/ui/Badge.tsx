@@ -18,7 +18,7 @@ export function Badge({
   className = "",
   children,
   ...props
-}: BadgeProps) {
+}: Readonly<BadgeProps>) {
   const tierClass = tier ? `yomu-tier-${tier}` : "";
   const variantClass = tier ? "" : `yomu-badge-${variant}`;
 

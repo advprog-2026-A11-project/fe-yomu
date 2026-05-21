@@ -8,7 +8,7 @@ type GoogleAuthButtonProps = {
   onClick: () => void;
 };
 
-export function GoogleAuthButton({ loading, label, onClick }: GoogleAuthButtonProps) {
+export function GoogleAuthButton({ loading, label, onClick }: Readonly<GoogleAuthButtonProps>) {
   return (
     <button
       type="button"

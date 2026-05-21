@@ -21,7 +21,7 @@ export function Progress({
   label,
   className = "",
   ...props
-}: ProgressProps) {
+}: Readonly<ProgressProps>) {
   const percentage = Math.min(100, Math.max(0, (value / max) * 100));
 
   return (

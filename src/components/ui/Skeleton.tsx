@@ -17,7 +17,7 @@ export function Skeleton({
   className = "",
   style,
   ...props
-}: SkeletonProps) {
+}: Readonly<SkeletonProps>) {
   const variantClass = `yomu-skeleton-${variant}`;
 
   const inlineStyle: React.CSSProperties = {
@@ -31,7 +31,7 @@ export function Skeleton({
       <div className={className} style={inlineStyle}>
         {Array.from({ length: lines }).map((_, i) => (
           <div
-            key={i}
+            key={`skeleton-line-${i}`}
             className={`yomu-skeleton yomu-skeleton-text ${i === lines - 1 && lines > 1 ? "yomu-skeleton-text:last-child" : ""}`}
             {...props}
           />

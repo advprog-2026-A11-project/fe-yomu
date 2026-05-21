@@ -13,10 +13,10 @@ function getInitials(name: string): string {
   if (!name) return "?";
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0][0]?.toUpperCase() || "?";
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return (parts[0][0] + parts.at(-1)![0]).toUpperCase();
 }
 
-export function Avatar({ name, src, size = "md", fallback, className = "", ...props }: AvatarProps) {
+export function Avatar({ name, src, size = "md", fallback, className = "", ...props }: Readonly<AvatarProps>) {
   const classes = [
     "yomu-avatar",
     `yomu-avatar-${size}`,

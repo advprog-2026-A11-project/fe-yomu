@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 
 export type ModalSize = "sm" | "md" | "lg" | "xl";
 
@@ -20,41 +20,50 @@ export function Modal({
   children,
   footer,
   showCloseButton = true,
-}: ModalProps) {
+}: Readonly<ModalProps>) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
   useEffect(() => {
-    if (!open) return;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
 
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-
-    document.addEventListener("keydown", handleEscape);
-    document.body.style.overflow = "hidden";
+    if (open) {
+      dialog.showModal();
+      document.body.style.overflow = "hidden";
+    } else {
+      dialog.close();
+      document.body.style.overflow = "";
+    }
 
     return () => {
-      document.removeEventListener("keydown", handleEscape);
       document.body.style.overflow = "";
     };
-  }, [open, onClose]);
+  }, [open]);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    const handleClose = () => onClose();
+    dialog.addEventListener("close", handleClose);
+    dialog.addEventListener("cancel", (e) => {
+      e.preventDefault();
+      onClose();
+    });
+
+    return () => {
+      dialog.removeEventListener("close", handleClose);
+    };
+  }, [onClose]);
 
   if (!open) return null;
 
   return (
-    <div
-      className="yomu-modal-backdrop"
-      onClick={onClose}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") onClose();
-      }}
-      role="dialog"
-      aria-modal="true"
-      tabIndex={-1}
-    >
-      <div
+    <div className="yomu-modal-backdrop" onClick={onClose}>
+      <dialog
+        ref={dialogRef}
         className={`yomu-modal yomu-modal-${size}`}
         onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
-        role="document"
       >
         {(title || showCloseButton) && (
           <div className="yomu-modal-header">
@@ -73,7 +82,7 @@ export function Modal({
         )}
         <div className="yomu-modal-body">{children}</div>
         {footer && <div className="yomu-modal-footer">{footer}</div>}
-      </div>
+      </dialog>
     </div>
   );
 }

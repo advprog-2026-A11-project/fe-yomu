@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -43,8 +42,7 @@ function getEmptyDescription(tab: string): string {
 }
 
 export default function AdminUsersPage() {
-  const router = useRouter();
-  const { session, isAdmin } = useAuth();
+  const { isAdmin } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -90,7 +88,8 @@ export default function AdminUsersPage() {
     }
   }
 
-  async function handleActivate(userId: string) {
+  async function handleActivate(userId: string | undefined) {
+    if (!userId) return;
     setLoading(true);
     setMessage(null);
 
@@ -119,7 +118,8 @@ export default function AdminUsersPage() {
     }
   }
 
-  async function handleDeactivate(userId: string) {
+  async function handleDeactivate(userId: string | undefined) {
+    if (!userId) return;
     if (!confirm("Deactivate this user? They will no longer be able to log in.")) return;
 
     setLoading(true);
@@ -149,7 +149,8 @@ export default function AdminUsersPage() {
     }
   }
 
-  async function handleRoleUpdate(userId: string) {
+  async function handleRoleUpdate(userId: string | undefined) {
+    if (!userId) return;
     const targetUser = users.find((user) => user.id === userId);
     if (!targetUser) return;
 
@@ -350,7 +351,7 @@ export default function AdminUsersPage() {
                           </div>
                         </div>
                         <div style={{ display: "flex", gap: "0.75rem" }}>
-                          <Button variant="primary" pill onClick={() => void handleRoleUpdate(user.id!)} loading={loading}>
+                          <Button variant="primary" pill onClick={() => handleRoleUpdate(user.id)} loading={loading}>
                             Save Changes
                           </Button>
                           <Button variant="ghost" pill onClick={cancelEdit}>
@@ -384,7 +385,7 @@ export default function AdminUsersPage() {
                             Edit
                           </Button>
                           {user.isActive ? (
-                            <Button variant="danger" size="sm" pill onClick={() => void handleDeactivate(user.id!)}>
+                            <Button variant="danger" size="sm" pill onClick={() => handleDeactivate(user.id)}>
                               Deactivate
                             </Button>
                           ) : (

@@ -16,7 +16,7 @@ export interface TabsProps {
   className?: string;
 }
 
-export function Tabs({ items, active, onChange, size = "md", className = "" }: TabsProps) {
+export function Tabs({ items, active, onChange, size = "md", className = "" }: Readonly<TabsProps>) {
   const sizeClass = `yomu-tab-${size}`;
 
   return (

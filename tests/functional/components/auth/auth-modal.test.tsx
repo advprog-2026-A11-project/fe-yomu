@@ -31,7 +31,7 @@ function mockAuthFetch(mode: "guest" | "authenticated") {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input);
+      const url = typeof input === "string" ? input : input.toString();
       const method = init?.method || "GET";
 
       if (url === "/api/auth-proxy/auth/me" && mode === "guest") {
@@ -102,6 +102,10 @@ describe("AuthModal functional behavior", () => {
     fireEvent.keyDown(document.body, { key: "Escape", code: "Escape" });
 
     await waitFor(() => {
+      const dialog = screen.queryByRole("dialog");
+      if (dialog) {
+        fireEvent(dialog, new Event("cancel", { cancelable: true }));
+      }
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
     expect(document.body.style.overflow).toBe("");

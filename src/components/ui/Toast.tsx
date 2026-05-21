@@ -52,7 +52,7 @@ export interface ToastContainerProps {
   onDismiss: (id: string) => void;
 }
 
-export function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
+export function ToastContainer({ toasts, onDismiss }: Readonly<ToastContainerProps>) {
   if (toasts.length === 0) return null;
 
   return (

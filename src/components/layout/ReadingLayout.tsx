@@ -6,6 +6,12 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { getDifficultyConfig } from "@/utils/tiers";
 
+function getDifficultyBadgeVariant(level: string): "success" | "warning" | "danger" {
+  if (level === "BEGINNER") return "success";
+  if (level === "INTERMEDIATE") return "warning";
+  return "danger";
+}
+
 export default function ReadingLayout({
   reading,
   backHref,
@@ -33,10 +39,7 @@ export default function ReadingLayout({
           <div style={{ display: "flex", gap: "0.5rem" }}>
             {reading.category && <Badge variant="brand">{reading.category}</Badge>}
             {reading.difficultyLevel && (
-              <Badge variant={
-                reading.difficultyLevel === "BEGINNER" ? "success" :
-                reading.difficultyLevel === "INTERMEDIATE" ? "warning" : "danger"
-              }>
+              <Badge variant={getDifficultyBadgeVariant(reading.difficultyLevel)}>
                 {diffConfig.label}
               </Badge>
             )}

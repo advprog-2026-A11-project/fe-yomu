@@ -90,7 +90,7 @@ function UnauthenticatedHero({ onLogin, onRegister }: Readonly<{ onLogin: () => 
   );
 }
 
-function AuthenticatedHero({ displayName, email }: { displayName: string; email: string }) {
+function AuthenticatedHero({ displayName, email }: Readonly<{ displayName: string; email: string }>) {
   return (
     <section className="hero-welcome">
       <div className="hero-welcome-inner">

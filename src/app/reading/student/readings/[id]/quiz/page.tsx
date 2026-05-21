@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Progress } from "@/components/ui/Progress";
 import { Textarea } from "@/components/ui/Textarea";
-import { EmptyState } from "@/components/ui/EmptyState";
 
 interface Question {
   id: string;
@@ -17,9 +16,16 @@ interface Question {
 }
 
 function getOptionStyle(selected: boolean, isTrue: boolean): React.CSSProperties {
-  const border = selected ? `2px solid ${isTrue ? "var(--success)" : "var(--danger)"}` : "1px solid var(--border)";
-  const background = selected ? (isTrue ? "var(--success-soft)" : "var(--danger-soft)") : "var(--surface)";
-  const color = selected ? (isTrue ? "var(--success)" : "var(--danger)") : "var(--text)";
+  let border = "1px solid var(--border)";
+  let background = "var(--surface)";
+  let color = "var(--text)";
+
+  if (selected) {
+    border = `2px solid ${isTrue ? "var(--success)" : "var(--danger)"}`;
+    background = isTrue ? "var(--success-soft)" : "var(--danger-soft)";
+    color = isTrue ? "var(--success)" : "var(--danger)";
+  }
+
   return {
     margin: 0,
     fontSize: "1.5rem",
@@ -34,8 +40,17 @@ function getOptionStyle(selected: boolean, isTrue: boolean): React.CSSProperties
 }
 
 function getNavButtonStyle(active: boolean, answered: boolean): React.CSSProperties {
-  const background = active ? "var(--brand)" : answered ? "var(--success-soft)" : "var(--surface-raised)";
-  const color = active ? "white" : answered ? "var(--success)" : "var(--text-muted)";
+  let background = "var(--surface-raised)";
+  let color = "var(--text-muted)";
+
+  if (active) {
+    background = "var(--brand)";
+    color = "white";
+  } else if (answered) {
+    background = "var(--success-soft)";
+    color = "var(--success)";
+  }
+
   return {
     width: "2.75rem",
     height: "2.75rem",

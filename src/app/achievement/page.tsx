@@ -11,7 +11,6 @@ import { Badge } from "@/components/ui/Badge";
 import { Tabs } from "@/components/ui/Tabs";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Avatar } from "@/components/ui/Avatar";
 
 // Define Types
 type AchievementDetail = {

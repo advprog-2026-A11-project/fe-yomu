@@ -29,7 +29,45 @@ interface QuizQuestionRequest {
 const API_BASE = "/api/reading-admin";
 
 function getQuestionCountText(count: number): string {
-  return `${count} question${count !== 1 ? "s" : ""}`;
+  const suffix = count === 1 ? "" : "s";
+  return `${count} question${suffix}`;
+}
+
+function getQuestionTypeLabel(type: string): string {
+  if (type === "MULTIPLE_CHOICE") return "Multiple Choice";
+  if (type === "TRUE_FALSE") return "True / False";
+  return "Essay";
+}
+
+function getTrueFalseButtonStyle(correctAnswer: string, value: string): React.CSSProperties {
+  const isSelected = correctAnswer === value;
+  let border = "1px solid var(--border)";
+  let background = "var(--surface)";
+  let color = "var(--text-muted)";
+
+  if (isSelected) {
+    border = `2px solid ${value === "True" ? "var(--success)" : "var(--danger)"}`;
+    background = value === "True" ? "var(--success-soft)" : "var(--danger-soft)";
+    color = value === "True" ? "var(--success)" : "var(--danger)";
+  }
+
+  return {
+    flex: 1,
+    padding: "1rem",
+    borderRadius: "var(--radius-md)",
+    fontWeight: 700,
+    fontSize: "1rem",
+    border,
+    background,
+    color,
+    cursor: "pointer",
+    transition: "all 0.15s ease",
+  };
+}
+
+function getSubmitButtonText(saving: boolean, hasInitial: boolean): string {
+  if (saving) return "Saving…";
+  return hasInitial ? "Update Question" : "Add Question";
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -136,9 +174,9 @@ function QuestionForm({
                   cursor: "pointer",
                   transition: "all 0.15s ease",
                 }}
-              >
-                {t === "MULTIPLE_CHOICE" ? "Multiple Choice" : t === "TRUE_FALSE" ? "True / False" : "Essay"}
-              </button>
+                >
+                  {getQuestionTypeLabel(t)}
+                </button>
             ))}
           </div>
         </div>
@@ -151,7 +189,7 @@ function QuestionForm({
               </label>
               <div style={{ display: "grid", gap: "0.5rem" }}>
                 {options.map((opt, idx) => (
-                  <div key={idx} style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                  <div key={`option-${idx}`} style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                     <div style={{
                       width: "1.75rem", height: "1.75rem", borderRadius: "var(--radius-sm)",
                       background: "var(--surface-raised)", display: "flex",
@@ -192,26 +230,15 @@ function QuestionForm({
 
         {type === "TRUE_FALSE" && (
           <div>
-            <label className="yomu-input-label" style={{ marginBottom: "0.5rem", display: "block" }}>
+            <span className="yomu-input-label" style={{ marginBottom: "0.5rem", display: "block", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-soft)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
               Correct Answer
-            </label>
+            </span>
             <div style={{ display: "flex", gap: "0.75rem" }}>
               {["True", "False"].map((v) => (
                 <button
                   key={v}
                   onClick={() => setCorrectAnswer(v)}
-                  style={{
-                    flex: 1,
-                    padding: "1rem",
-                    borderRadius: "var(--radius-md)",
-                    fontWeight: 700,
-                    fontSize: "1rem",
-                    border: correctAnswer === v ? `2px solid ${v === "True" ? "var(--success)" : "var(--danger)"}` : "1px solid var(--border)",
-                    background: correctAnswer === v ? (v === "True" ? "var(--success-soft)" : "var(--danger-soft)") : "var(--surface)",
-                    color: correctAnswer === v ? (v === "True" ? "var(--success)" : "var(--danger)") : "var(--text-muted)",
-                    cursor: "pointer",
-                    transition: "all 0.15s ease",
-                  }}
+                  style={getTrueFalseButtonStyle(correctAnswer, v)}
                 >
                   {v}
                 </button>
@@ -233,7 +260,7 @@ function QuestionForm({
 
         <div style={{ display: "flex", gap: "0.75rem" }}>
           <Button variant="primary" pill loading={saving} onClick={handleSubmit}>
-            {saving ? "Saving…" : initial ? "Update Question" : "Add Question"}
+            {getSubmitButtonText(saving, !!initial)}
           </Button>
           <Button variant="ghost" pill onClick={onCancel}>
             Cancel
@@ -249,12 +276,12 @@ function QuestionCard({
   index,
   onEdit,
   onDelete,
-}: {
+}: Readonly<{
   q: Question;
   index: number;
   onEdit: (q: Question) => void;
   onDelete: (id: string) => void;
-}) {
+}>) {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
