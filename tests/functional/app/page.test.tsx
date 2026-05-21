@@ -84,45 +84,97 @@ describe("HomePage functional behavior", () => {
     vi.unstubAllGlobals();
   });
 
-  it("shows guest call-to-action and opens auth modal", async () => {
+  it("shows guest landing page with hero and CTA buttons", async () => {
     mockAuthFetch("guest");
     renderPageWithProviders();
 
     expect(screen.getByText("Yomu")).toBeInTheDocument();
     expect(
-      screen.getByText("A calmer way to study, read, and keep your progress moving."),
+      screen.getByText(/Baca\. Pahami\./),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Kuasai Informasi\./),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Platform Pembelajaran Gamifikasi"),
     ).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "Login / Register" }));
+    expect(screen.getByRole("button", { name: "Mulai Belajar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Masuk" })).toBeInTheDocument();
+  });
+
+  it("opens login modal when guest clicks Masuk button", async () => {
+    mockAuthFetch("guest");
+    renderPageWithProviders();
+
+    await userEvent.click(screen.getByRole("button", { name: "Masuk" }));
 
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByText("Continue your learning run")).toBeInTheDocument();
+    expect(screen.getByText("Welcome Back")).toBeInTheDocument();
   });
 
-  it("shows authenticated actions and learning modules", async () => {
+  it("opens register modal when guest clicks Mulai Belajar button", async () => {
+    mockAuthFetch("guest");
+    renderPageWithProviders();
+
+    await userEvent.click(screen.getByRole("button", { name: "Mulai Belajar" }));
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("Create Account")).toBeInTheDocument();
+  });
+
+  it("shows features section with all four modules", async () => {
+    mockAuthFetch("guest");
+    renderPageWithProviders();
+
+    expect(screen.getByText("Kenapa Yomu?")).toBeInTheDocument();
+    expect(screen.getByText("Bacaan & Kuis")).toBeInTheDocument();
+    expect(screen.getByText("Forum Diskusi")).toBeInTheDocument();
+    expect(screen.getByText("Achievements")).toBeInTheDocument();
+    expect(screen.getByText("League & Clan")).toBeInTheDocument();
+  });
+
+  it("shows CTA section for guests", async () => {
+    mockAuthFetch("guest");
+    renderPageWithProviders();
+
+    expect(screen.getByText("Siap Meningkatkan Literasimu?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Daftar Sekarang — Gratis" })).toBeInTheDocument();
+  });
+
+  it("shows authenticated welcome hero with user name", async () => {
     mockAuthFetch("authenticated");
     renderPageWithProviders();
 
-    expect(await screen.findByText("Signed in as Yomu Learner")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/dashboard");
-    expect(screen.getByRole("link", { name: "Reading" })).toHaveAttribute("href", "/reading");
-    expect(screen.getByRole("link", { name: "Forums" })).toHaveAttribute("href", "/forums");
-    expect(screen.getByRole("link", { name: "Achievement" })).toHaveAttribute("href", "/achievement");
-    expect(screen.getByRole("link", { name: "Clan" })).toHaveAttribute("href", "/clan");
+    expect(await screen.findByText(/Selamat Datang, Yomu Learner!/)).toBeInTheDocument();
+    expect(screen.getByText("Lanjutkan perjalanan belajarmu hari ini.")).toBeInTheDocument();
   });
 
-  it("signs user out from authenticated state", async () => {
+  it("shows authenticated stats section", async () => {
     mockAuthFetch("authenticated");
     renderPageWithProviders();
 
-    expect(await screen.findByText("Signed in as Yomu Learner")).toBeInTheDocument();
+    expect(await screen.findByText("Streak")).toBeInTheDocument();
+    expect(screen.getByText("Skor")).toBeInTheDocument();
+    expect(screen.getByText("Misi")).toBeInTheDocument();
+  });
 
-    await userEvent.click(screen.getByRole("button", { name: "Logout" }));
+  it("hides guest header and CTA section when authenticated", async () => {
+    mockAuthFetch("authenticated");
+    renderPageWithProviders();
 
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Login / Register" })).toBeInTheDocument();
-    });
+    expect(await screen.findByText(/Selamat Datang, Yomu Learner!/)).toBeInTheDocument();
 
-    expect(screen.getByText("You have been signed out.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Mulai Belajar" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Masuk" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Siap Meningkatkan Literasimu?")).not.toBeInTheDocument();
+  });
+
+  it("shows guest header with Login and Get Started buttons when not authenticated", async () => {
+    mockAuthFetch("guest");
+    renderPageWithProviders();
+
+    expect(screen.getByRole("button", { name: "Login" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Get Started" })).toBeInTheDocument();
   });
 });
