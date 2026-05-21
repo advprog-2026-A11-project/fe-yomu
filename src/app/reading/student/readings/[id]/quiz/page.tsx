@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Progress } from "@/components/ui/Progress";
 import { Textarea } from "@/components/ui/Textarea";
+import { ProtectedRoute } from "@/components/auth/protected-route";
 
 interface Question {
   id: string;
@@ -151,7 +152,8 @@ export default function StudentQuizPage() {
   }
 
   return (
-    <div style={{ padding: "2rem 0 4rem" }}>
+    <ProtectedRoute description="Sign in to take reading quizzes.">
+      <div style={{ padding: "2rem 0 4rem" }}>
       <div className="container" style={{ maxWidth: "800px" }}>
         {/* Header */}
         <div style={{ marginBottom: "2rem" }}>
@@ -293,6 +295,7 @@ export default function StudentQuizPage() {
           </div>
         </Card>
       </div>
-    </div>
+      </div>
+    </ProtectedRoute>
   );
 }

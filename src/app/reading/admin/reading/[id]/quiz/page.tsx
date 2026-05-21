@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ProtectedRoute } from "@/components/auth/protected-route";
 
 interface Question {
   id: string;
@@ -426,7 +427,8 @@ export default function AdminQuizPage() {
   };
 
   return (
-    <div style={{ padding: "2rem 0 4rem" }}>
+    <ProtectedRoute description="Sign in to manage reading quizzes.">
+      <div style={{ padding: "2rem 0 4rem" }}>
       <div className="container" style={{ maxWidth: "800px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
           <div>
@@ -495,6 +497,7 @@ export default function AdminQuizPage() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </ProtectedRoute>
   );
 }

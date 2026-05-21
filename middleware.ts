@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { AUTH_ACCESS_COOKIE } from "@/lib/auth-cookies";
 const PROTECTED_PATH_PREFIXES = [
+  "/admin",
   "/dashboard",
   "/users/account",
   "/reading",
@@ -10,8 +11,20 @@ const PROTECTED_PATH_PREFIXES = [
   "/clan",
 ];
 
+const PROTECTED_API_PREFIXES = [
+  "/api/achievement",
+  "/api/clan",
+  "/api/messages",
+  "/api/reading-admin",
+  "/api/reading-student",
+];
+
 function isProtectedPath(pathname: string): boolean {
-  return PROTECTED_PATH_PREFIXES.some(
+  const protectedPrefixes = pathname.startsWith("/api/")
+    ? PROTECTED_API_PREFIXES
+    : PROTECTED_PATH_PREFIXES;
+
+  return protectedPrefixes.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
 }
@@ -28,6 +41,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json(
+      { error: "Authentication required" },
+      { status: 401 },
+    );
+  }
+
   const redirectUrl = request.nextUrl.clone();
   redirectUrl.pathname = "/users";
   redirectUrl.searchParams.set("mode", "login");
@@ -38,11 +58,17 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/admin/:path*",
     "/dashboard/:path*",
     "/users/account/:path*",
     "/reading/:path*",
     "/forums/:path*",
     "/achievement/:path*",
     "/clan/:path*",
+    "/api/achievement/:path*",
+    "/api/clan/:path*",
+    "/api/messages/:path*",
+    "/api/reading-admin/:path*",
+    "/api/reading-student/:path*",
   ],
 };

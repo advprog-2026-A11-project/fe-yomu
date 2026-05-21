@@ -8,6 +8,7 @@ import ReadingForum from "@/app/reading/ReadingForum";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/ui/LoadingState";
+import { ProtectedRoute } from "@/components/auth/protected-route";
 
 const API_BASE = "/api/reading-admin";
 
@@ -78,7 +79,8 @@ export default function ReadingViewAdmin() {
   }
 
   return (
-    <ReadingLayout reading={reading} backHref="/reading/admin">
+    <ProtectedRoute description="Sign in to view admin reading materials.">
+      <ReadingLayout reading={reading} backHref="/reading/admin">
       {/* Quiz Management Panel */}
       <Card variant="pressed" style={{ marginTop: "3rem", background: "var(--brand-soft)", borderColor: "var(--brand)" }}>
         <div style={{ display: "flex", alignItems: "start", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
@@ -104,6 +106,7 @@ export default function ReadingViewAdmin() {
       </Card>
 
       <ReadingForum readingId={id as string} />
-    </ReadingLayout>
+      </ReadingLayout>
+    </ProtectedRoute>
   );
 }

@@ -6,6 +6,7 @@ import ReadingLayout from "@/components/layout/ReadingLayout";
 import QuizSection from "@/components/layout/QuizSection";
 import ReadingForum from "@/app/reading/ReadingForum";
 import { LoadingState } from "@/components/ui/LoadingState";
+import { ProtectedRoute } from "@/components/auth/protected-route";
 
 const API_BASE = "/api/reading-student";
 
@@ -52,13 +53,15 @@ export default function ReadingViewStudent() {
   }
 
   return (
-    <ReadingLayout reading={reading} backHref="/reading/student/readings">
+    <ProtectedRoute description="Sign in to access reading materials.">
+      <ReadingLayout reading={reading} backHref="/reading/student/readings">
       <QuizSection
         onStart={() => {
           router.push(`/reading/student/readings/${reading.id}/quiz`);
         }}
       />
       <ReadingForum readingId={id as string} />
-    </ReadingLayout>
+      </ReadingLayout>
+    </ProtectedRoute>
   );
 }
