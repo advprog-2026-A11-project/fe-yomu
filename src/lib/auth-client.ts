@@ -295,8 +295,8 @@ export async function loginWithPassword(input: {
 }
 
 export async function registerWithPassword(input: {
-  email: string;
-  phone: string;
+  email?: string;
+  phone?: string;
   password: string;
   username?: string;
   displayName?: string;
@@ -345,6 +345,24 @@ export async function changePassword(input: {
       currentPassword: input.currentPassword,
       newPassword: input.newPassword,
     }),
+  });
+}
+
+export async function updateEmail(input: {
+  email: string;
+}): Promise<{ message?: string; userId?: string; email?: string }> {
+  return request<{ message?: string; userId?: string; email?: string }>("/users/me/email", {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updatePhone(input: {
+  phone: string;
+}): Promise<{ message?: string; userId?: string; phone?: string }> {
+  return request<{ message?: string; userId?: string; phone?: string }>("/users/me/phone", {
+    method: "PATCH",
+    body: JSON.stringify(input),
   });
 }
 

@@ -48,8 +48,8 @@ type AuthContextValue = {
   toast: ToastState;
   signIn: (input: { identifier: string; password: string }) => Promise<void>;
   register: (input: {
-    email: string;
-    phone: string;
+    email?: string;
+    phone?: string;
     password: string;
     username?: string;
     displayName?: string;
@@ -175,8 +175,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(
     async (input: {
-      email: string;
-      phone: string;
+      email?: string;
+      phone?: string;
       password: string;
       username?: string;
       displayName?: string;
