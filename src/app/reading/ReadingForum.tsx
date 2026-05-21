@@ -58,13 +58,13 @@ export default function ReadingForum({ readingId }: ReadingForumProps) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
         <h2 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 700 }}>Discussion Forum</h2>
         {isAuthenticated && (
-          !showCreate ? (
-            <Button variant="primary" size="sm" pill onClick={() => setShowCreate(true)}>
-              Post a Question
-            </Button>
-          ) : (
+          showCreate ? (
             <Button variant="ghost" size="sm" pill onClick={() => { setShowCreate(false); setFormContent(""); setError(null); }}>
               Cancel
+            </Button>
+          ) : (
+            <Button variant="primary" size="sm" pill onClick={() => setShowCreate(true)}>
+              Post a Question
             </Button>
           )
         )}

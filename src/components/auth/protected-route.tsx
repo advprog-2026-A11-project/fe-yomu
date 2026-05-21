@@ -41,7 +41,7 @@ export function ProtectedRoute({
                 onClick={() =>
                   openAuthModal({
                     mode: "login",
-                    nextPath: window.location.pathname,
+                    nextPath: globalThis.location.pathname,
                     reason: description,
                   })
                 }

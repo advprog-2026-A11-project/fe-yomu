@@ -26,6 +26,22 @@ type AdminUser = {
   createdAt?: string;
 };
 
+function getMessageBorderColor(message: string): string {
+  return message.includes("Failed") ? "var(--danger)" : "var(--success)";
+}
+
+function getMessageColor(message: string): string {
+  return message.includes("Failed") ? "var(--danger)" : "var(--success)";
+}
+
+function getMessageIcon(message: string): string {
+  return message.includes("Failed") ? "⚠️" : "✅";
+}
+
+function getEmptyDescription(tab: string): string {
+  return `No ${tab} users found.`;
+}
+
 export default function AdminUsersPage() {
   const router = useRouter();
   const { session, isAdmin } = useAuth();
@@ -235,14 +251,14 @@ export default function AdminUsersPage() {
           {message && (
             <div style={{
               background: message.includes("Failed") ? "rgba(220, 38, 38, 0.1)" : "rgba(21, 128, 61, 0.1)",
-              border: `1px solid ${message.includes("Failed") ? "var(--danger)" : "var(--success)"}`,
-              color: message.includes("Failed") ? "var(--danger)" : "var(--success)",
+              border: `1px solid ${getMessageBorderColor(message)}`,
+              color: getMessageColor(message),
               borderRadius: "var(--radius-md)",
               padding: "1rem",
               marginBottom: "1.5rem",
               fontWeight: 600,
             }}>
-              {message.includes("Failed") ? "⚠️" : "✅"} {message}
+              {getMessageIcon(message)} {message}
             </div>
           )}
 
@@ -281,7 +297,7 @@ export default function AdminUsersPage() {
               <EmptyState
                 icon="👥"
                 title="No Users Found"
-                description={activeTab === "all" ? "Click 'Load Users' to fetch the user list." : `No ${activeTab} users found.`}
+                description={activeTab === "all" ? "Click 'Load Users' to fetch the user list." : getEmptyDescription(activeTab)}
               />
             ) : (
               <div style={{ display: "grid", gap: "1rem" }}>
@@ -372,7 +388,7 @@ export default function AdminUsersPage() {
                               Deactivate
                             </Button>
                           ) : (
-                            <Button variant="success" size="sm" pill onClick={() => void handleActivate(user.id!)}>
+                            <Button variant="success" size="sm" pill onClick={() => user.id && void handleActivate(user.id)}>
                               Activate
                             </Button>
                           )}

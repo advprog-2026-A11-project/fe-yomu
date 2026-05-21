@@ -15,6 +15,13 @@ function supportsPasswordAuth(authProvider?: string) {
   return (authProvider || "").toUpperCase().includes("PASSWORD");
 }
 
+function getPasswordButtonText(saving: boolean, hasPassword: boolean): string {
+  if (saving) {
+    return hasPassword ? "Updating password..." : "Setting password...";
+  }
+  return hasPassword ? "Update Password" : "Set Password";
+}
+
 export default function AccountPage() {
   const { session, status, refreshSession } = useAuth();
   const profile = session?.profile;
@@ -174,13 +181,7 @@ export default function AccountPage() {
                 {passwordMessage && <div className="auth-success">{passwordMessage}</div>}
 
                 <Button type="submit" variant="primary" pill loading={savingPassword}>
-                  {savingPassword
-                    ? hasPasswordAuth
-                      ? "Updating password..."
-                      : "Setting password..."
-                    : hasPasswordAuth
-                      ? "Update Password"
-                      : "Set Password"}
+                  {getPasswordButtonText(savingPassword, hasPasswordAuth)}
                 </Button>
               </form>
             </Card>

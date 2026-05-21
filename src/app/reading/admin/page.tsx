@@ -29,7 +29,8 @@ export default function BacaanPage() {
       const data = await response.json();
       setReadings(data);
     } catch (err) {
-      setError("Failed to load reading materials");
+      const message = err instanceof Error ? err.message : "Unknown error";
+      setError(`Failed to load reading materials: ${message}`);
     } finally {
       setLoading(false);
     }

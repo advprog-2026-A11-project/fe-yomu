@@ -9,7 +9,7 @@ export interface EmptyStateProps {
   className?: string;
 }
 
-export function EmptyState({ icon, title, description, action, className = "" }: EmptyStateProps) {
+export function EmptyState({ icon, title, description, action, className = "" }: Readonly<EmptyStateProps>) {
   const isButtonProps = (val: ReactNode | (ButtonProps & { label: string })): val is ButtonProps & { label: string } => {
     return typeof val === "object" && val !== null && "label" in val;
   };

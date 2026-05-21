@@ -4,7 +4,6 @@ import { LoginForm } from "@/components/auth/login-form";
 import { RegisterForm } from "@/components/auth/register-form";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Modal } from "@/components/ui/Modal";
-import { Button } from "@/components/ui/Button";
 
 export function AuthModal() {
   const { authModal, closeAuthModal, openAuthModal } = useAuth();

@@ -17,7 +17,7 @@ const icons: Record<ToastType, string> = {
   info: "ℹ",
 };
 
-export function Toast({ message, type = "info", title, onClose, duration }: ToastProps) {
+export function Toast({ message, type = "info", title, onClose, duration }: Readonly<ToastProps>) {
   return (
     <div className={`yomu-toast yomu-toast-${type}`} role="alert">
       <span className="yomu-toast-icon">{icons[type]}</span>

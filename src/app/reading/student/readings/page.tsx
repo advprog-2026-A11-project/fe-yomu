@@ -34,7 +34,8 @@ export default function StudentReadingPage() {
           setError("Failed to load readings");
         }
       } catch (err) {
-        setError("Failed to load readings");
+        const message = err instanceof Error ? err.message : "Unknown error";
+        setError(`Failed to load readings: ${message}`);
       } finally {
         setLoading(false);
       }
@@ -62,7 +63,7 @@ export default function StudentReadingPage() {
             description={error}
           />
           <div style={{ textAlign: "center", marginTop: "1rem" }}>
-            <Button variant="primary" pill onClick={() => window.location.reload()}>Try Again</Button>
+            <Button variant="primary" pill onClick={() => globalThis.location.reload()}>Try Again</Button>
           </div>
         </div>
       </div>

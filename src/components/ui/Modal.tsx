@@ -40,10 +40,21 @@ export function Modal({
   if (!open) return null;
 
   return (
-    <div className="yomu-modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
+    <div
+      className="yomu-modal-backdrop"
+      onClick={onClose}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") onClose();
+      }}
+      role="dialog"
+      aria-modal="true"
+      tabIndex={-1}
+    >
       <div
         className={`yomu-modal yomu-modal-${size}`}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+        role="document"
       >
         {(title || showCloseButton) && (
           <div className="yomu-modal-header">

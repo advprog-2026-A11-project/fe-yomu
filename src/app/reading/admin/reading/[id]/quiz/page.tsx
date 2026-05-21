@@ -28,6 +28,10 @@ interface QuizQuestionRequest {
 
 const API_BASE = "/api/reading-admin";
 
+function getQuestionCountText(count: number): string {
+  return `${count} question${count !== 1 ? "s" : ""}`;
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { "Content-Type": "application/json" },
@@ -48,11 +52,11 @@ function QuestionForm({
   initial,
   onSubmit,
   onCancel,
-}: {
+}: Readonly<{
   initial?: Question;
   onSubmit: (data: QuizQuestionRequest) => Promise<void>;
   onCancel: () => void;
-}) {
+}>) {
   const [text, setText] = useState(initial?.text ?? "");
   const [type, setType] = useState(initial?.questionType ?? "MULTIPLE_CHOICE");
   const [options, setOptions] = useState<string[]>(initial?.options ?? ["", "", "", ""]);
@@ -109,9 +113,9 @@ function QuestionForm({
         />
 
         <div>
-          <label className="yomu-input-label" style={{ marginBottom: "0.5rem", display: "block" }}>
+          <span className="yomu-input-label" style={{ marginBottom: "0.5rem", display: "block", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-soft)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
             Question Type
-          </label>
+          </span>
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
             {(["MULTIPLE_CHOICE", "TRUE_FALSE", "ESSAY"] as const).map((t) => (
               <button
@@ -290,7 +294,7 @@ function QuestionCard({
                     fontWeight: opt === q.correctAnswer ? 600 : 400,
                   }}
                 >
-                  <span style={{ fontWeight: 700 }}>{String.fromCharCode(65 + i)}.</span>
+                  <span style={{ fontWeight: 700 }}>{String.fromCodePoint(65 + i)}.</span>
                   {opt}
                   {opt === q.correctAnswer && <span style={{ marginLeft: "auto" }}>✓</span>}
                 </div>
@@ -398,7 +402,7 @@ export default function AdminQuizPage() {
             </button>
             <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 800 }}>Quiz Management</h1>
             <p style={{ margin: "0.25rem 0 0", color: "var(--text-muted)", fontSize: "0.9rem" }}>
-              {loading ? "Loading…" : `${questions.length} question${questions.length !== 1 ? "s" : ""}`}
+              {loading ? "Loading…" : getQuestionCountText(questions.length)}
             </p>
           </div>
 

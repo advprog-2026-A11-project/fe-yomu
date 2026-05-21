@@ -352,14 +352,14 @@ function ReactionButton({
   onClick,
   children,
   size = "md",
-}: {
+}: Readonly<{
   active: boolean;
   count: number;
   enabled: boolean;
   onClick: () => void;
   children: React.ReactNode;
   size?: "sm" | "md";
-}) {
+}>) {
   const style: React.CSSProperties = {
     display: "inline-flex",
     alignItems: "center",

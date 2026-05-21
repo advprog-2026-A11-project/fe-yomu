@@ -16,6 +16,40 @@ interface Question {
   options?: string[];
 }
 
+function getOptionStyle(selected: boolean, isTrue: boolean): React.CSSProperties {
+  const border = selected ? `2px solid ${isTrue ? "var(--success)" : "var(--danger)"}` : "1px solid var(--border)";
+  const background = selected ? (isTrue ? "var(--success-soft)" : "var(--danger-soft)") : "var(--surface)";
+  const color = selected ? (isTrue ? "var(--success)" : "var(--danger)") : "var(--text)";
+  return {
+    margin: 0,
+    fontSize: "1.5rem",
+    fontWeight: 800,
+    color,
+    border,
+    borderRadius: "var(--radius-lg)",
+    background,
+    cursor: "pointer",
+    transition: "all 0.15s ease",
+  };
+}
+
+function getNavButtonStyle(active: boolean, answered: boolean): React.CSSProperties {
+  const background = active ? "var(--brand)" : answered ? "var(--success-soft)" : "var(--surface-raised)";
+  const color = active ? "white" : answered ? "var(--success)" : "var(--text-muted)";
+  return {
+    width: "2.75rem",
+    height: "2.75rem",
+    borderRadius: "var(--radius-md)",
+    fontWeight: 700,
+    fontSize: "0.85rem",
+    cursor: "pointer",
+    border: "none",
+    background,
+    color,
+    transition: "all 0.15s ease",
+  };
+}
+
 const SAMPLE_QUESTIONS: Question[] = [
   {
     id: "1",
@@ -178,7 +212,7 @@ export default function StudentQuizPage() {
                       cursor: "pointer", transition: "all 0.15s ease",
                     }}
                   >
-                    <p style={{ margin: 0, fontSize: "1.5rem", fontWeight: 800, color: selected ? (isTrue ? "var(--success)" : "var(--danger)") : "var(--text)" }}>
+                    <p style={getOptionStyle(selected, isTrue)}>
                       {option}
                     </p>
                   </button>
@@ -225,14 +259,7 @@ export default function StudentQuizPage() {
                 <button
                   key={question.id}
                   onClick={() => setCurrentIndex(index)}
-                  style={{
-                    width: "2.75rem", height: "2.75rem", borderRadius: "var(--radius-md)",
-                    fontWeight: 700, fontSize: "0.85rem", cursor: "pointer",
-                    border: "none",
-                    background: active ? "var(--brand)" : answered ? "var(--success-soft)" : "var(--surface-raised)",
-                    color: active ? "white" : answered ? "var(--success)" : "var(--text-muted)",
-                    transition: "all 0.15s ease",
-                  }}
+                  style={getNavButtonStyle(active, answered)}
                 >
                   {index + 1}
                 </button>

@@ -124,7 +124,7 @@ export default function ClanDetailPage() {
             ) : (
               <div style={{ display: "grid", gap: "0.75rem" }}>
                 {clan.memberScores.map((score: number, index: number) => (
-                  <Card key={index} variant="raised" padding="sm" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+                  <Card key={`member-${index}-${score}`} variant="raised" padding="sm" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                       <Avatar name={`Member ${index + 1}`} size="md" />
                       <div>

@@ -34,7 +34,7 @@ const features = [
   },
 ];
 
-function GuestHeader({ onLogin, onRegister }: { onLogin: () => void; onRegister: () => void }) {
+function GuestHeader({ onLogin, onRegister }: Readonly<{ onLogin: () => void; onRegister: () => void }>) {
   return (
     <header className="site-header">
       <div className="site-header-inner">
@@ -58,7 +58,7 @@ function GuestHeader({ onLogin, onRegister }: { onLogin: () => void; onRegister:
   );
 }
 
-function UnauthenticatedHero({ onLogin, onRegister }: { onLogin: () => void; onRegister: () => void }) {
+function UnauthenticatedHero({ onLogin, onRegister }: Readonly<{ onLogin: () => void; onRegister: () => void }>) {
   return (
     <section className="hero-section">
       <div className="hero-inner">
