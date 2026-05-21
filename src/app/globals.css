@@ -437,10 +437,59 @@ textarea {
   gap: 0.5rem;
 }
 
-.field span {
+.field span,
+.field legend {
   font-size: 0.9rem;
   font-weight: 700;
   color: var(--text-muted);
+}
+
+.field legend {
+  padding: 0;
+}
+
+fieldset.field {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.segmented-control {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.segmented-control label {
+  min-width: 0;
+}
+
+.segmented-control input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segmented-control span {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.segmented-control input:checked + span {
+  border-color: var(--primary);
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--primary-soft);
+}
+
+.segmented-control input:focus-visible + span {
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
 .field input,
@@ -471,6 +520,12 @@ textarea {
 
 .form-feedback-success {
   color: var(--success);
+}
+
+.account-method-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
 }
 
 .divider-line {
@@ -593,6 +648,7 @@ textarea {
 @media (max-width: 900px) {
   .dashboard-hero,
   .account-layout,
+  .account-method-grid,
   .auth-modal-footer {
     grid-template-columns: 1fr;
     display: grid;

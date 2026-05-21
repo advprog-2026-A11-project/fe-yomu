@@ -4,7 +4,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { LoadingState } from "@/components/states/loading-state";
 import { useAuth } from "@/components/providers/auth-provider";
-import { changePassword, normalizeAuthError } from "@/lib/auth-client";
+import { changePassword, normalizeAuthError, updateEmail, updatePhone } from "@/lib/auth-client";
 
 function supportsPasswordAuth(authProvider?: string) {
   return (authProvider || "").toUpperCase().includes("PASSWORD");
@@ -20,6 +20,14 @@ export default function AccountPage() {
   const [savingPassword, setSavingPassword] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [savingPhone, setSavingPhone] = useState(false);
+  const [emailMessage, setEmailMessage] = useState<string | null>(null);
+  const [phoneMessage, setPhoneMessage] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   const hasPasswordAuth = useMemo(
     () => supportsPasswordAuth(profile?.authProvider),
@@ -65,6 +73,54 @@ export default function AccountPage() {
     }
   }
 
+  async function handleEmailSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setEmailMessage(null);
+    setEmailError(null);
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setEmailError("Email is required.");
+      return;
+    }
+
+    setSavingEmail(true);
+    try {
+      const response = await updateEmail({ email: trimmedEmail });
+      await refreshSession();
+      setEmail("");
+      setEmailMessage(response.message || "Email login method updated.");
+    } catch (error) {
+      setEmailError(normalizeAuthError(error, "register"));
+    } finally {
+      setSavingEmail(false);
+    }
+  }
+
+  async function handlePhoneSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPhoneMessage(null);
+    setPhoneError(null);
+
+    const trimmedPhone = phone.trim();
+    if (!trimmedPhone) {
+      setPhoneError("Phone number is required.");
+      return;
+    }
+
+    setSavingPhone(true);
+    try {
+      const response = await updatePhone({ phone: trimmedPhone });
+      await refreshSession();
+      setPhone("");
+      setPhoneMessage(response.message || "Phone login method updated.");
+    } catch (error) {
+      setPhoneError(normalizeAuthError(error, "register"));
+    } finally {
+      setSavingPhone(false);
+    }
+  }
+
   if (status === "loading") {
     return <LoadingState title="Loading your account" description="Preparing your account settings." />;
   }
@@ -101,6 +157,57 @@ export default function AccountPage() {
               <span className="profile-label">Auth Provider</span>
               <strong>{profile?.authProvider || "-"}</strong>
             </div>
+          </div>
+        </section>
+
+        <section className="dashboard-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="panel-eyebrow">Login methods</p>
+              <h2>Add another way to sign in</h2>
+              <p>Attach an email or phone number to this account so the same profile can be reached from either identifier.</p>
+            </div>
+          </div>
+
+          <div className="account-method-grid">
+            <form className="auth-form" onSubmit={(event) => void handleEmailSubmit(event)}>
+              <label className="field">
+                <span>{profile?.email ? "Update email login" : "Add email login"}</span>
+                <input
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  type="email"
+                  autoComplete="email"
+                  placeholder={profile?.email || "you@yomu.id"}
+                  required
+                />
+              </label>
+              {emailError ? <p className="form-feedback form-feedback-error">{emailError}</p> : null}
+              {emailMessage ? <p className="form-feedback form-feedback-success">{emailMessage}</p> : null}
+              <button type="submit" className="button button-secondary" disabled={savingEmail}>
+                {savingEmail ? "Saving email..." : (profile?.email ? "Update email" : "Add email")}
+              </button>
+            </form>
+
+            <form className="auth-form" onSubmit={(event) => void handlePhoneSubmit(event)}>
+              <label className="field">
+                <span>{profile?.phone ? "Update phone login" : "Add phone login"}</span>
+                <input
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                  type="tel"
+                  autoComplete="tel"
+                  inputMode="numeric"
+                  placeholder={profile?.phone || "+628123456789 or 0812..."}
+                  required
+                />
+              </label>
+              {phoneError ? <p className="form-feedback form-feedback-error">{phoneError}</p> : null}
+              {phoneMessage ? <p className="form-feedback form-feedback-success">{phoneMessage}</p> : null}
+              <button type="submit" className="button button-secondary" disabled={savingPhone}>
+                {savingPhone ? "Saving phone..." : (profile?.phone ? "Update phone" : "Add phone")}
+              </button>
+            </form>
           </div>
         </section>
 
