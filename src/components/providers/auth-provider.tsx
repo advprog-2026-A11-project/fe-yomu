@@ -23,6 +23,7 @@ import {
   refreshWithCookie,
   registerWithPassword,
 } from "@/lib/auth-client";
+import { isAdminRole } from "@/lib/auth-role";
 import { getSupabaseClient } from "@/lib/supabase";
 import type {
   AuthModalIntent,
@@ -290,7 +291,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       status,
       session,
       isAuthenticated: status === "authenticated" && !!session?.profile?.id,
-      isAdmin: session?.profile?.role === "ADMIN",
+      isAdmin: isAdminRole(session?.profile?.role),
       authModal,
       toast,
       signIn,

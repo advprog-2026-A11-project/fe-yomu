@@ -7,20 +7,33 @@ import QuizSection from "@/components/layout/QuizSection";
 import ReadingForum from "@/app/reading/ReadingForum";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { ProtectedRoute } from "@/components/auth/protected-route";
+import { useAuth } from "@/components/providers/auth-provider";
 
 const API_BASE = "/api/reading-student";
 
 export default function ReadingViewStudent() {
   const { id } = useParams();
   const router = useRouter();
+  const { session, isAuthenticated } = useAuth();
   const [reading, setReading] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const userId = session?.profile?.id;
+    if (!isAuthenticated || !id || !userId) {
+      return;
+    }
+
     const fetchDetail = async () => {
       try {
-        const response = await fetch(`${API_BASE}/${id}`);
-        if (!response.ok) throw new Error("Failed to fetch reading detail");
+        const response = await fetch(`${API_BASE}/${id}`, {
+          headers: {
+            userId,
+          },
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch reading detail (${response.status})`);
+        }
         const data = await response.json();
         setReading(data);
       } catch (error) {
@@ -30,7 +43,7 @@ export default function ReadingViewStudent() {
       }
     };
     fetchDetail();
-  }, [id]);
+  }, [id, isAuthenticated, session?.profile?.id]);
 
   if (loading) {
     return (

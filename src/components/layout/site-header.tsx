@@ -5,11 +5,10 @@ import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Avatar } from "@/components/ui/Avatar";
+import { isAdminRole } from "@/lib/auth-role";
 
-const primaryLinks = [
+const staticPrimaryLinks = [
   { href: "/", label: "Home" },
-  { href: "/reading/student/readings", label: "Reading" },
-  { href: "/forums", label: "Forum" },
   { href: "/achievement", label: "Achievement" },
   { href: "/clan", label: "League" },
 ];
@@ -38,7 +37,12 @@ export function SiteHeader() {
   }
 
   const displayName = session?.profile?.displayName || session?.profile?.username || "";
-  const isAdmin = session?.profile?.role === "ADMIN";
+  const isAdmin = isAdminRole(session?.profile?.role);
+  const primaryLinks = [
+    { href: "/", label: "Home" },
+    { href: isAdmin ? "/reading/admin" : "/reading/student/readings", label: "Reading" },
+    ...staticPrimaryLinks.slice(1),
+  ];
 
   return (
     <header className="site-header">
