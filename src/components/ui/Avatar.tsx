@@ -1,8 +1,8 @@
 import { type HTMLAttributes } from "react";
 
-type AvatarSize = "sm" | "md" | "lg" | "xl";
+export type AvatarSize = "sm" | "md" | "lg" | "xl";
 
-interface AvatarProps extends Omit<HTMLAttributes<HTMLDivElement>, "src"> {
+export interface AvatarProps extends Omit<HTMLAttributes<HTMLDivElement>, "src"> {
   name?: string;
   src?: string;
   size?: AvatarSize;

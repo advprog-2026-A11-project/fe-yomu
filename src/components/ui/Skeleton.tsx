@@ -1,8 +1,8 @@
 import { type HTMLAttributes } from "react";
 
-type SkeletonVariant = "text" | "circle" | "rect";
+export type SkeletonVariant = "text" | "circle" | "rect";
 
-interface SkeletonProps extends HTMLAttributes<HTMLDivElement> {
+export interface SkeletonProps extends HTMLAttributes<HTMLDivElement> {
   width?: string | number;
   height?: string | number;
   variant?: SkeletonVariant;

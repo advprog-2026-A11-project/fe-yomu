@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 import { Button, type ButtonProps } from "./Button";
 
-interface EmptyStateProps {
+export interface EmptyStateProps {
   icon?: ReactNode;
   title: string;
   description?: string;

@@ -1,9 +1,9 @@
 import { type HTMLAttributes, type ReactNode } from "react";
 
-type CardVariant = "default" | "raised" | "pressed";
-type CardPadding = "sm" | "md" | "lg" | "none";
+export type CardVariant = "default" | "raised" | "pressed";
+export type CardPadding = "sm" | "md" | "lg" | "none";
 
-interface CardProps extends HTMLAttributes<HTMLDivElement> {
+export interface CardProps extends HTMLAttributes<HTMLDivElement> {
   variant?: CardVariant;
   padding?: CardPadding;
   hoverable?: boolean;

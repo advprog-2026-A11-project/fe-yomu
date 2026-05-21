@@ -1,8 +1,8 @@
 import { type ReactNode, useEffect } from "react";
 
-type ModalSize = "sm" | "md" | "lg" | "xl";
+export type ModalSize = "sm" | "md" | "lg" | "xl";
 
-interface ModalProps {
+export interface ModalProps {
   open: boolean;
   onClose: () => void;
   title?: ReactNode;

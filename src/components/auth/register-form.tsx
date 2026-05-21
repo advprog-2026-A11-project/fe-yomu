@@ -5,6 +5,8 @@ import { GoogleAuthButton } from "@/components/auth/google-auth-button";
 import { runGoogleAuthAction } from "@/components/auth/google-auth-action";
 import { useAuth } from "@/components/providers/auth-provider";
 import { normalizeAuthError } from "@/lib/auth-client";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
 
 function hasValidPhoneDigitCount(value: string): boolean {
   const compact = value.replaceAll(/[\s\-()+]/g, "");
@@ -53,84 +55,72 @@ export function RegisterForm() {
   }
 
   return (
-    <div className="auth-panel-stack">
+    <div className="auth-form-container">
       <GoogleAuthButton
         loading={loading}
         label="Register with Google"
         onClick={() => void handleGoogleSignIn()}
       />
 
-      <div className="divider-line">
+      <div className="auth-form-divider">
         <span>or create an account with email and phone</span>
       </div>
 
-      <form className="auth-form" onSubmit={(event) => void handleSubmit(event)}>
-        <label className="field">
-          <span>Email</span>
-          <input
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            type="email"
-            autoComplete="email"
-            placeholder="you@yomu.id"
-            required
-          />
-        </label>
+      <form className="auth-form-actions" onSubmit={(event) => void handleSubmit(event)}>
+        <Input
+          label="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          type="email"
+          autoComplete="email"
+          placeholder="you@yomu.id"
+          required
+        />
 
-        <label className="field">
-          <span>Phone number</span>
-          <input
-            value={phone}
-            onChange={(event) => setPhone(event.target.value)}
-            type="tel"
-            autoComplete="tel"
-            placeholder="+628123456789 or 0812..."
-            inputMode="numeric"
-            required
-          />
-        </label>
+        <Input
+          label="Phone number"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          type="tel"
+          autoComplete="tel"
+          placeholder="+628123456789 or 0812..."
+          inputMode="numeric"
+          required
+        />
 
-        <label className="field">
-          <span>Password</span>
-          <input
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            type="password"
-            autoComplete="new-password"
-            placeholder="Create a strong password"
-            required
-          />
-        </label>
+        <Input
+          label="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          type="password"
+          autoComplete="new-password"
+          placeholder="Create a strong password"
+          required
+        />
 
-        <label className="field">
-          <span>Username</span>
-          <input
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            type="text"
-            autoComplete="username"
-            placeholder="Choose a username"
-            required
-          />
-        </label>
+        <Input
+          label="Username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          type="text"
+          autoComplete="username"
+          placeholder="Choose a username"
+        />
 
-        <label className="field">
-          <span>Display name</span>
-          <input
-            value={displayName}
-            onChange={(event) => setDisplayName(event.target.value)}
-            type="text"
-            autoComplete="nickname"
-            placeholder="How Yomu should greet you"
-            required
-          />
-        </label>
+        <Input
+          label="Display name"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          type="text"
+          autoComplete="nickname"
+          placeholder="How Yomu should greet you"
+        />
 
-        {error ? <p className="form-feedback form-feedback-error">{error}</p> : null}
+        {error && <div className="auth-error">{error}</div>}
 
-        <button type="submit" className="button button-primary" disabled={loading}>
+        <Button type="submit" variant="primary" pill loading={loading} style={{ width: "100%" }}>
           {loading ? "Creating account..." : "Create account"}
-        </button>
+        </Button>
       </form>
     </div>
   );

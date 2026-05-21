@@ -1,9 +1,9 @@
 import { type HTMLAttributes } from "react";
 
-type ProgressColor = "brand" | "success" | "warning" | "danger" | "gold";
-type ProgressSize = "sm" | "md" | "lg";
+export type ProgressColor = "brand" | "success" | "warning" | "danger" | "gold";
+export type ProgressSize = "sm" | "md" | "lg";
 
-interface ProgressProps extends HTMLAttributes<HTMLDivElement> {
+export interface ProgressProps extends HTMLAttributes<HTMLDivElement> {
   value: number;
   max?: number;
   color?: ProgressColor;

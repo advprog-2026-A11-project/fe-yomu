@@ -1,9 +1,9 @@
 import { forwardRef, type ButtonHTMLAttributes } from "react";
 
-type ButtonVariant = "primary" | "secondary" | "danger" | "ghost" | "success" | "gold";
-type ButtonSize = "sm" | "md" | "lg";
+export type ButtonVariant = "primary" | "secondary" | "danger" | "ghost" | "success" | "gold";
+export type ButtonSize = "sm" | "md" | "lg";
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;
   pill?: boolean;

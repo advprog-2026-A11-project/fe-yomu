@@ -1,14 +1,14 @@
 import { type ReactNode } from "react";
 
-type TabSize = "sm" | "md" | "lg";
+export type TabSize = "sm" | "md" | "lg";
 
-interface TabItem {
+export interface TabItem {
   id: string;
   label: ReactNode;
   disabled?: boolean;
 }
 
-interface TabsProps {
+export interface TabsProps {
   items: TabItem[];
   active: string;
   onChange: (id: string) => void;

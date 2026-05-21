@@ -1,6 +1,6 @@
 import { forwardRef, type TextareaHTMLAttributes } from "react";
 
-interface TextareaProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "size"> {
+export interface TextareaProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "size"> {
   label?: string;
   error?: string;
 }

@@ -1,8 +1,8 @@
 import { type ReactNode } from "react";
 
-type LoadingVariant = "orb" | "dots";
+export type LoadingVariant = "orb" | "dots";
 
-interface LoadingStateProps {
+export interface LoadingStateProps {
   variant?: LoadingVariant;
   message?: string;
   size?: "sm" | "md" | "lg";

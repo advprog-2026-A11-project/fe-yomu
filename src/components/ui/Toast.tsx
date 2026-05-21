@@ -1,8 +1,8 @@
 import { type ReactNode } from "react";
 
-type ToastType = "success" | "error" | "warning" | "info";
+export type ToastType = "success" | "error" | "warning" | "info";
 
-interface ToastProps {
+export interface ToastProps {
   message: ReactNode;
   type?: ToastType;
   title?: string;
@@ -39,7 +39,7 @@ export function Toast({ message, type = "info", title, onClose, duration }: Toas
   );
 }
 
-interface ToastItem {
+export interface ToastItem {
   id: string;
   message: ReactNode;
   type?: ToastType;
@@ -47,7 +47,7 @@ interface ToastItem {
   duration?: number;
 }
 
-interface ToastContainerProps {
+export interface ToastContainerProps {
   toasts: ToastItem[];
   onDismiss: (id: string) => void;
 }
