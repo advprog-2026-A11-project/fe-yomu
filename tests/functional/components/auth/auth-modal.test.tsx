@@ -27,11 +27,21 @@ const authenticatedSession = {
   },
 };
 
+function getFetchUrl(input: RequestInfo | URL): string {
+  if (typeof input === "string") {
+    return input;
+  }
+  if (input instanceof URL) {
+    return input.href;
+  }
+  return input.url;
+}
+
 function mockAuthFetch(mode: "guest" | "authenticated") {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = typeof input === "string" ? input : input.toString();
+      const url = getFetchUrl(input);
       const method = init?.method || "GET";
 
       if (url === "/api/auth-proxy/auth/me" && mode === "guest") {

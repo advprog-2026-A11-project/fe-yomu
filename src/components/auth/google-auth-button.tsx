@@ -1,7 +1,5 @@
 "use client";
 
-import { type ComponentProps } from "react";
-
 type GoogleAuthButtonProps = {
   loading: boolean;
   label: string;

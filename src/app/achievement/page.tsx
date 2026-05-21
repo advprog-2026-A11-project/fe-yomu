@@ -114,6 +114,12 @@ function normalizeAchievement(item: UserAchievement) {
   };
 }
 
+function isAchievementTab(value: string): value is "missions" | "gallery" {
+  return value === "missions" || value === "gallery";
+}
+
+const SHOWCASE_SLOTS = ["first", "second", "third"] as const;
+
 export default function AchievementPage() {
   const { session, isAuthenticated } = useAuth();
   const userId = session?.profile?.id;
@@ -553,8 +559,8 @@ export default function AchievementPage() {
               gap: "1rem",
               minHeight: "130px"
             }}>
-              {[0, 1, 2].map((index) => {
-                const item = featuredAchievements[index];
+              {SHOWCASE_SLOTS.map((slot, slotIndex) => {
+                const item = featuredAchievements[slotIndex];
                 if (item) {
                   return (
                     <div key={item.id} style={{
@@ -604,7 +610,7 @@ export default function AchievementPage() {
                   );
                 } else {
                   return (
-                    <div key={index} style={{
+                    <div key={`empty-showcase-${slot}`} style={{
                       border: "2px dashed var(--border)",
                       borderRadius: "var(--radius-md)",
                       background: "rgba(0,0,0,0.01)",
@@ -634,7 +640,11 @@ export default function AchievementPage() {
             { id: "gallery", label: `🏆 Galeri Piala (${achievements.length})` },
           ]}
           active={activeTab}
-          onChange={(id) => setActiveTab(id as "missions" | "gallery")}
+          onChange={(id) => {
+            if (isAchievementTab(id)) {
+              setActiveTab(id);
+            }
+          }}
         />
 
         {/* TAB CONTENTS */}

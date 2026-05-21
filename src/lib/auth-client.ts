@@ -13,12 +13,17 @@ export function normalizeAuthApiBase(): string {
     return "/api/auth-proxy";
   }
 
-  if (
-    typeof window !== "undefined"
-    && window.location.protocol === "https:"
-    && configured.startsWith("http://")
-  ) {
-    return "/api/auth-proxy";
+  try {
+    const configuredUrl = new URL(configured);
+    if (
+      typeof globalThis.location !== "undefined"
+      && globalThis.location.protocol === "https:"
+      && configuredUrl.protocol === "http:"
+    ) {
+      return "/api/auth-proxy";
+    }
+  } catch {
+    return configured;
   }
 
   return configured;

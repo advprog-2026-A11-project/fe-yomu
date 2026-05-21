@@ -2,10 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
+import { Badge, type BadgeVariant } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { LoadingState } from "@/components/ui/LoadingState";
@@ -27,6 +26,7 @@ interface QuizQuestionRequest {
 }
 
 const API_BASE = "/api/reading-admin";
+const OPTION_LABELS = ["A", "B", "C", "D"] as const;
 
 function getQuestionCountText(count: number): string {
   const suffix = count === 1 ? "" : "s";
@@ -37,6 +37,12 @@ function getQuestionTypeLabel(type: string): string {
   if (type === "MULTIPLE_CHOICE") return "Multiple Choice";
   if (type === "TRUE_FALSE") return "True / False";
   return "Essay";
+}
+
+function getQuestionBadgeVariant(type: Question["questionType"]): BadgeVariant {
+  if (type === "MULTIPLE_CHOICE") return "brand";
+  if (type === "TRUE_FALSE") return "info";
+  return "warning";
 }
 
 function getTrueFalseButtonStyle(correctAnswer: string, value: string): React.CSSProperties {
@@ -101,6 +107,7 @@ function QuestionForm({
   const [correctAnswer, setCorrectAnswer] = useState(initial?.correctAnswer ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const filledOptions = options.filter((option) => option.trim());
 
   const handleOptionChange = (idx: number, val: string) => {
     setOptions((prev) => prev.map((o, i) => (i === idx ? val : o)));
@@ -132,8 +139,8 @@ function QuestionForm({
         ...(type === "MULTIPLE_CHOICE" ? { options: options.filter((o) => o.trim()) } : {}),
       };
       await onSubmit(payload);
-    } catch (e: any) {
-      setError(e.message ?? "Failed to save.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to save.");
     } finally {
       setSaving(false);
     }
@@ -184,12 +191,15 @@ function QuestionForm({
         {type === "MULTIPLE_CHOICE" && (
           <div style={{ display: "grid", gap: "1rem" }}>
             <div>
-              <label className="yomu-input-label" style={{ marginBottom: "0.5rem", display: "block" }}>
+              <span className="yomu-input-label" style={{ marginBottom: "0.5rem", display: "block" }}>
                 Options (min. 2)
-              </label>
+              </span>
               <div style={{ display: "grid", gap: "0.5rem" }}>
-                {options.map((opt, idx) => (
-                  <div key={`option-${idx}`} style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                {OPTION_LABELS.map((optionLabel, idx) => {
+                  const opt = options[idx] ?? "";
+
+                  return (
+                  <div key={optionLabel} style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                     <div style={{
                       width: "1.75rem", height: "1.75rem", borderRadius: "var(--radius-sm)",
                       background: "var(--surface-raised)", display: "flex",
@@ -197,30 +207,32 @@ function QuestionForm({
                       fontSize: "0.75rem", fontWeight: 700, color: "var(--text-soft)",
                       flexShrink: 0,
                     }}>
-                      {String.fromCharCode(65 + idx)}
+                      {optionLabel}
                     </div>
                     <input
                       className="yomu-input"
                       value={opt}
                       onChange={(e) => handleOptionChange(idx, e.target.value)}
-                      placeholder={`Option ${String.fromCharCode(65 + idx)}`}
+                      placeholder={`Option ${optionLabel}`}
                     />
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
             <div className="yomu-input-wrapper">
-              <label className="yomu-input-label">Correct Answer</label>
+              <label className="yomu-input-label" htmlFor="quiz-correct-answer">Correct Answer</label>
               <select
+                id="quiz-correct-answer"
                 className="yomu-input"
                 value={correctAnswer}
                 onChange={(e) => setCorrectAnswer(e.target.value)}
               >
                 <option value="">Select correct option…</option>
-                {options.filter((o) => o.trim()).map((o, idx) => (
-                  <option key={idx} value={o}>
-                    {String.fromCharCode(65 + idx)}. {o}
+                {filledOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {String.fromCharCode(65 + options.indexOf(option))}. {option}
                   </option>
                 ))}
               </select>
@@ -300,10 +312,7 @@ function QuestionCard({
           <p style={{ margin: "0 0 0.5rem", fontWeight: 600, lineHeight: 1.4 }}>
             {q.text}
           </p>
-          <Badge variant={
-            q.questionType === "MULTIPLE_CHOICE" ? "brand" :
-            q.questionType === "TRUE_FALSE" ? "info" : "warning"
-          }>
+          <Badge variant={getQuestionBadgeVariant(q.questionType)}>
             {q.questionType.replace("_", " ")}
           </Badge>
 
@@ -311,7 +320,7 @@ function QuestionCard({
             <div style={{ marginTop: "0.75rem", display: "grid", gap: "0.35rem" }}>
               {q.options.map((opt, i) => (
                 <div
-                  key={i}
+                  key={`${q.id}-${opt}`}
                   style={{
                     display: "flex", alignItems: "center", gap: "0.5rem",
                     padding: "0.4rem 0.75rem", borderRadius: "var(--radius-sm)",
@@ -380,8 +389,8 @@ export default function AdminQuizPage() {
     try {
       const data = await apiFetch<Question[]>(`/${readingId}/questions`);
       setQuestions(Array.isArray(data) ? data : []);
-    } catch (e: any) {
-      setError(e.message ?? "Failed to load questions.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to load questions.");
       setQuestions([]);
     } finally {
       setLoading(false);

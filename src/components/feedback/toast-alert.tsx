@@ -10,8 +10,8 @@ export function ToastAlert() {
   useEffect(() => {
     if (!toast) return;
 
-    const timer = window.setTimeout(() => clearToast(), 4000);
-    return () => window.clearTimeout(timer);
+    const timer = globalThis.setTimeout(() => clearToast(), 4000);
+    return () => globalThis.clearTimeout(timer);
   }, [clearToast, toast]);
 
   if (!toast) return null;

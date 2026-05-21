@@ -30,7 +30,7 @@ export function useToast({ defaultDuration = 4000, maxToasts = 5 }: UseToastOpti
 
   const addToast = useCallback(
     (message: string, options?: { type?: ToastType; title?: string; duration?: number }) => {
-      const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      const id = `toast-${globalThis.crypto.randomUUID()}`;
       const duration = options?.duration ?? defaultDuration;
 
       setToasts((prev) => {

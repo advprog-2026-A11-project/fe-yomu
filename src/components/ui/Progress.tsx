@@ -34,16 +34,12 @@ export function Progress({
           </span>
         </div>
       )}
-      <div className={`yomu-progress yomu-progress-${color} yomu-progress-${size}`}>
-        <div
-          className="yomu-progress-bar"
-          style={{ width: `${percentage}%` }}
-          role="progressbar"
-          aria-valuenow={value}
-          aria-valuemin={0}
-          aria-valuemax={max}
-        />
-      </div>
+      <progress
+        className={`yomu-progress yomu-progress-${color} yomu-progress-${size}`}
+        value={Math.min(max, Math.max(0, value))}
+        max={max}
+        aria-label={label || "Progress"}
+      />
     </div>
   );
 }

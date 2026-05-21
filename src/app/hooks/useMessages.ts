@@ -17,11 +17,11 @@ function cacheKey(readingId?: string): string {
 }
 
 function readCachedMessages(readingId?: string): Message[] | null {
-  if (typeof globalThis.window === "undefined") {
+  if (typeof globalThis.sessionStorage === "undefined") {
     return null;
   }
   try {
-    const raw = globalThis.window.sessionStorage.getItem(cacheKey(readingId));
+    const raw = globalThis.sessionStorage.getItem(cacheKey(readingId));
     if (!raw) {
       return null;
     }
@@ -30,7 +30,7 @@ function readCachedMessages(readingId?: string): Message[] | null {
       return null;
     }
     if (globalThis.Date.now() - parsed.ts > MESSAGE_CACHE_TTL_MS) {
-      globalThis.window.sessionStorage.removeItem(cacheKey(readingId));
+      globalThis.sessionStorage.removeItem(cacheKey(readingId));
       return null;
     }
     return parsed.data;
@@ -40,12 +40,12 @@ function readCachedMessages(readingId?: string): Message[] | null {
 }
 
 function writeCachedMessages(readingId: string | undefined, messages: Message[]): void {
-  if (typeof globalThis.window === "undefined") {
+  if (typeof globalThis.sessionStorage === "undefined") {
     return;
   }
   try {
     const payload: CachedMessages = { ts: globalThis.Date.now(), data: messages };
-    globalThis.window.sessionStorage.setItem(cacheKey(readingId), globalThis.JSON.stringify(payload));
+    globalThis.sessionStorage.setItem(cacheKey(readingId), globalThis.JSON.stringify(payload));
   } catch {
     // no-op
   }

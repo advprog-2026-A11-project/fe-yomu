@@ -205,7 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const startGoogleSignIn = useCallback(
     async (nextPath?: string) => {
-      const redirectTo = `${window.location.origin}/auth/callback${
+      const redirectTo = `${globalThis.location.origin}/auth/callback${
         nextPath || authModal?.nextPath || pathname
           ? `?next=${encodeURIComponent(nextPath || authModal?.nextPath || inferNextPath(pathname || "/"))}`
           : ""
@@ -223,7 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.url) {
-        window.location.assign(data.url);
+        globalThis.location.assign(data.url);
       }
     },
     [authModal?.nextPath, pathname],

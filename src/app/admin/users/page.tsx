@@ -41,6 +41,17 @@ function getEmptyDescription(tab: string): string {
   return `No ${tab} users found.`;
 }
 
+function getEmptyStateDescription(activeTab: "all" | "active" | "inactive"): string {
+  if (activeTab === "all") {
+    return "Click 'Load Users' to fetch the user list.";
+  }
+  return getEmptyDescription(activeTab);
+}
+
+function isUserTab(value: string): value is "all" | "active" | "inactive" {
+  return value === "all" || value === "active" || value === "inactive";
+}
+
 export default function AdminUsersPage() {
   const { isAdmin } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -287,7 +298,11 @@ export default function AdminUsersPage() {
               { id: "inactive", label: `Inactive (${inactiveCount})` },
             ]}
             active={activeTab}
-            onChange={(id) => setActiveTab(id as "all" | "active" | "inactive")}
+            onChange={(id) => {
+              if (isUserTab(id)) {
+                setActiveTab(id);
+              }
+            }}
           />
 
           {/* User List */}
@@ -298,7 +313,7 @@ export default function AdminUsersPage() {
               <EmptyState
                 icon="👥"
                 title="No Users Found"
-                description={activeTab === "all" ? "Click 'Load Users' to fetch the user list." : getEmptyDescription(activeTab)}
+                description={getEmptyStateDescription(activeTab)}
               />
             ) : (
               <div style={{ display: "grid", gap: "1rem" }}>
@@ -329,10 +344,11 @@ export default function AdminUsersPage() {
                             placeholder="Email address"
                           />
                           <div>
-                            <label style={{ display: "block", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--text-soft)", fontWeight: 600, marginBottom: "0.5rem" }}>
+                            <label htmlFor="admin-user-role" style={{ display: "block", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--text-soft)", fontWeight: 600, marginBottom: "0.5rem" }}>
                               Role
                             </label>
                             <select
+                              id="admin-user-role"
                               value={editForm.role}
                               onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}
                               style={{

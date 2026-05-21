@@ -17,7 +17,7 @@ export function Card({
   className = "",
   children,
   ...props
-}: CardProps) {
+}: Readonly<CardProps>) {
   const classes = [
     "yomu-card",
     `yomu-card-${variant}`,

@@ -460,7 +460,7 @@ export function MessageCard({
     }
 
     const handleOutsideClick = (event: MouseEvent) => {
-      if (!emojiPickerRef.current?.contains(event.target as Node)) {
+      if (event.target instanceof Node && !emojiPickerRef.current?.contains(event.target)) {
         setEmojiPickerOpen(false);
       }
     };

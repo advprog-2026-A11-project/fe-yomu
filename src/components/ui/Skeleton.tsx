@@ -1,4 +1,4 @@
-import { type HTMLAttributes } from "react";
+import { type HTMLAttributes, useMemo } from "react";
 
 export type SkeletonVariant = "text" | "circle" | "rect";
 
@@ -19,6 +19,10 @@ export function Skeleton({
   ...props
 }: Readonly<SkeletonProps>) {
   const variantClass = `yomu-skeleton-${variant}`;
+  const lineKeys = useMemo(
+    () => Array.from({ length: lines }, () => globalThis.crypto.randomUUID()),
+    [lines],
+  );
 
   const inlineStyle: React.CSSProperties = {
     ...style,
@@ -29,9 +33,9 @@ export function Skeleton({
   if (variant === "text" && lines > 1) {
     return (
       <div className={className} style={inlineStyle}>
-        {Array.from({ length: lines }).map((_, i) => (
+        {lineKeys.map((lineKey, i) => (
           <div
-            key={`skeleton-line-${i}`}
+            key={lineKey}
             className={`yomu-skeleton yomu-skeleton-text ${i === lines - 1 && lines > 1 ? "yomu-skeleton-text:last-child" : ""}`}
             {...props}
           />

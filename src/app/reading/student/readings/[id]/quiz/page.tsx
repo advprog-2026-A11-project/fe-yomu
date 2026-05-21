@@ -65,6 +65,16 @@ function getNavButtonStyle(active: boolean, answered: boolean): React.CSSPropert
   };
 }
 
+function getTrueFalseBorder(selected: boolean, isTrue: boolean): string {
+  if (!selected) return "1px solid var(--border)";
+  return `2px solid ${isTrue ? "var(--success)" : "var(--danger)"}`;
+}
+
+function getTrueFalseBackground(selected: boolean, isTrue: boolean): string {
+  if (!selected) return "var(--surface)";
+  return isTrue ? "var(--success-soft)" : "var(--danger-soft)";
+}
+
 const SAMPLE_QUESTIONS: Question[] = [
   {
     id: "1",
@@ -221,9 +231,9 @@ export default function StudentQuizPage() {
                     onClick={() => handleAnswer(option)}
                     style={{
                       padding: "2rem", textAlign: "center",
-                      border: selected ? `2px solid ${isTrue ? "var(--success)" : "var(--danger)"}` : "1px solid var(--border)",
+                      border: getTrueFalseBorder(selected, isTrue),
                       borderRadius: "var(--radius-lg)",
-                      background: selected ? (isTrue ? "var(--success-soft)" : "var(--danger-soft)") : "var(--surface)",
+                      background: getTrueFalseBackground(selected, isTrue),
                       cursor: "pointer", transition: "all 0.15s ease",
                     }}
                   >

@@ -13,6 +13,13 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { getTierConfig } from "@/utils/tiers";
 import { ROUTES } from "@/constants";
 
+type MemberScore = {
+  key: string;
+  score: number;
+  memberNumber: number;
+  editIndex: string;
+};
+
 export default function ClanDetailPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -78,6 +85,12 @@ export default function ClanDetailPage() {
   }
 
   const tierConfig = getTierConfig(clan.rankTier || "");
+  const memberScores: MemberScore[] = (clan.memberScores || []).map((score: number, index: number) => ({
+    key: `member-${index}-${score}`,
+    score,
+    memberNumber: index + 1,
+    editIndex: String(index),
+  }));
 
   return (
     <ProtectedRoute description="Sign in to view clan details.">
@@ -115,7 +128,7 @@ export default function ClanDetailPage() {
           <Card>
             <h3 style={{ margin: "0 0 1rem", fontSize: "1.1rem", fontWeight: 700 }}>Members</h3>
 
-            {!clan.memberScores || clan.memberScores.length === 0 ? (
+            {memberScores.length === 0 ? (
               <EmptyState
                 icon="👥"
                 title="No Members Yet"
@@ -123,22 +136,22 @@ export default function ClanDetailPage() {
               />
             ) : (
               <div style={{ display: "grid", gap: "0.75rem" }}>
-                {clan.memberScores.map((score: number, index: number) => (
-                  <Card key={`member-${index}-${score}`} variant="raised" padding="sm" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+                {memberScores.map((member) => (
+                  <Card key={member.key} variant="raised" padding="sm" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                      <Avatar name={`Member ${index + 1}`} size="md" />
+                      <Avatar name={`Member ${member.memberNumber}`} size="md" />
                       <div>
-                        <div style={{ fontWeight: 600 }}>Member {index + 1}</div>
+                        <div style={{ fontWeight: 600 }}>Member {member.memberNumber}</div>
                         <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>Score</div>
                       </div>
                     </div>
 
                     <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                      <Badge tier="gold">{score} pts</Badge>
-                      <Link href={ROUTES.clan.editMember(id as string, String(index))}>
+                      <Badge tier="gold">{member.score} pts</Badge>
+                      <Link href={ROUTES.clan.editMember(id as string, member.editIndex)}>
                         <Button variant="ghost" size="sm" pill>Edit</Button>
                       </Link>
-                      <Button variant="ghost" size="sm" pill onClick={() => deleteMember(index)}>
+                      <Button variant="ghost" size="sm" pill onClick={() => deleteMember(Number(member.editIndex))}>
                         Remove
                       </Button>
                     </div>

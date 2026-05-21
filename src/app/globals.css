@@ -473,23 +473,39 @@ svg {
   background: var(--surface-raised);
   border-radius: var(--radius-pill);
   overflow: hidden;
+  border: 0;
+  display: block;
+  appearance: none;
 }
 
-.yomu-progress-bar {
-  height: 100%;
+.yomu-progress::-webkit-progress-bar {
+  background: var(--surface-raised);
+  border-radius: var(--radius-pill);
+}
+
+.yomu-progress::-webkit-progress-value {
   border-radius: var(--radius-pill);
   transition: width 0.4s ease-out;
+}
+
+.yomu-progress::-moz-progress-bar {
+  border-radius: var(--radius-pill);
 }
 
 .yomu-progress-sm { height: 6px; }
 .yomu-progress-md { height: 10px; }
 .yomu-progress-lg { height: 16px; }
 
-.yomu-progress-brand .yomu-progress-bar { background: var(--brand); }
-.yomu-progress-success .yomu-progress-bar { background: var(--success); }
-.yomu-progress-warning .yomu-progress-bar { background: var(--warning); }
-.yomu-progress-danger .yomu-progress-bar { background: var(--danger); }
-.yomu-progress-gold .yomu-progress-bar { background: var(--gold); }
+.yomu-progress-brand::-webkit-progress-value { background: var(--brand); }
+.yomu-progress-success::-webkit-progress-value { background: var(--success); }
+.yomu-progress-warning::-webkit-progress-value { background: var(--warning); }
+.yomu-progress-danger::-webkit-progress-value { background: var(--danger); }
+.yomu-progress-gold::-webkit-progress-value { background: var(--gold); }
+.yomu-progress-brand::-moz-progress-bar { background: var(--brand); }
+.yomu-progress-success::-moz-progress-bar { background: var(--success); }
+.yomu-progress-warning::-moz-progress-bar { background: var(--warning); }
+.yomu-progress-danger::-moz-progress-bar { background: var(--danger); }
+.yomu-progress-gold::-moz-progress-bar { background: var(--gold); }
 
 .yomu-progress-label {
   display: flex;
@@ -635,6 +651,7 @@ svg {
 }
 
 .yomu-modal {
+  border: none;
   background: var(--surface);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-xl);
@@ -642,6 +659,12 @@ svg {
   max-height: 90vh;
   overflow-y: auto;
   animation: scale-in 0.25s ease;
+}
+
+.yomu-modal::backdrop {
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(4px);
+  animation: fade-in 0.2s ease;
 }
 
 .yomu-modal-sm { max-width: 400px; }

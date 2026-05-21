@@ -155,7 +155,10 @@ function FeaturesSection() {
   );
 }
 
-function CtaSection({ isAuthenticated, onRegister }: { isAuthenticated: boolean; onRegister: () => void }) {
+function CtaSection({
+  isAuthenticated,
+  onRegister,
+}: Readonly<{ isAuthenticated: boolean; onRegister: () => void }>) {
   if (isAuthenticated) return null;
 
   return (
