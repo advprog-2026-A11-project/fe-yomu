@@ -6,6 +6,11 @@ import { useMessages } from "@/app/hooks/useMessages";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useAuth } from "@/components/providers/auth-provider";
 import { getAuthHeaders } from "@/lib/auth-headers";
+import { Button } from "@/components/ui/Button";
+import { Textarea } from "@/components/ui/Textarea";
+import { Card } from "@/components/ui/Card";
+import { LoadingState } from "@/components/ui/LoadingState";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function ForumsPage() {
   const { messages, loading, error: messageError, load } = useMessages();
@@ -43,68 +48,77 @@ export default function ForumsPage() {
 
   return (
     <ProtectedRoute description="Sign in to join the forums.">
-      <section>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h2 style={{ fontSize: "1.25rem", marginBottom: "0.75rem" }}>Forums</h2>
-          <div>
-            {isAuthenticated ? (
-              !showCreate ? (
-                <button type="button" onClick={() => setShowCreate(true)} className="btn">
-                  Create message
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCreate(false);
-                    setFormContent("");
-                  }}
-                  className="btn-ghost"
-                  style={{ marginLeft: 8 }}
-                >
-                  Cancel
-                </button>
-              )
-            ) : null}
-          </div>
-        </div>
-
-        {showCreate && (
-          <form onSubmit={createMessage} className="card" style={{ marginTop: 12, marginBottom: 18 }}>
-            <div style={{ marginBottom: 8 }}>
-              <label style={{ display: "block", marginBottom: 4 }}>Content</label>
-              <textarea
-                required
-                value={formContent}
-                onChange={(e) => setFormContent(e.target.value)}
-                rows={3}
-              />
-            </div>
+      <div style={{ padding: "2rem 0 4rem" }}>
+        <div className="container" style={{ maxWidth: "800px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
             <div>
-              <button type="submit" className="btn">Post</button>
+              <p className="yomu-eyebrow">Community</p>
+              <h1 style={{ margin: "0.25rem 0 0", fontSize: "clamp(1.75rem, 4vw, 2.25rem)", fontWeight: 800, letterSpacing: "-0.03em" }}>
+                Discussion Forum
+              </h1>
+              <p style={{ margin: "0.5rem 0 0", color: "var(--text-muted)" }}>
+                Share your thoughts, ask questions, and learn together.
+              </p>
             </div>
-          </form>
-        )}
 
-        {loading && <p>Loading messages...</p>}
-        {error && <p style={{ color: "var(--danger)" }}>Error: {error}</p>}
-
-        {messages && messages.length === 0 && <p>No messages yet.</p>}
-
-        {messages && messages.length > 0 && (
-          <div style={{ marginTop: "1rem" }}>
-            {messages.map((m) => (
-              <MessageCard
-                key={m.id}
-                message={m}
-                depth={0}
-                onReload={() => load(true)}
-                onError={handleError}
-              />
-            ))}
+            {isAuthenticated && (
+              !showCreate ? (
+                <Button variant="primary" pill leftIcon="+" onClick={() => setShowCreate(true)}>
+                  New Message
+                </Button>
+              ) : (
+                <Button variant="ghost" pill onClick={() => { setShowCreate(false); setFormContent(""); }}>
+                  Cancel
+                </Button>
+              )
+            )}
           </div>
-        )}
-      </section>
+
+          {showCreate && (
+            <Card style={{ marginBottom: "1.5rem" }}>
+              <form onSubmit={createMessage}>
+                <Textarea
+                  label="Message"
+                  value={formContent}
+                  onChange={(e) => setFormContent(e.target.value)}
+                  rows={3}
+                  placeholder="What's on your mind?"
+                />
+                <div style={{ marginTop: "1rem" }}>
+                  <Button type="submit" variant="primary" pill loading={creating} disabled={creating || !formContent.trim()}>
+                    Post
+                  </Button>
+                </div>
+              </form>
+            </Card>
+          )}
+
+          {error && <div className="auth-error" style={{ marginBottom: "1rem" }}>Error: {error}</div>}
+          {loading && <LoadingState message="Loading messages..." />}
+
+          {!loading && messages && messages.length === 0 && (
+            <EmptyState
+              icon="💬"
+              title="No Messages Yet"
+              description="Be the first to start a discussion!"
+            />
+          )}
+
+          {messages && messages.length > 0 && (
+            <div style={{ display: "grid", gap: "1rem" }}>
+              {messages.map((m) => (
+                <MessageCard
+                  key={m.id}
+                  message={m}
+                  depth={0}
+                  onReload={() => load(true)}
+                  onError={handleError}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </ProtectedRoute>
   );
 }

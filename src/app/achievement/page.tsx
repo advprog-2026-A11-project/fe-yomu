@@ -5,6 +5,14 @@ import Link from "next/link";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useAuth } from "@/components/providers/auth-provider";
 import { extractErrorMessage } from "@/lib/auth-client";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Progress } from "@/components/ui/Progress";
+import { Badge } from "@/components/ui/Badge";
+import { Tabs } from "@/components/ui/Tabs";
+import { LoadingState } from "@/components/ui/LoadingState";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Avatar } from "@/components/ui/Avatar";
 
 // Define Types
 type AchievementDetail = {
@@ -261,21 +269,16 @@ export default function AchievementPage() {
   // Sub-renderers to eliminate nested ternaries and reduce complexity
   function renderMissionsTab() {
     if (loadingMissions) {
-      return (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "4rem 0" }}>
-          <div className="loading-orb"></div>
-          <p style={{ marginTop: "1rem", color: "var(--text-soft)", fontWeight: 700 }}>Memuat Misi Harian Anda...</p>
-        </div>
-      );
+      return <LoadingState message="Memuat Misi Harian Anda..." />;
     }
 
     if (missions.length === 0) {
       return (
-        <div className="card text-center" style={{ padding: "3rem", textAlign: "center" }}>
-          <div style={{ fontSize: "3rem" }}>😴</div>
-          <h3 style={{ margin: "1rem 0 0.5rem" }}>Tidak Ada Misi Hari Ini</h3>
-          <p className="muted-copy">Belum ada misi harian yang diaktifkan untuk hari ini. Silahkan cek lagi nanti!</p>
-        </div>
+        <EmptyState
+          icon="😴"
+          title="Tidak Ada Misi Hari Ini"
+          description="Belum ada misi harian yang diaktifkan untuk hari ini. Silahkan cek lagi nanti!"
+        />
       );
     }
 
@@ -396,21 +399,16 @@ export default function AchievementPage() {
 
   function renderGalleryTab() {
     if (loadingAchievements) {
-      return (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "4rem 0" }}>
-          <div className="loading-orb"></div>
-          <p style={{ marginTop: "1rem", color: "var(--text-soft)", fontWeight: 700 }}>Memuat Galeri Piala...</p>
-        </div>
-      );
+      return <LoadingState message="Memuat Galeri Piala..." />;
     }
 
     if (normalizedAchievements.length === 0) {
       return (
-        <div className="card text-center" style={{ padding: "3rem", textAlign: "center" }}>
-          <div style={{ fontSize: "3rem" }}>📭</div>
-          <h3 style={{ margin: "1rem 0 0.5rem" }}>Belum Ada Piala Terkunci</h3>
-          <p className="muted-copy">Lanjutkan membaca buku dan menyelesaikan kuis untuk membuka piala-piala pertamamu!</p>
-        </div>
+        <EmptyState
+          icon="📭"
+          title="Belum Ada Piala Terkunci"
+          description="Lanjutkan membaca buku dan menyelesaikan kuis untuk membuka piala-piala pertamamu!"
+        />
       );
     }
 
@@ -512,18 +510,19 @@ export default function AchievementPage() {
 
   return (
     <ProtectedRoute description="Masuk ke akun Anda untuk melihat koleksi piala & misi harian Anda.">
-      <div style={{ padding: "1.5rem 0", minHeight: "100vh" }}>
+      <div style={{ padding: "2rem 0 4rem" }}>
+        <div className="container">
         
         {/* Navigation & Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
           <div>
-            <p className="eyebrow" style={{ margin: 0 }}>PENCAPAIAN</p>
-            <h1 style={{ fontSize: "2.5rem", fontWeight: 800, margin: "0.2rem 0 0 0", letterSpacing: "-0.04em" }}>
+            <p className="yomu-eyebrow">PENCAPAIAN</p>
+            <h1 style={{ margin: "0.25rem 0 0", fontSize: "clamp(1.75rem, 4vw, 2.5rem)", fontWeight: 800, letterSpacing: "-0.03em" }}>
               Hall of Fame Yomu
             </h1>
           </div>
-          <Link href="/" className="btn btn-ghost" style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
-            <span>← Kembali</span>
+          <Link href="/">
+            <Button variant="secondary" size="sm" pill leftIcon="←">Kembali</Button>
           </Link>
         </div>
 
@@ -699,49 +698,19 @@ export default function AchievementPage() {
         </div>
 
         {/* INTERACTIVE NAVIGATION TABS */}
-        <div style={{
-          display: "flex",
-          borderBottom: "2px solid var(--border)",
-          gap: "1.5rem",
-          marginBottom: "1.5rem"
-        }}>
-          <button
-            onClick={() => setActiveTab("missions")}
-            style={{
-              padding: "0.75rem 1rem",
-              background: "none",
-              border: "none",
-              borderBottom: activeTab === "missions" ? "3px solid var(--primary-soft)" : "3px solid transparent",
-              color: activeTab === "missions" ? "var(--primary-soft)" : "var(--text-soft)",
-              fontWeight: 800,
-              fontSize: "1.1rem",
-              cursor: "pointer",
-              transition: "all 0.2s"
-            }}
-          >
-            🎯 Misi Harian
-          </button>
-          <button
-            onClick={() => setActiveTab("gallery")}
-            style={{
-              padding: "0.75rem 1rem",
-              background: "none",
-              border: "none",
-              borderBottom: activeTab === "gallery" ? "3px solid var(--primary-soft)" : "3px solid transparent",
-              color: activeTab === "gallery" ? "var(--primary-soft)" : "var(--text-soft)",
-              fontWeight: 800,
-              fontSize: "1.1rem",
-              cursor: "pointer",
-              transition: "all 0.2s"
-            }}
-          >
-            🏆 Galeri Piala ({achievements.length})
-          </button>
-        </div>
+        <Tabs
+          items={[
+            { id: "missions", label: "🎯 Misi Harian" },
+            { id: "gallery", label: `🏆 Galeri Piala (${achievements.length})` },
+          ]}
+          active={activeTab}
+          onChange={(id) => setActiveTab(id as "missions" | "gallery")}
+        />
 
         {/* TAB CONTENTS */}
-        <div>
+        <div style={{ marginTop: "1.5rem" }}>
           {activeTab === "missions" ? renderMissionsTab() : renderGalleryTab()}
+        </div>
         </div>
       </div>
     </ProtectedRoute>
