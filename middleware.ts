@@ -6,7 +6,6 @@ const PROTECTED_PATH_PREFIXES = [
   "/dashboard",
   "/users/account",
   "/reading",
-  "/forums",
   "/achievement",
   "/clan",
 ];
@@ -62,7 +61,6 @@ export const config = {
     "/dashboard/:path*",
     "/users/account/:path*",
     "/reading/:path*",
-    "/forums/:path*",
     "/achievement/:path*",
     "/clan/:path*",
     "/api/achievement/:path*",

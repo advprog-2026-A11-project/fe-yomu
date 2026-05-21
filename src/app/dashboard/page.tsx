@@ -9,12 +9,6 @@ import { Badge } from "@/components/ui/Badge";
 import { ROUTES } from "@/constants";
 import Link from "next/link";
 
-const quickLinks = [
-  { href: ROUTES.reading.student, icon: "📖", label: "Reading" },
-  { href: ROUTES.achievement, icon: "🏆", label: "Achievements" },
-  { href: ROUTES.clan.list, icon: "⚔️", label: "League" },
-];
-
 const adminLinks = [
   { href: "/admin/users", icon: "👥", label: "User Management" },
   { href: ROUTES.reading.admin, icon: "📚", label: "Reading Admin" },
@@ -23,6 +17,11 @@ const adminLinks = [
 export default function DashboardPage() {
   const { session, isAdmin } = useAuth();
   const profile = session?.profile;
+  const quickLinks = [
+    { href: isAdmin ? ROUTES.reading.admin : ROUTES.reading.student, icon: "📖", label: "Reading" },
+    { href: ROUTES.achievement, icon: "🏆", label: "Achievements" },
+    { href: ROUTES.clan.list, icon: "⚔️", label: "League" },
+  ];
 
   return (
     <ProtectedRoute description="Sign in to open your dashboard.">

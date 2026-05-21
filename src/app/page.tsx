@@ -6,6 +6,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ROUTES } from "@/constants";
+import { isAdminRole } from "@/lib/auth-role";
 
 const features = [
   {
@@ -117,7 +118,7 @@ function AuthenticatedHero({ displayName, email }: Readonly<{ displayName: strin
   );
 }
 
-function FeaturesSection() {
+function FeaturesSection({ readingHref }: Readonly<{ readingHref: string }>) {
   return (
     <section className="features-section">
       <div className="features-inner">
@@ -135,7 +136,7 @@ function FeaturesSection() {
               <h3 className="feature-card-title">{feature.title}</h3>
               <p className="feature-card-description">{feature.description}</p>
               <div style={{ marginTop: "1.25rem" }}>
-                <Link href={feature.href}>
+                <Link href={feature.title === "Bacaan & Kuis" ? readingHref : feature.href}>
                   <Button variant="ghost" size="sm">
                     Jelajahi →
                   </Button>
@@ -175,6 +176,9 @@ export default function HomePage() {
   const { isAuthenticated, openAuthModal, session } = useAuth();
   const displayName = session?.profile?.displayName || session?.profile?.username || "Learner";
   const email = session?.profile?.email || "";
+  const readingHref = isAuthenticated && isAdminRole(session?.profile?.role)
+    ? ROUTES.reading.admin
+    : ROUTES.reading.student;
 
   return (
     <div className="home-page">
@@ -194,7 +198,7 @@ export default function HomePage() {
         />
       )}
 
-      <FeaturesSection />
+      <FeaturesSection readingHref={readingHref} />
       <CtaSection
         isAuthenticated={isAuthenticated}
         onRegister={() => openAuthModal({ mode: "register", nextPath: "/" })}

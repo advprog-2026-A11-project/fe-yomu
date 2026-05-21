@@ -15,7 +15,6 @@ export const ROUTES = {
     adminDetail: (id: string) => `/reading/admin/reading/${id}`,
     adminQuiz: (id: string) => `/reading/admin/reading/${id}/quiz`,
   },
-  forum: "/forums",
   achievement: "/achievement",
   clan: {
     list: "/clan",
@@ -33,8 +32,7 @@ export const ROUTES = {
 } as const;
 
 export const NAV_LINKS = [
-  { href: ROUTES.reading.student, label: "Reading" },
-  { href: ROUTES.forum, label: "Forum" },
+  { href: "/reading", label: "Reading" },
   { href: ROUTES.achievement, label: "Achievement" },
   { href: ROUTES.clan.list, label: "League" },
 ] as const;
