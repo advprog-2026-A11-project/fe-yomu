@@ -54,6 +54,12 @@ export function ModuleNavigationGrid() {
                   : "/reading/student/readings";
             }
 
+            if (module.title === "Achievement") {
+              href = isAdmin
+                  ? "/achievement/admin"
+                  : "/achievement/student";
+            }
+
             return (
                 <Link key={module.title} href={href} className="module-card">
                   <span className="module-tag">{module.tag}</span>
