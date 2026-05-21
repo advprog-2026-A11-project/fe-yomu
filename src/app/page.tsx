@@ -19,6 +19,7 @@ const features = [
     title: "Forum Diskusi",
     description: "Tukar argumen, bangun pemikiran kritis. Diskusi terstruktur dengan reaksi dan balasan.",
     href: ROUTES.forum,
+    showAction: false,
   },
   {
     icon: "🏆",
@@ -140,13 +141,15 @@ function FeaturesSection() {
               <div className="feature-icon">{feature.icon}</div>
               <h3 className="feature-card-title">{feature.title}</h3>
               <p className="feature-card-description">{feature.description}</p>
-              <div style={{ marginTop: "1.25rem" }}>
-                <Link href={feature.href}>
-                  <Button variant="ghost" size="sm">
-                    Jelajahi →
-                  </Button>
-                </Link>
-              </div>
+              {feature.showAction !== false && (
+                <div style={{ marginTop: "1.25rem" }}>
+                  <Link href={feature.href}>
+                    <Button variant="ghost" size="sm">
+                      Jelajahi →
+                    </Button>
+                  </Link>
+                </div>
+              )}
             </Card>
           ))}
         </div>
