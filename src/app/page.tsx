@@ -15,13 +15,6 @@ const features = [
     href: ROUTES.reading.student,
   },
   {
-    icon: "💬",
-    title: "Forum Diskusi",
-    description: "Tukar argumen, bangun pemikiran kritis. Diskusi terstruktur dengan reaksi dan balasan.",
-    href: ROUTES.forum,
-    showAction: false,
-  },
-  {
     icon: "🏆",
     title: "Achievements",
     description: "Raih piala, selesaikan misi harian, dan pamerkan pencapaianmu di profil publik.",
@@ -141,15 +134,13 @@ function FeaturesSection() {
               <div className="feature-icon">{feature.icon}</div>
               <h3 className="feature-card-title">{feature.title}</h3>
               <p className="feature-card-description">{feature.description}</p>
-              {feature.showAction !== false && (
-                <div style={{ marginTop: "1.25rem" }}>
-                  <Link href={feature.href}>
-                    <Button variant="ghost" size="sm">
-                      Jelajahi →
-                    </Button>
-                  </Link>
-                </div>
-              )}
+              <div style={{ marginTop: "1.25rem" }}>
+                <Link href={feature.href}>
+                  <Button variant="ghost" size="sm">
+                    Jelajahi →
+                  </Button>
+                </Link>
+              </div>
             </Card>
           ))}
         </div>

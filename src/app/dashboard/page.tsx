@@ -11,7 +11,6 @@ import Link from "next/link";
 
 const quickLinks = [
   { href: ROUTES.reading.student, icon: "📖", label: "Reading" },
-  { href: ROUTES.forum, icon: "💬", label: "Forum" },
   { href: ROUTES.achievement, icon: "🏆", label: "Achievements" },
   { href: ROUTES.clan.list, icon: "⚔️", label: "League" },
 ];
@@ -87,7 +86,7 @@ export default function DashboardPage() {
             {/* Quick Links */}
             <Card>
               <h3 style={{ margin: "0 0 1rem", fontSize: "1.1rem", fontWeight: 700 }}>Quick Links</h3>
-              <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", justifyContent: "center" }}>
                 {quickLinks.map((link) => (
                   <Link key={link.href} href={link.href} style={{ textDecoration: "none" }}>
                     <Button variant="secondary" pill>{link.icon} {link.label}</Button>

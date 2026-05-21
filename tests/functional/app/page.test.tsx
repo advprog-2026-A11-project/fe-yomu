@@ -123,13 +123,13 @@ describe("HomePage functional behavior", () => {
     expect(screen.getByText("Create Account")).toBeInTheDocument();
   });
 
-  it("shows features section with all four modules", async () => {
+  it("shows features section without the forum card", async () => {
     mockAuthFetch("guest");
     renderPageWithProviders();
 
     expect(screen.getByText("Kenapa Yomu?")).toBeInTheDocument();
     expect(screen.getByText("Bacaan & Kuis")).toBeInTheDocument();
-    expect(screen.getByText("Forum Diskusi")).toBeInTheDocument();
+    expect(screen.queryByText("Forum Diskusi")).not.toBeInTheDocument();
     expect(screen.getByText("Achievements")).toBeInTheDocument();
     expect(screen.getByText("League & Clan")).toBeInTheDocument();
   });
