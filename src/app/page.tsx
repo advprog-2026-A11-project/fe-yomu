@@ -34,6 +34,30 @@ const features = [
   },
 ];
 
+function GuestHeader({ onLogin, onRegister }: { onLogin: () => void; onRegister: () => void }) {
+  return (
+    <header className="site-header">
+      <div className="site-header-inner">
+        <Link href="/" className="site-logo">
+          <span className="site-logo-badge">Y</span>
+          <span className="site-logo-text">
+            <strong>Yomu</strong>
+          </span>
+        </Link>
+
+        <div className="site-actions" style={{ marginLeft: "auto" }}>
+          <Button variant="ghost" size="sm" onClick={onLogin}>
+            Login
+          </Button>
+          <Button variant="primary" size="sm" pill onClick={onRegister}>
+            Get Started
+          </Button>
+        </div>
+      </div>
+    </header>
+  );
+}
+
 function UnauthenticatedHero({ onLogin, onRegister }: { onLogin: () => void; onRegister: () => void }) {
   return (
     <section className="hero-section">
@@ -157,6 +181,13 @@ export default function HomePage() {
 
   return (
     <div className="home-page">
+      {!isAuthenticated && (
+        <GuestHeader
+          onLogin={() => openAuthModal({ mode: "login", nextPath: "/" })}
+          onRegister={() => openAuthModal({ mode: "register", nextPath: "/" })}
+        />
+      )}
+
       {isAuthenticated ? (
         <AuthenticatedHero displayName={displayName} email={email} />
       ) : (

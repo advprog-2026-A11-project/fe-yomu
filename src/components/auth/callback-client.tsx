@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/auth-provider";
-import { LoadingState } from "@/components/states/loading-state";
-import { EmptyState } from "@/components/states/empty-state";
+import { LoadingState } from "@/components/ui/LoadingState";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Button } from "@/components/ui/Button";
 import { normalizeAuthError } from "@/lib/auth-client";
 
 export function CallbackClient({
@@ -52,30 +53,30 @@ export function CallbackClient({
 
   if (error) {
     return (
-      <section className="auth-hub">
-        <div className="shell">
+      <div style={{ padding: "4rem 0" }}>
+        <div className="container">
           <EmptyState
+            icon="⚠️"
             title="Google sign in could not be completed"
             description={error}
             action={
-              <button type="button" className="button button-primary" onClick={() => router.replace("/")}>
+              <Button variant="primary" pill onClick={() => router.replace("/")}>
                 Back to home
-              </button>
+              </Button>
             }
           />
         </div>
-      </section>
+      </div>
     );
   }
 
   return (
-    <section className="auth-hub">
-      <div className="shell">
+    <div style={{ padding: "4rem 0" }}>
+      <div className="container">
         <LoadingState
-          title="Finishing Google sign in"
-          description="We are validating the callback and preparing your Yomu dashboard."
+          message="Finishing Google sign in..."
         />
       </div>
-    </section>
+    </div>
   );
 }

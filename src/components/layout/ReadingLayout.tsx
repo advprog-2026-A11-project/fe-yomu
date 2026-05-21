@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import { getDifficultyConfig } from "@/utils/tiers";
 
 export default function ReadingLayout({
@@ -43,21 +44,23 @@ export default function ReadingLayout({
         </div>
 
         {/* Title */}
-        <h1 style={{ margin: "0 0 2rem", fontSize: "clamp(1.75rem, 4vw, 2.5rem)", fontWeight: 800, letterSpacing: "-0.03em", textAlign: "center" }}>
+        <h1 style={{ margin: "0 0 1.5rem", fontSize: "clamp(1.75rem, 4vw, 2.5rem)", fontWeight: 800, letterSpacing: "-0.03em", textAlign: "center" }}>
           {reading.title}
         </h1>
 
         {/* Content */}
-        <div
-          style={{
-            fontSize: "1.05rem",
-            lineHeight: 1.8,
-            color: "var(--text)",
-            whiteSpace: "pre-wrap",
-          }}
-        >
-          {reading.content}
-        </div>
+        <Card padding="lg">
+          <div
+            style={{
+              fontSize: "1.05rem",
+              lineHeight: 1.8,
+              color: "var(--text)",
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            {reading.content}
+          </div>
+        </Card>
 
         {/* Extra Section (quiz, forum, etc) */}
         {children}

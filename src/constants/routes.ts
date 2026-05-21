@@ -2,6 +2,9 @@ export const ROUTES = {
   home: "/",
   dashboard: "/dashboard",
   account: "/users/account",
+  admin: {
+    users: "/admin/users",
+  },
   reading: {
     student: "/reading/student/readings",
     studentDetail: (id: string) => `/reading/student/readings/${id}`,

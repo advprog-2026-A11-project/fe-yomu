@@ -8,6 +8,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 
 const primaryLinks = [
+  { href: "/", label: "Home" },
   { href: "/reading/student/readings", label: "Reading" },
   { href: "/forums", label: "Forum" },
   { href: "/achievement", label: "Achievement" },
@@ -33,6 +34,10 @@ export function SiteHeader() {
     }
   }, [dropdownOpen]);
 
+  if (!isAuthenticated) {
+    return null;
+  }
+
   const displayName = session?.profile?.displayName || session?.profile?.username || "";
   const isAdmin = session?.profile?.role === "ADMIN";
 
@@ -48,7 +53,9 @@ export function SiteHeader() {
 
         <nav className="site-nav" aria-label="Primary navigation">
           {primaryLinks.map((link) => {
-            const isActive = pathname?.startsWith(link.href);
+            const isActive = link.href === "/"
+              ? pathname === "/"
+              : pathname?.startsWith(link.href);
             return (
               <Link
                 key={link.href}
@@ -62,95 +69,82 @@ export function SiteHeader() {
         </nav>
 
         <div className="site-actions">
-          {isAuthenticated ? (
-            <div className="site-user-menu" ref={dropdownRef}>
-              <button
-                type="button"
-                className="site-user-button"
-                onClick={() => setDropdownOpen(!dropdownOpen)}
-                aria-expanded={dropdownOpen}
-                aria-label="User menu"
-              >
-                <Avatar name={displayName} size="sm" />
-                <span className="site-user-name">{displayName || "Account"}</span>
-                <span className="site-user-chevron">{dropdownOpen ? "▾" : "▸"}</span>
-              </button>
+          <div className="site-user-menu" ref={dropdownRef}>
+            <button
+              type="button"
+              className="site-user-button"
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              aria-expanded={dropdownOpen}
+              aria-label="User menu"
+            >
+              <Avatar name={displayName} size="sm" />
+              <span className="site-user-name">{displayName || "Account"}</span>
+              <span className="site-user-chevron">{dropdownOpen ? "▾" : "▸"}</span>
+            </button>
 
-              {dropdownOpen && (
-                <div className="site-dropdown" role="menu">
-                  <div className="site-dropdown-header">
-                    <Avatar name={displayName} size="md" />
-                    <div>
-                      <div className="site-dropdown-name">{displayName || "User"}</div>
-                      <div className="site-dropdown-email">
-                        {session?.profile?.email || "No email"}
-                      </div>
+            {dropdownOpen && (
+              <div className="site-dropdown" role="menu">
+                <div className="site-dropdown-header">
+                  <Avatar name={displayName} size="md" />
+                  <div>
+                    <div className="site-dropdown-name">{displayName || "User"}</div>
+                    <div className="site-dropdown-email">
+                      {session?.profile?.email || "No email"}
                     </div>
                   </div>
-
-                  <div className="site-dropdown-links">
-                    <Link
-                      href="/dashboard"
-                      className="site-dropdown-link"
-                      onClick={() => setDropdownOpen(false)}
-                    >
-                      Dashboard
-                    </Link>
-                    <Link
-                      href="/users/account"
-                      className="site-dropdown-link"
-                      onClick={() => setDropdownOpen(false)}
-                    >
-                      Account Settings
-                    </Link>
-                    {isAdmin && (
-                      <>
-                        <div className="site-dropdown-divider" />
-                        <Link
-                          href="/reading/admin"
-                          className="site-dropdown-link"
-                          onClick={() => setDropdownOpen(false)}
-                        >
-                          Admin Panel
-                        </Link>
-                      </>
-                    )}
-                  </div>
-
-                  <div className="site-dropdown-footer">
-                    <button
-                      type="button"
-                      className="site-dropdown-logout"
-                      onClick={() => {
-                        setDropdownOpen(false);
-                        void signOut();
-                      }}
-                    >
-                      Sign Out
-                    </button>
-                  </div>
                 </div>
-              )}
-            </div>
-          ) : (
-            <div className="site-auth-buttons">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => openAuthModal({ mode: "login", nextPath: pathname || "/dashboard" })}
-              >
-                Login
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                pill
-                onClick={() => openAuthModal({ mode: "register", nextPath: pathname || "/dashboard" })}
-              >
-                Get Started
-              </Button>
-            </div>
-          )}
+
+                <div className="site-dropdown-links">
+                  <Link
+                    href="/dashboard"
+                    className="site-dropdown-link"
+                    onClick={() => setDropdownOpen(false)}
+                  >
+                    Dashboard
+                  </Link>
+                  <Link
+                    href="/users/account"
+                    className="site-dropdown-link"
+                    onClick={() => setDropdownOpen(false)}
+                  >
+                    Account Settings
+                  </Link>
+                  {isAdmin && (
+                    <>
+                      <div className="site-dropdown-divider" />
+                      <Link
+                        href="/admin/users"
+                        className="site-dropdown-link"
+                        onClick={() => setDropdownOpen(false)}
+                      >
+                        User Management
+                      </Link>
+                      <Link
+                        href="/reading/admin"
+                        className="site-dropdown-link"
+                        onClick={() => setDropdownOpen(false)}
+                      >
+                        Admin Panel
+                      </Link>
+                    </>
+                  )}
+                </div>
+
+                <div className="site-dropdown-footer">
+                  <button
+                    type="button"
+                    className="site-dropdown-logout"
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      void signOut();
+                    }}
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </header>

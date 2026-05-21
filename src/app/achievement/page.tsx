@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useAuth } from "@/components/providers/auth-provider";
 import { extractErrorMessage } from "@/lib/auth-client";
@@ -291,9 +290,8 @@ export default function AchievementPage() {
           );
 
           return (
-            <div
+            <Card
               key={userMission.id}
-              className="card"
               style={{
                 display: "flex",
                 flexDirection: "row",
@@ -302,7 +300,6 @@ export default function AchievementPage() {
                 padding: "1.5rem",
                 border: userMission.completed ? "1.5px solid var(--success)" : "1px solid var(--border)",
                 background: userMission.completed ? "rgba(21, 128, 61, 0.02)" : "var(--surface)",
-                borderRadius: "var(--radius-lg)",
                 transition: "transform 0.2s, box-shadow 0.2s",
                 flexWrap: "wrap",
                 gap: "1.5rem"
@@ -327,16 +324,7 @@ export default function AchievementPage() {
                     <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800 }}>
                       {userMission.dailyMission.title}
                     </h3>
-                    <span style={{
-                      fontSize: "0.75rem",
-                      background: "#fef3c7",
-                      color: "#d97706",
-                      padding: "0.2rem 0.5rem",
-                      borderRadius: "999px",
-                      fontWeight: 800
-                    }}>
-                      +{userMission.dailyMission.rewardPoints} Pts
-                    </span>
+                    <Badge variant="warning" size="sm">+{userMission.dailyMission.rewardPoints} Pts</Badge>
                   </div>
                   <p style={{ margin: "0.25rem 0 0.75rem", color: "var(--text-soft)", fontSize: "0.9rem" }}>
                     {userMission.dailyMission.description}
@@ -347,50 +335,19 @@ export default function AchievementPage() {
                       <span>Progres Misi</span>
                       <span>{userMission.currentProgress} / {userMission.dailyMission.targetMilestone}</span>
                     </div>
-                    <div style={{ width: "100%", background: "var(--border)", height: "8px", borderRadius: "999px", overflow: "hidden" }}>
-                      <div style={{
-                        width: `${progressPercent}%`,
-                        background: userMission.completed ? "var(--success)" : "var(--primary-soft)",
-                        height: "100%",
-                        borderRadius: "999px",
-                        transition: "width 0.4s ease-out"
-                      }}></div>
-                    </div>
+                    <Progress value={progressPercent} color={userMission.completed ? "success" : "brand"} />
                   </div>
                 </div>
               </div>
 
               <div style={{ textAlign: "right" }}>
                 {userMission.completed ? (
-                  <span style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "0.4rem",
-                    background: "rgba(21, 128, 61, 0.12)",
-                    color: "var(--success)",
-                    padding: "0.6rem 1.2rem",
-                    borderRadius: "999px",
-                    fontWeight: 800,
-                    fontSize: "0.9rem"
-                  }}>
-                    ✓ Selesai
-                  </span>
+                  <Badge variant="success" size="lg">✓ Selesai</Badge>
                 ) : (
-                  <span style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    background: "var(--background)",
-                    color: "var(--text-soft)",
-                    padding: "0.6rem 1.2rem",
-                    borderRadius: "999px",
-                    fontWeight: 800,
-                    fontSize: "0.9rem"
-                  }}>
-                    Aktif
-                  </span>
+                  <Badge variant="info" size="lg">Aktif</Badge>
                 )}
               </div>
-            </div>
+            </Card>
           );
         })}
       </div>
@@ -419,12 +376,10 @@ export default function AchievementPage() {
         gap: "1.5rem"
       }}>
         {normalizedAchievements.map((item) => (
-          <div
+          <Card
             key={item.id}
-            className="card"
             style={{
               padding: "1.5rem",
-              borderRadius: "var(--radius-lg)",
               border: item.showcased ? "2px solid #fbbf24" : "1px solid var(--border)",
               background: "var(--surface)",
               display: "flex",
@@ -447,16 +402,7 @@ export default function AchievementPage() {
                 }}>
                   🏆
                 </span>
-                <span style={{
-                  fontSize: "0.7rem",
-                  background: "rgba(0,0,0,0.05)",
-                  color: "var(--text-soft)",
-                  padding: "0.25rem 0.5rem",
-                  borderRadius: "999px",
-                  fontWeight: 800
-                }}>
-                  {item.milestoneType}
-                </span>
+                <Badge variant="info" size="sm">{item.milestoneType}</Badge>
               </div>
 
               <h3 style={{ margin: "0 0 0.4rem 0", fontSize: "1.15rem", fontWeight: 800, color: "var(--text)" }}>
@@ -483,26 +429,18 @@ export default function AchievementPage() {
                 Showcase status
               </span>
               
-              <button
+              <Button
                 type="button"
+                variant={item.showcased ? "gold" : "secondary"}
+                size="sm"
+                pill
                 onClick={() => void handleToggleShowcase(item.achievementId, item.showcased)}
                 disabled={togglingId !== null}
-                className="btn"
-                style={{
-                  background: item.showcased ? "#fbbf24" : "var(--background)",
-                  color: item.showcased ? "#1e1b4b" : "var(--text)",
-                  border: "none",
-                  borderRadius: "999px",
-                  padding: "0.4rem 0.8rem",
-                  fontSize: "0.78rem",
-                  fontWeight: 800,
-                  cursor: togglingId === null ? "pointer" : "not-allowed"
-                }}
               >
                 {getShowcaseButtonText(item.achievementId, item.showcased, togglingId)}
-              </button>
+              </Button>
             </div>
-          </div>
+          </Card>
         ))}
       </div>
     );
@@ -514,16 +452,11 @@ export default function AchievementPage() {
         <div className="container">
         
         {/* Navigation & Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
-          <div>
-            <p className="yomu-eyebrow">PENCAPAIAN</p>
-            <h1 style={{ margin: "0.25rem 0 0", fontSize: "clamp(1.75rem, 4vw, 2.5rem)", fontWeight: 800, letterSpacing: "-0.03em" }}>
-              Hall of Fame Yomu
-            </h1>
-          </div>
-          <Link href="/">
-            <Button variant="secondary" size="sm" pill leftIcon="←">Kembali</Button>
-          </Link>
+        <div style={{ marginBottom: "2rem" }}>
+          <p className="yomu-eyebrow">PENCAPAIAN</p>
+          <h1 style={{ margin: "0.25rem 0 0", fontSize: "clamp(1.75rem, 4vw, 2.5rem)", fontWeight: 800, letterSpacing: "-0.03em" }}>
+            Hall of Fame Yomu
+          </h1>
         </div>
 
         {/* Global Alert Notification */}
@@ -565,11 +498,10 @@ export default function AchievementPage() {
           marginBottom: "2rem"
         }}>
           {/* Main User Card with score */}
-          <div className="card" style={{
+          <Card style={{
             background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)",
             color: "white",
             border: "none",
-            borderRadius: "var(--radius-lg)",
             padding: "2rem",
             display: "flex",
             flexDirection: "row",
@@ -606,13 +538,12 @@ export default function AchievementPage() {
               </div>
               <div style={{ color: "#a5b4fc", fontSize: "0.8rem", marginTop: "0.2rem" }}>Selesai</div>
             </div>
-          </div>
+          </Card>
 
           {/* Showcased Slots */}
-          <div className="card" style={{
+          <Card style={{
             background: "var(--surface)",
             padding: "1.5rem",
-            borderRadius: "var(--radius-lg)",
             boxShadow: "var(--shadow-soft)",
             border: "1px solid var(--border)"
           }}>
@@ -694,7 +625,7 @@ export default function AchievementPage() {
                 }
               })}
             </div>
-          </div>
+          </Card>
         </div>
 
         {/* INTERACTIVE NAVIGATION TABS */}
