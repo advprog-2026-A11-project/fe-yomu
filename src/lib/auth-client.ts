@@ -15,11 +15,7 @@ export function normalizeAuthApiBase(): string {
 
   try {
     const configuredUrl = new URL(configured);
-    if (
-      typeof globalThis.location !== "undefined"
-      && globalThis.location.protocol === "https:"
-      && configuredUrl.protocol === "http:"
-    ) {
+    if (globalThis.location?.protocol === "https:" && configuredUrl.protocol === "http:") {
       return "/api/auth-proxy";
     }
   } catch {

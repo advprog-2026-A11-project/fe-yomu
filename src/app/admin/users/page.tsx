@@ -8,7 +8,7 @@ import { authApi, extractErrorMessage } from "@/lib/auth-client";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
-import { Badge } from "@/components/ui/Badge";
+import { Badge, type BadgeVariant } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { Avatar } from "@/components/ui/Avatar";
@@ -24,6 +24,8 @@ type AdminUser = {
   isActive?: boolean;
   createdAt?: string;
 };
+
+type UserTab = "all" | "active" | "inactive";
 
 function getMessageBorderColor(message: string): string {
   return message.includes("Failed") ? "var(--danger)" : "var(--success)";
@@ -41,15 +43,25 @@ function getEmptyDescription(tab: string): string {
   return `No ${tab} users found.`;
 }
 
-function getEmptyStateDescription(activeTab: "all" | "active" | "inactive"): string {
+function getEmptyStateDescription(activeTab: UserTab): string {
   if (activeTab === "all") {
     return "Click 'Load Users' to fetch the user list.";
   }
   return getEmptyDescription(activeTab);
 }
 
-function isUserTab(value: string): value is "all" | "active" | "inactive" {
+function isUserTab(value: string): value is UserTab {
   return value === "all" || value === "active" || value === "inactive";
+}
+
+function getUserStatusVariant(isActive?: boolean): BadgeVariant {
+  if (isActive) return "success";
+  return "danger";
+}
+
+function getUserStatusLabel(isActive?: boolean): string {
+  if (isActive) return "Active";
+  return "Inactive";
 }
 
 export default function AdminUsersPage() {
@@ -57,7 +69,7 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"all" | "active" | "inactive">("all");
+  const [activeTab, setActiveTab] = useState<UserTab>("all");
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{
     displayName: string;
@@ -225,6 +237,22 @@ export default function AdminUsersPage() {
     setEditForm({ displayName: "", email: "", username: "", role: "STUDENT" });
   }
 
+  function renderUserAction(user: AdminUser) {
+    if (user.isActive) {
+      return (
+        <Button variant="danger" size="sm" pill onClick={() => handleDeactivate(user.id)}>
+          Deactivate
+        </Button>
+      );
+    }
+
+    return (
+      <Button variant="success" size="sm" pill onClick={() => user.id && void handleActivate(user.id)}>
+        Activate
+      </Button>
+    );
+  }
+
   const filteredUsers = users.filter((user) => {
     if (activeTab === "active") return user.isActive;
     if (activeTab === "inactive") return !user.isActive;
@@ -389,8 +417,8 @@ export default function AdminUsersPage() {
                             </div>
                             <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem", flexWrap: "wrap" }}>
                               <Badge variant="brand">{user.role || "STUDENT"}</Badge>
-                              <Badge variant={user.isActive ? "success" : "danger"}>
-                                {user.isActive ? "Active" : "Inactive"}
+                              <Badge variant={getUserStatusVariant(user.isActive)}>
+                                {getUserStatusLabel(user.isActive)}
                               </Badge>
                             </div>
                           </div>
@@ -400,15 +428,7 @@ export default function AdminUsersPage() {
                           <Button variant="secondary" size="sm" pill onClick={() => openEditForm(user)}>
                             Edit
                           </Button>
-                          {user.isActive ? (
-                            <Button variant="danger" size="sm" pill onClick={() => handleDeactivate(user.id)}>
-                              Deactivate
-                            </Button>
-                          ) : (
-                            <Button variant="success" size="sm" pill onClick={() => user.id && void handleActivate(user.id)}>
-                              Activate
-                            </Button>
-                          )}
+                          {renderUserAction(user)}
                         </div>
                       </div>
                     )}

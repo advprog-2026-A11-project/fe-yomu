@@ -556,7 +556,7 @@ svg {
 
 .yomu-badge-info {
   background: #e0f2fe;
-  color: #0284c7;
+  color: #075985;
 }
 
 .yomu-badge-sm {
@@ -652,6 +652,8 @@ svg {
 
 .yomu-modal {
   border: none;
+  margin: auto;
+  padding: 0;
   background: var(--surface);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-xl);
@@ -994,7 +996,7 @@ svg {
   }
 
   .yomu-modal {
-    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    border-radius: var(--radius-xl);
     max-height: 85vh;
   }
 

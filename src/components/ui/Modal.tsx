@@ -45,15 +45,22 @@ export function Modal({
     if (!dialog) return;
 
     const handleClose = () => onClose();
+    const handleClick = (event: MouseEvent) => {
+      if (event.target === dialog) {
+        onClose();
+      }
+    };
     const handleCancel = (event: Event) => {
       event.preventDefault();
       onClose();
     };
 
+    dialog.addEventListener("click", handleClick);
     dialog.addEventListener("close", handleClose);
     dialog.addEventListener("cancel", handleCancel);
 
     return () => {
+      dialog.removeEventListener("click", handleClick);
       dialog.removeEventListener("close", handleClose);
       dialog.removeEventListener("cancel", handleCancel);
     };
@@ -65,11 +72,6 @@ export function Modal({
     <dialog
       ref={dialogRef}
       className={`yomu-modal yomu-modal-${size}`}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
     >
         {(title || showCloseButton) && (
           <div className="yomu-modal-header">

@@ -232,7 +232,7 @@ function QuestionForm({
                 <option value="">Select correct option…</option>
                 {filledOptions.map((option) => (
                   <option key={option} value={option}>
-                    {String.fromCharCode(65 + options.indexOf(option))}. {option}
+                    {String.fromCodePoint(65 + options.indexOf(option))}. {option}
                   </option>
                 ))}
               </select>
