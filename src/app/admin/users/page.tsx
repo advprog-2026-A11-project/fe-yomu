@@ -65,7 +65,7 @@ function getUserStatusLabel(isActive?: boolean): string {
 }
 
 export default function AdminUsersPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, session } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -143,6 +143,10 @@ export default function AdminUsersPage() {
 
   async function handleDeactivate(userId: string | undefined) {
     if (!userId) return;
+    if (userId === session?.profile?.id) {
+      setMessage("Failed to deactivate user: you cannot deactivate your own admin account here.");
+      return;
+    }
     if (!confirm("Deactivate this user? They will no longer be able to log in.")) return;
 
     setLoading(true);
@@ -238,6 +242,12 @@ export default function AdminUsersPage() {
   }
 
   function renderUserAction(user: AdminUser) {
+    if (user.id === session?.profile?.id) {
+      return (
+        <Badge variant="brand">Current admin</Badge>
+      );
+    }
+
     if (user.isActive) {
       return (
         <Button variant="danger" size="sm" pill onClick={() => handleDeactivate(user.id)}>
