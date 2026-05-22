@@ -1,187 +1,500 @@
 "use client";
-import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { useAuth } from '@/components/providers/auth-provider';
-import { fetchLiga } from '@/lib/fetch-liga';
+
+import { useEffect, useState, useCallback } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { useAuth } from "@/components/providers/auth-provider";
+import { ProtectedRoute } from "@/components/auth/protected-route";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { Avatar } from "@/components/ui/Avatar";
+import { LoadingState } from "@/components/ui/LoadingState";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { getTierConfig } from "@/utils/tiers";
+import { ROUTES } from "@/constants";
+
+type ClanMember = {
+  userId: string;
+  clanId: string;
+  quizScore: number;
+  missionScore: number;
+  totalQuizzes: number;
+  accuracy: number; // computed by getAccuracy() on backend
+};
+
+type Clan = {
+  clanId: string;
+  clanName: string;
+  leaderId: string;
+  tier: string;
+  seasonScore: number;
+  scoreMultiplier: number;
+  applicantIds: string[];
+};
 
 export default function ClanDetailPage() {
-    const { session, token } = useAuth();
-    
-    // FIX 1: We just use the session ID directly! This IS the yomu_user_id.
-    const authUserId = session?.profile?.id || null;
+  const { id } = useParams();
+  const router = useRouter();
+  const { session, isAuthenticated, status } = useAuth();
 
-    const { id } = useParams();
-    const router = useRouter();
-    const [clan, setClan] = useState<any>(null);
-    const [allClans, setAllClans] = useState<any[]>([]);
-    const [userNames, setUserNames] = useState<Record<string, string>>({});
+  const [clan, setClan] = useState<Clan | null>(null);
+  const [members, setMembers] = useState<ClanMember[]>([]);
+  const [userNames, setUserNames] = useState<Record<string, string>>({});
+  const [allClans, setAllClans] = useState<Clan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [membershipStatus, setMembershipStatus] = useState<{
+    inClan: boolean;
+    applying: boolean;
+  } | null>(null);
 
-    // FIX 2: Wrap in useCallback so it works cleanly inside useEffect
-    const fetchUserNames = useCallback(async (idsToFetch: string[]) => {
-        // FIX 3: Stop the function if the token isn't loaded yet! (Prevents the 401 error)
-        if (!token) return;
+  const authUserId = session?.profile?.id ?? null;
 
-        const validIds = Array.from(new Set(idsToFetch)).filter(Boolean);
-        if (validIds.length === 0) return;
+  const fetchUserNames = useCallback(
+    async (userIds: string[]) => {
+      const unique = Array.from(new Set(userIds)).filter(Boolean);
+      if (unique.length === 0) return;
 
-        try {
-            const res = await fetch(`/api/auth-proxy/users/lookup`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}` 
-                },
-                body: JSON.stringify({ userIds: validIds })
-            });
-            
-            if (res.ok) {
-                const data = await res.json();
-                const newNames: Record<string, string> = {};
-                
-                if (data && Array.isArray(data.profiles)) {
-                    data.profiles.forEach((user: any) => {
-                        // FIX 4: Just use user.id directly! No need to check supabaseUserId.
-                        const matchId = user.id; 
-                        newNames[matchId] = user.displayName || user.username || user.name || matchId;
-                    });
-                }
-                
-                setUserNames(prev => ({ ...prev, ...newNames }));
-            } else {
-                console.error("❌ Lookup API failed with status:", res.status);
-            }
-        } catch (err) {
-            console.error("❌ Failed to lookup users", err);
-        }
-    }, [token]);
-
-    const refresh = useCallback(async () => {
-        const clanRes = await fetchLiga(`/api/clan/detail/${id}`, token);
-        if (clanRes.ok) {
-            const clanData = await clanRes.json();
-            setClan(clanData);
-
-            // Fetch names only if the token is available
-            if (token) {
-                const memberIds = clanData.members?.map((m: any) => m.userId) || [];
-                fetchUserNames([clanData.leaderId, ...memberIds]);
-            }
-        }
-
-        const allRes = await fetchLiga('/api/clan/list', token);
-        if (allRes.ok) {
-            const allData = await allRes.json();
-            setAllClans(allData);
-        }
-    }, [id, token, fetchUserNames]);
-
-    // FIX 5: Ensure useEffect runs when `token` changes so it fetches when ready
-    useEffect(() => {
-        refresh();
-    }, [refresh]);
-
-    if (!clan) return <div className="p-8 text-center">Loading Clan Details...</div>;
-
-    const isLeader = clan.leaderId === authUserId;
-    const isMember = clan.members?.some((m: any) => m.userId === authUserId);
-    const isApplyingToThisClan = clan.applicantIds?.includes(authUserId);
-
-    const isUserInAnyClan = allClans.some(c => c.members?.some((m: any) => m.userId === authUserId));
-    const isUserApplyingAnywhere = allClans.some(c => c.applicantIds?.includes(authUserId));
-    const canApply = authUserId && !isUserInAnyClan && !isUserApplyingAnywhere;
-
-    const handleAction = async (endpoint: string, method: string) => {
-        await fetchLiga(`/api/clan/${id}${endpoint}`, token, {
-            method,
-            headers: { 'Authorization': `Bearer ${token}` }
+      try {
+        const res = await fetch("/api/auth-proxy/users/lookup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userIds: unique }),
         });
-        refresh();
-    };
-
-    const deleteClan = async () => {
-        if (confirm("Are you sure you want to delete this clan?")) {
-            await fetchLiga(`/api/clan/delete/${id}`, token, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            router.push('/clan');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data.profiles)) {
+          const names: Record<string, string> = {};
+          data.profiles.forEach((u: any) => {
+            names[u.id] = u.displayName || u.username || u.name || u.id;
+          });
+          setUserNames((prev) => ({ ...prev, ...names }));
         }
-    };
+      } catch (err) {
+        console.error("Failed to look up user names:", err);
+      }
+    },
+    []
+  );
 
-    const handleKick = async (memberId: string) => {
-        if (confirm("Are you sure you want to kick this member?")) {
-            await fetchLiga(`/api/clan/${id}/kick/${memberId}`, token, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            refresh();
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setActionError(null);
+    try {
+      const [clanRes, membersRes, allClansRes, statusRes] = await Promise.all([
+        fetch(`/api/clan/detail/${id}`),
+        fetch(`/api/clan/${id}/members`),
+        fetch("/api/clan/list"),
+        isAuthenticated ? fetch("/api/clan/membership-status") : Promise.resolve(null),
+      ]);
+
+      if (clanRes.ok) {
+        const data: Clan = await clanRes.json();
+        setClan(data);
+      }
+
+      if (statusRes && statusRes.ok) {
+        setMembershipStatus(await statusRes.json());
+      }
+
+      if (membersRes.ok) {
+        const data: ClanMember[] = await membersRes.json();
+        setMembers(data);
+        // Fetch display names for all member IDs
+        fetchUserNames(data.map((m) => m.userId));
+      }
+
+      if (allClansRes.ok) {
+        const data: Clan[] = await allClansRes.json();
+        setAllClans(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error("Failed to load clan detail:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [id, fetchUserNames]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  // --- Derived state ---
+  const isLeader = !!authUserId && clan?.leaderId === authUserId;
+  const isMember = members.some((m) => m.userId === authUserId);
+  const isApplyingToThisClan = clan?.applicantIds?.includes(authUserId ?? "") ?? false;
+  const isStudent = session?.profile?.role === "STUDENT";
+
+  const canApply =
+    isAuthenticated &&
+    isStudent && 
+    !isLeader &&
+    !isMember &&
+    !isApplyingToThisClan &&
+    membershipStatus !== null &&
+    !membershipStatus.inClan &&
+    !membershipStatus.applying;
+
+  // --- Actions ---
+  const doAction = async (
+    endpoint: string,
+    method: "POST" | "DELETE",
+    redirectOnSuccess?: string
+  ) => {
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/clan/${id}${endpoint}`, { method });
+      if (!res.ok) {
+        const msg = await res.text();
+        setActionError(msg || "Action failed.");
+      } else {
+        if (redirectOnSuccess) {
+          router.push(redirectOnSuccess);
+        } else {
+          await refresh();
         }
-    };
+      }
+    } catch {
+      setActionError("Network error. Please try again.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
+  const handleApply = () => doAction("/apply", "POST");
+  const handleCancelApplication = () => doAction("/cancel-application", "DELETE");
+  const handleQuit = () => {
+    if (confirm("Are you sure you want to leave this clan?")) {
+      doAction("/quit", "DELETE", ROUTES.clan.list);
+    }
+  };
+  const handleDeleteClan = async () => {
+    if (!confirm("Are you sure you want to permanently delete this clan?")) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/clan/delete/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const msg = await res.text();
+        setActionError(msg || "Failed to delete clan.");
+        setActionLoading(false);
+      } else {
+        router.push(ROUTES.clan.list);
+      }
+    } catch {
+      setActionError("Network error.");
+      setActionLoading(false);
+    }
+  };
+  const handleKick = (memberId: string) => {
+    if (confirm("Are you sure you want to kick this member?")) {
+      fetch(`/api/clan/${id}/kick/${memberId}`, { method: "DELETE" })
+        .then((res) => {
+          if (!res.ok) res.text().then((t) => setActionError(t));
+          else refresh();
+        })
+        .catch(() => setActionError("Network error."));
+    }
+  };
+
+  // --- Render ---
+  if (loading || status === "loading") {
     return (
-        <div className="p-8 max-w-4xl mx-auto">
-            <h1 className="text-3xl font-bold mb-2">Clan: {clan.clanName}</h1>
-            <p className="text-gray-600 mb-6 text-lg">Total Score: <span className="font-bold text-black">{clan.clanScore}</span></p>
-
-            <div className="my-6 flex flex-wrap gap-4">
-                {canApply && (
-                    <button onClick={() => handleAction('/apply', 'POST')} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Apply to Join</button>
-                )}
-
-                {isApplyingToThisClan && (
-                    <button onClick={() => handleAction('/cancel-application', 'DELETE')} className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600">Cancel Application</button>
-                )}
-
-                {isMember && !isLeader && (
-                    <button onClick={() => handleAction('/quit', 'DELETE')} className="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600">Quit Clan</button>
-                )}
-
-                {isLeader && (
-                    <>
-                        <Link href={`/clan/detail/${id}/applicants`} className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
-                            Manage Applicants ({clan.applicantIds?.length || 0})
-                        </Link>
-                        <Link href={`/clan/edit/${id}`} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                            Edit Clan
-                        </Link>
-                        <button onClick={deleteClan} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Delete Clan</button>
-                    </>
-                )}
-                <Link href="/clan" className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Back to List</Link>
-            </div>
-
-            <div className="overflow-hidden border rounded-lg mt-8">
-                <table className="w-full text-left border-collapse">
-                    <thead>
-                    <tr className="bg-gray-100 border-b">
-                        <th className="p-4 font-semibold">User</th>
-                        <th className="p-4 font-semibold">Score</th>
-                        <th className="p-4 font-semibold">Role</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    {clan.members?.map((member: any, index: number) => (
-                        <tr key={index} className="border-b hover:bg-gray-50">
-                            <td className="p-4 font-medium">{userNames[member.userId] || member.userId}</td>
-                            <td className="p-4 font-mono">{member.score}</td>
-                            <td className="p-4 flex items-center justify-between">
-                                <span>{member.userId === clan.leaderId ? "Leader" : "Member"}</span>
-
-                                {isLeader && member.userId !== clan.leaderId && (
-                                    <button
-                                        onClick={() => handleKick(member.userId)}
-                                        className="text-red-500 hover:text-white hover:bg-red-500 text-sm border border-red-500 px-3 py-1 rounded transition"
-                                    >
-                                        Kick
-                                    </button>
-                                )}
-                            </td>
-                        </tr>
-                    ))}
-                    </tbody>
-                </table>
-            </div>
+      <div style={{ padding: "4rem 0" }}>
+        <div className="container">
+          <LoadingState message="Loading clan details..." />
         </div>
+      </div>
     );
+  }
+
+  if (!clan) {
+    return (
+      <div style={{ padding: "4rem 0" }}>
+        <div className="container">
+          <EmptyState
+            icon="⚔️"
+            title="Clan Not Found"
+            description="This clan does not exist or has been deleted."
+          />
+          <div style={{ textAlign: "center", marginTop: "1rem" }}>
+            <Link href={ROUTES.clan.list}>
+              <Button variant="primary" pill>
+                Back to Clans
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const tierConfig = getTierConfig(clan.tier || "Bronze");
+
+  return (
+    <ProtectedRoute description="Sign in to view clan details.">
+      <div style={{ padding: "2rem 0 4rem" }}>
+        <div className="container" style={{ maxWidth: "800px" }}>
+          {/* Back button */}
+          <button
+            onClick={() => router.push(ROUTES.clan.list)}
+            style={{
+              background: "none",
+              border: "none",
+              color: "var(--text-muted)",
+              cursor: "pointer",
+              padding: 0,
+              fontSize: "0.9rem",
+              fontWeight: 600,
+              marginBottom: "1.25rem",
+            }}
+          >
+            ← Back to Clans
+          </button>
+
+          {/* Header */}
+          <div style={{ marginBottom: "1.5rem" }}>
+            <h1
+              style={{
+                margin: "0 0 0.5rem",
+                fontSize: "clamp(1.75rem, 4vw, 2.25rem)",
+                fontWeight: 800,
+                letterSpacing: "-0.03em",
+              }}
+            >
+              {clan.clanName}
+            </h1>
+            <div
+              style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}
+            >
+              <Badge tier={tierConfig.label.toLowerCase() as any} size="lg">
+                {clan.tier}
+              </Badge>
+              <Badge tier="gold" size="lg">
+                {clan.seasonScore ?? 0} pts this season
+              </Badge>
+              {clan.scoreMultiplier !== 1.0 && (
+                <Badge
+                  tier={clan.scoreMultiplier > 1 ? "silver" : "bronze"}
+                  size="lg"
+                >
+                  ×{clan.scoreMultiplier.toFixed(1)} multiplier
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          {/* Error banner */}
+          {actionError && (
+            <div
+              style={{
+                marginBottom: "1rem",
+                padding: "0.75rem 1rem",
+                background: "var(--color-danger-bg, #fef2f2)",
+                border: "1px solid var(--color-danger, #dc2626)",
+                borderRadius: "0.5rem",
+                color: "var(--color-danger, #dc2626)",
+                fontSize: "0.875rem",
+              }}
+            >
+              {actionError}
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div
+            style={{
+              display: "flex",
+              gap: "0.5rem",
+              marginBottom: "2rem",
+              flexWrap: "wrap",
+            }}
+          >
+            {canApply && (
+              <Button
+                variant="success"
+                pill
+                size="sm"
+                loading={actionLoading}
+                onClick={handleApply}
+              >
+                Apply to Join
+              </Button>
+            )}
+
+            {isApplyingToThisClan && (
+              <Button
+                variant="secondary"
+                pill
+                size="sm"
+                loading={actionLoading}
+                onClick={handleCancelApplication}
+              >
+                Cancel Application
+              </Button>
+            )}
+
+            {isMember && !isLeader && (
+              <Button
+                variant="danger"
+                pill
+                size="sm"
+                loading={actionLoading}
+                onClick={handleQuit}
+              >
+                Leave Clan
+              </Button>
+            )}
+
+            {isLeader && (
+              <>
+                <Link href={ROUTES.clan.applicants(id as string)}>
+                  <Button variant="secondary" pill size="sm">
+                    Manage Applicants
+                    {clan.applicantIds?.length > 0 && (
+                      <span
+                        style={{
+                          marginLeft: "0.4rem",
+                          background: "var(--color-primary, #2563eb)",
+                          color: "#fff",
+                          borderRadius: "999px",
+                          padding: "0 0.45rem",
+                          fontSize: "0.75rem",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {clan.applicantIds.length}
+                      </span>
+                    )}
+                  </Button>
+                </Link>
+                <Link href={ROUTES.clan.edit(id as string)}>
+                  <Button variant="ghost" pill size="sm">
+                    Edit Name
+                  </Button>
+                </Link>
+                <Button
+                  variant="danger"
+                  pill
+                  size="sm"
+                  loading={actionLoading}
+                  onClick={handleDeleteClan}
+                >
+                  Delete Clan
+                </Button>
+              </>
+            )}
+          </div>
+
+          {/* Members table */}
+          <Card>
+            <h3 style={{ margin: "0 0 1rem", fontSize: "1.1rem", fontWeight: 700 }}>
+              Members ({members.length})
+            </h3>
+
+            {members.length === 0 ? (
+              <EmptyState
+                icon="👥"
+                title="No Members Yet"
+                description="This clan has no members. Apply to be the first!"
+              />
+            ) : (
+              <div style={{ display: "grid", gap: "0.75rem" }}>
+                {members.map((member) => {
+                  const displayName =
+                    userNames[member.userId] || member.userId;
+                  const isThisLeader = member.userId === clan.leaderId;
+                  const isMe = member.userId === authUserId;
+                  const accuracyPct = Math.round((member.accuracy ?? 0) * 100);
+
+                  return (
+                    <Card
+                      key={member.userId}
+                      variant="raised"
+                      padding="sm"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "1rem",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.75rem",
+                        }}
+                      >
+                        <Avatar name={displayName} size="md" />
+                        <div>
+                          <div style={{ fontWeight: 600 }}>
+                            {displayName}
+                            {isMe && (
+                              <span
+                                style={{
+                                  marginLeft: "0.4rem",
+                                  fontSize: "0.75rem",
+                                  color: "var(--text-muted)",
+                                }}
+                              >
+                                (you)
+                              </span>
+                            )}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "0.8rem",
+                              color: "var(--text-muted)",
+                            }}
+                          >
+                            {isThisLeader ? "👑 Leader" : "Member"} ·{" "}
+                            {member.totalQuizzes} quiz
+                            {member.totalQuizzes !== 1 ? "zes" : ""} · {accuracyPct}% avg accuracy
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.5rem",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <Badge tier="gold">
+                          {(member.quizScore ?? 0) + (member.missionScore ?? 0)} pts
+                        </Badge>
+                        <Badge tier="silver">
+                          {member.quizScore ?? 0} quiz
+                        </Badge>
+                        <Badge tier="bronze">
+                          {member.missionScore ?? 0} mission
+                        </Badge>
+
+                        {isLeader && !isThisLeader && (
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            pill
+                            onClick={() => handleKick(member.userId)}
+                          >
+                            Kick
+                          </Button>
+                        )}
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+        </div>
+      </div>
+    </ProtectedRoute>
+  );
 }

@@ -23,6 +23,7 @@ export const ROUTES = {
     edit: (id: string) => `/clan/edit/${id}`,
     addMember: (id: string) => `/clan/detail/${id}/add-member`,
     editMember: (clanId: string, index: string) => `/clan/detail/${clanId}/edit-member/${index}`,
+    applicants: (id: string) => `/clan/detail/${id}/applicants`,
   },
   auth: {
     callback: "/auth/callback",
