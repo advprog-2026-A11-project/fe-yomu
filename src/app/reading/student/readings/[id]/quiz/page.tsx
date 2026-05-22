@@ -3,7 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ReadingAPI } from "@/lib/readings";
-import type { QuizResult, QuizResultDetail } from "@/app/reading/student/readings/[id]/page";
+import {
+    AnswerBreakdown,
+    formatQuizCompletedDate,
+    formatQuizDuration,
+    QuizScoreSummary,
+    type QuizResult,
+} from "@/components/reading/quiz-result";
 
 interface Question {
     id: string;
@@ -251,9 +257,7 @@ function SubmittedResultView({
     elapsedSeconds: number;
     onBack: (href: string) => void;
 }>) {
-    const { scoreColor, scoreBg } = getScoreStyles(result.score);
-    const accuracy = normalizeAccuracy(result.accuracy).toFixed(1);
-    const timeTaken = formatTime(result.timeTakenSeconds ?? elapsedSeconds);
+    const timeTaken = formatQuizDuration(result.timeTakenSeconds ?? elapsedSeconds);
 
     return (
         <div className="min-h-screen bg-slate-50 py-10 px-4">
@@ -263,19 +267,9 @@ function SubmittedResultView({
                         <CompletedIcon className="h-10 w-10 text-emerald-600" />
                     </div>
                     <h1 className="text-3xl font-bold text-slate-800 mb-1">Quiz Submitted!</h1>
-                    <p className="text-slate-400 text-sm mb-6">{formatCompletedDate(result.completedAt)}</p>
+                    <p className="text-slate-400 text-sm mb-6">{formatQuizCompletedDate(result.completedAt)}</p>
 
-                    <div className={`rounded-2xl border p-5 ${scoreBg} flex items-center justify-between flex-wrap gap-4 text-left mb-6`}>
-                        <div className="flex items-center gap-4">
-                            <div className={`text-5xl font-black ${scoreColor}`}>{result.score}</div>
-                            <div className="text-sm text-slate-500 leading-relaxed">
-                                <div className="font-semibold text-slate-700">
-                                    {result.correctAnswers} / {result.totalQuestions} correct
-                                </div>
-                                <div>Accuracy: {accuracy}%</div>
-                            </div>
-                        </div>
-                    </div>
+                    <QuizScoreSummary result={result} className="text-left mb-6" />
 
                     <div className="bg-slate-50 rounded-2xl p-4 text-left border border-slate-100 mb-6 text-sm text-slate-600">
                         <div className="flex justify-between py-1 border-b border-slate-100">
@@ -379,7 +373,7 @@ function QuizHeader({
                     <h1 className="text-3xl font-bold text-slate-900 mt-1">Reading Comprehension Test</h1>
                 </div>
                 <div className="flex gap-4">
-                    <StatBox label="Time Left" value={formatTime(remainingSeconds)} valueClass={timeClass} />
+                    <StatBox label="Time Left" value={formatQuizDuration(remainingSeconds)} valueClass={timeClass} />
                     <StatBox label="Question" value={`${currentIndex + 1} / ${questionCount}`} />
                 </div>
             </div>
@@ -618,78 +612,6 @@ function QuizNavigation({
     );
 }
 
-function AnswerBreakdown({ details }: Readonly<{ details: QuizResultDetail[] }>) {
-    return (
-        <div className="space-y-4">
-            <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wider px-1">
-                Answer Breakdown
-            </h3>
-            {details.map((detail, index) => (
-                <AnswerReviewCard key={detail.questionId} detail={detail} index={index} />
-            ))}
-        </div>
-    );
-}
-
-function AnswerReviewCard({ detail, index }: Readonly<{ detail: QuizResultDetail; index: number }>) {
-    const styles = getReviewCardStyles(detail.correct);
-
-    return (
-        <div className={`rounded-2xl border p-5 ${styles.card}`}>
-            <div className="flex items-start gap-3 mb-4">
-                <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${styles.marker}`}>
-                    {index + 1}
-                </div>
-                <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                            {detail.questionType.replace("_", " ")}
-                        </span>
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${styles.badge}`}>
-                            {detail.correct ? "Correct" : "Incorrect"}
-                        </span>
-                    </div>
-                    <p className="font-semibold text-slate-800 leading-snug">{detail.questionText}</p>
-                </div>
-            </div>
-
-            <div className="space-y-2 pl-11">
-                {detail.options && detail.options.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-3">
-                        {detail.options.map((opt) => {
-                            const isCorrect = opt.trim().toUpperCase() === detail.correctAnswer?.trim().toUpperCase();
-                            const isUserAnswer = opt.trim().toUpperCase() === detail.userAnswer?.trim().toUpperCase();
-                            return (
-                                <span
-                                    key={opt}
-                                    className={`px-3 py-1 rounded-lg text-sm font-medium border ${getAnswerOptionClass(isCorrect, isUserAnswer)}`}
-                                >
-                                    {opt}
-                                    {isCorrect && " Correct"}
-                                    {isUserAnswer && !isCorrect && " Incorrect"}
-                                </span>
-                            );
-                        })}
-                    </div>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div className="bg-white rounded-xl px-4 py-2.5 border border-slate-200">
-                        <p className="text-xs text-slate-400 mb-0.5">Your answer</p>
-                        <p className={`font-semibold text-sm ${styles.answer}`}>
-                            {detail.userAnswer ?? <span className="italic text-slate-400">No answer</span>}
-                        </p>
-                    </div>
-                    <div className="bg-white rounded-xl px-4 py-2.5 border border-emerald-200">
-                        <p className="text-xs text-slate-400 mb-0.5">Correct answer</p>
-                        <p className="font-semibold text-sm text-emerald-600">{detail.correctAnswer}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
 function CompletedIcon({ className = "w-8 h-8" }: Readonly<{ className?: string }>) {
     return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -706,48 +628,6 @@ function WarningIcon() {
     );
 }
 
-function formatTime(seconds: number) {
-    const safeSeconds = Math.max(0, Math.floor(seconds));
-    const m = Math.floor(safeSeconds / 60).toString().padStart(2, "0");
-    const s = (safeSeconds % 60).toString().padStart(2, "0");
-    return `${m}:${s}`;
-}
-
-function formatCompletedDate(completedAt: string) {
-    return new Date(completedAt).toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-    });
-}
-
-function normalizeAccuracy(accuracy: number) {
-    return accuracy <= 1 ? accuracy * 100 : accuracy;
-}
-
-function getScoreStyles(score: number) {
-    if (score >= 80) {
-        return {
-            scoreColor: "text-emerald-600",
-            scoreBg: "bg-emerald-50 border-emerald-200",
-        };
-    }
-
-    if (score >= 60) {
-        return {
-            scoreColor: "text-amber-500",
-            scoreBg: "bg-amber-50 border-amber-200",
-        };
-    }
-
-    return {
-        scoreColor: "text-rose-500",
-        scoreBg: "bg-rose-50 border-rose-200",
-    };
-}
-
 function getTrueFalseOptionClass(selected: boolean, option: string) {
     if (!selected) {
         return "border-slate-200 hover:border-slate-300";
@@ -758,27 +638,6 @@ function getTrueFalseOptionClass(selected: boolean, option: string) {
     }
 
     return "border-rose-500 bg-rose-50";
-}
-
-function getReviewCardStyles(isCorrect: boolean) {
-    return {
-        card: isCorrect ? "border-emerald-200 bg-emerald-50" : "border-rose-200 bg-rose-50",
-        marker: isCorrect ? "bg-emerald-500 text-white" : "bg-rose-500 text-white",
-        badge: isCorrect ? "bg-emerald-200 text-emerald-700" : "bg-rose-200 text-rose-700",
-        answer: isCorrect ? "text-emerald-600" : "text-rose-600",
-    };
-}
-
-function getAnswerOptionClass(isCorrect: boolean, isUserAnswer: boolean) {
-    if (isCorrect) {
-        return "bg-emerald-100 border-emerald-400 text-emerald-700";
-    }
-
-    if (isUserAnswer) {
-        return "bg-rose-100 border-rose-400 text-rose-700";
-    }
-
-    return "bg-white border-slate-200 text-slate-500";
 }
 
 function getNavigationButtonClass(active: boolean, answered: boolean) {
