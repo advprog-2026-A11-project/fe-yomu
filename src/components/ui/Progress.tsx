@@ -1,0 +1,45 @@
+import { type HTMLAttributes } from "react";
+
+export type ProgressColor = "brand" | "success" | "warning" | "danger" | "gold";
+export type ProgressSize = "sm" | "md" | "lg";
+
+export interface ProgressProps extends HTMLAttributes<HTMLDivElement> {
+  value: number;
+  max?: number;
+  color?: ProgressColor;
+  size?: ProgressSize;
+  showLabel?: boolean;
+  label?: string;
+}
+
+export function Progress({
+  value,
+  max = 100,
+  color = "brand",
+  size = "md",
+  showLabel = false,
+  label,
+  className = "",
+  ...props
+}: Readonly<ProgressProps>) {
+  const percentage = Math.min(100, Math.max(0, (value / max) * 100));
+
+  return (
+    <div className={className} {...props}>
+      {showLabel && (
+        <div className="yomu-progress-label">
+          <span>{label || `${Math.round(percentage)}%`}</span>
+          <span>
+            {value}/{max}
+          </span>
+        </div>
+      )}
+      <progress
+        className={`yomu-progress yomu-progress-${color} yomu-progress-${size}`}
+        value={Math.min(max, Math.max(0, value))}
+        max={max}
+        aria-label={label || "Progress"}
+      />
+    </div>
+  );
+}

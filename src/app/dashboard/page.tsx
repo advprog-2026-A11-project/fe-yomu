@@ -1,447 +1,115 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { authApi, extractErrorMessage } from "@/lib/auth-client";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useAuth } from "@/components/providers/auth-provider";
+import { Avatar } from "@/components/ui/Avatar";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { ROUTES } from "@/constants";
+import Link from "next/link";
 
-type AdminUser = {
-  id?: string;
-  username?: string;
-  email?: string;
-  displayName?: string;
-  role?: string;
-  isActive?: boolean;
-};
+const adminLinks = [
+  { href: "/admin/users", icon: "👥", label: "User Management" },
+  { href: ROUTES.reading.admin, icon: "📚", label: "Reading Admin" },
+];
 
 export default function DashboardPage() {
-  const { session, token, refreshSession, signOut, isAdmin } = useAuth();
+  const { session, isAdmin } = useAuth();
   const profile = session?.profile;
-
-  const [username, setUsername] = useState(profile?.username || "");
-  const [displayName, setDisplayName] = useState(profile?.displayName || "");
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [profileMessage, setProfileMessage] = useState<string | null>(null);
-
-  const [deletingSelf, setDeletingSelf] = useState(false);
-  const [deleteMessage, setDeleteMessage] = useState<string | null>(null);
-
-  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
-  const [adminDisplayNames, setAdminDisplayNames] = useState<Record<string, string>>({});
-  const [adminLoading, setAdminLoading] = useState(false);
-  const [adminMessage, setAdminMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    setUsername(profile?.username || "");
-    setDisplayName(profile?.displayName || "");
-  }, [profile?.displayName, profile?.username]);
-
-  async function loadAdminUsers() {
-    if (!token || !isAdmin) {
-      return;
-    }
-
-    setAdminLoading(true);
-    setAdminMessage(null);
-
-    try {
-      const response = await fetch(authApi("/users"), {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        cache: "no-store",
-      });
-
-      const payload = (await response.json()) as AdminUser[] | { message?: string; error?: string };
-
-      if (!response.ok || !Array.isArray(payload)) {
-        const message = Array.isArray(payload)
-          ? "Failed to load users"
-          : payload.message || payload.error || "Failed to load users";
-        throw new Error(message);
-      }
-
-      setAdminUsers(payload);
-      setAdminDisplayNames(
-        payload.reduce<Record<string, string>>((accumulator, user) => {
-          if (user.id) {
-            accumulator[user.id] = user.displayName || "";
-          }
-          return accumulator;
-        }, {}),
-      );
-    } catch (error) {
-      setAdminMessage(extractErrorMessage(error, "Failed to load users"));
-    } finally {
-      setAdminLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    if (!isAdmin) {
-      setAdminUsers([]);
-      setAdminMessage(null);
-    }
-  }, [isAdmin]);
-
-  const profileRows = [
-    { label: "Profile ID", value: profile?.id || "-" },
-    { label: "Username", value: profile?.username || "-" },
-    { label: "Email", value: profile?.email || "-" },
-    { label: "Phone", value: profile?.phone || "-" },
-    { label: "Display Name", value: profile?.displayName || "-" },
-    { label: "Role", value: profile?.role || "-" },
-    { label: "Auth Provider", value: profile?.authProvider || "-" },
-    { label: "Google Sub", value: profile?.googleSub || "-" },
-    { label: "Active", value: profile?.isActive ? "true" : "false" },
+  const quickLinks = [
+    { href: isAdmin ? ROUTES.reading.admin : ROUTES.reading.student, icon: "📖", label: "Reading" },
+    { href: ROUTES.achievement, icon: "🏆", label: "Achievements" },
+    { href: ROUTES.clan.list, icon: "⚔️", label: "League" },
   ];
-
-  async function handleProfileSave() {
-    if (!token) {
-      return;
-    }
-
-    setSavingProfile(true);
-    setProfileMessage(null);
-
-    try {
-      const response = await fetch(authApi("/users/me"), {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username: username.trim() || undefined,
-          displayName: displayName.trim() || undefined,
-        }),
-      });
-
-      const payload = (await response.json()) as { message?: string };
-
-      if (!response.ok) {
-        throw new Error(payload.message || "Failed to update profile");
-      }
-
-      setProfileMessage(payload.message || "Profile updated.");
-      await refreshSession();
-    } catch (error) {
-      setProfileMessage(extractErrorMessage(error, "Failed to update profile"));
-    } finally {
-      setSavingProfile(false);
-    }
-  }
-
-  async function handleDeleteOwnAccount() {
-    if (!token) {
-      return;
-    }
-
-    const confirmed = window.confirm(
-      "Delete your account? This will deactivate your current account access.",
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setDeletingSelf(true);
-    setDeleteMessage(null);
-
-    try {
-      const response = await fetch(authApi("/users/me"), {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          confirmation: "DELETE",
-        }),
-      });
-
-      if (!response.ok) {
-        const raw = await response.text();
-        throw new Error(extractErrorMessage(raw, "Failed to delete account"));
-      }
-
-      setDeleteMessage("Account deactivated.");
-      signOut();
-    } catch (error) {
-      setDeleteMessage(extractErrorMessage(error, "Failed to delete account"));
-    } finally {
-      setDeletingSelf(false);
-    }
-  }
-
-  async function handleAdminDisplayNameUpdate(userId: string) {
-    if (!token) {
-      return;
-    }
-
-    setAdminLoading(true);
-    setAdminMessage(null);
-
-    try {
-      const response = await fetch(authApi(`/users/${userId}/displayName`), {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          displayName: adminDisplayNames[userId] || "",
-        }),
-      });
-
-      const payload = (await response.json()) as { message?: string };
-
-      if (!response.ok) {
-        throw new Error(payload.message || "Failed to update target display name");
-      }
-
-      setAdminUsers((current) =>
-        current.map((user) =>
-          user.id === userId
-            ? { ...user, displayName: adminDisplayNames[userId] || user.displayName }
-            : user,
-        ),
-      );
-      setAdminMessage(payload.message || "Target user updated.");
-    } catch (error) {
-      setAdminMessage(extractErrorMessage(error, "Failed to update target display name"));
-    } finally {
-      setAdminLoading(false);
-    }
-  }
-
-  async function handleAdminSoftDelete(userId: string) {
-    if (!token) {
-      return;
-    }
-
-    const confirmed = window.confirm(
-      "Soft delete this user? The account will be deactivated, not hard removed.",
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setAdminLoading(true);
-    setAdminMessage(null);
-
-    try {
-      const response = await fetch(authApi(`/users/${userId}`), {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const raw = await response.text();
-        throw new Error(raw || "Failed to soft delete user");
-      }
-
-      setAdminUsers((current) =>
-        current.map((user) =>
-          user.id === userId ? { ...user, isActive: false } : user,
-        ),
-      );
-      setAdminMessage("User soft deleted.");
-    } catch (error) {
-      setAdminMessage(extractErrorMessage(error, "Failed to soft delete user"));
-    } finally {
-      setAdminLoading(false);
-    }
-  }
-
-  async function handleAdminActivate(userId: string) {
-    if (!token) {
-      return;
-    }
-
-    setAdminLoading(true);
-    setAdminMessage(null);
-
-    try {
-      const response = await fetch(authApi(`/users/${userId}/activate`), {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const payload = (await response.json()) as AdminUser | { message?: string };
-
-      if (!response.ok) {
-        throw new Error("message" in payload && payload.message
-          ? payload.message
-          : "Failed to activate user");
-      }
-
-      setAdminUsers((current) =>
-        current.map((user) =>
-          user.id === userId ? { ...user, isActive: true } : user,
-        ),
-      );
-      setAdminMessage("User activated.");
-    } catch (error) {
-      setAdminMessage(String(error));
-    } finally {
-      setAdminLoading(false);
-    }
-  }
 
   return (
     <ProtectedRoute description="Sign in to open your dashboard.">
-      <section className="dashboard-page">
-        <div className="shell dashboard-simple">
-          <p className="eyebrow">Dashboard</p>
-          <h1 className="dashboard-simple-title">
-            {profile?.displayName || profile?.username || "Yomu user"}
-          </h1>
-
-          <div className="dashboard-simple-list">
-            {profileRows.map((row) => (
-              <div key={row.label}>
-                <span>{row.label}</span>
-                <strong>{row.value}</strong>
-              </div>
-            ))}
+      <div style={{ padding: "2rem 0 4rem" }}>
+        <div className="container">
+          {/* Header */}
+          <div style={{ marginBottom: "2rem" }}>
+            <p className="yomu-eyebrow">Dashboard</p>
+            <h1 style={{ margin: "0.25rem 0 0", fontSize: "clamp(2rem, 5vw, 2.75rem)", fontWeight: 800, letterSpacing: "-0.03em" }}>
+              Welcome, {profile?.displayName || profile?.username || "Learner"}
+            </h1>
+            <p style={{ margin: "0.5rem 0 0", color: "var(--text-muted)" }}>
+              Your central hub for learning and progress.
+            </p>
           </div>
 
-          <section className="dashboard-simple-section">
-            <p className="eyebrow">Update profile</p>
-            <form
-              className="dashboard-simple-form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void handleProfileSave();
-              }}
-            >
-              <label className="field">
-                <span>Username</span>
-                <input
-                  value={username}
-                  onChange={(event) => setUsername(event.target.value)}
-                  placeholder="Username"
-                />
-              </label>
+          <div style={{ display: "grid", gap: "1.5rem" }}>
+            {/* Profile Card */}
+            <Card variant="raised" padding="lg">
+              <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
+                <Avatar name={profile?.displayName || profile?.username} size="xl" />
+                <div style={{ flex: 1 }}>
+                  <h2 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 800 }}>
+                    {profile?.displayName || profile?.username || "User"}
+                  </h2>
+                  <p style={{ margin: "0.25rem 0 0", color: "var(--text-muted)" }}>
+                    {profile?.email || "No email"}
+                  </p>
+                  <div style={{ marginTop: "0.5rem", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                    {profile?.role && <Badge variant="brand">{profile.role}</Badge>}
+                    <Badge variant={profile?.isActive ? "success" : "danger"}>
+                      {profile?.isActive ? "Active" : "Inactive"}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            </Card>
 
-              <label className="field">
-                <span>Display Name</span>
-                <input
-                  value={displayName}
-                  onChange={(event) => setDisplayName(event.target.value)}
-                  placeholder="Display name"
-                />
-              </label>
-
-              {profileMessage ? <p className="form-feedback">{profileMessage}</p> : null}
-
-              <button type="submit" className="button button-primary" disabled={savingProfile}>
-                {savingProfile ? "Saving..." : "Save profile"}
-              </button>
-            </form>
-          </section>
-
-          <section className="dashboard-simple-section">
-            <p className="eyebrow">Danger zone</p>
-            {deleteMessage ? <p className="form-feedback">{deleteMessage}</p> : null}
-            <button
-              type="button"
-              className="button button-ghost"
-              disabled={deletingSelf}
-              onClick={() => void handleDeleteOwnAccount()}
-            >
-              {deletingSelf ? "Deleting..." : "Delete / deactivate my account"}
-            </button>
-          </section>
-
-          {isAdmin ? (
-            <section className="dashboard-simple-section">
-              <p className="eyebrow">Admin actions</p>
-              {adminMessage ? <p className="form-feedback">{adminMessage}</p> : null}
-
-              <div className="dashboard-admin-list">
-                <button
-                  type="button"
-                  className="button button-secondary"
-                  disabled={adminLoading}
-                  onClick={() => void loadAdminUsers()}
-                >
-                  {adminLoading ? "Loading users..." : "Load users"}
-                </button>
-
-                {!adminLoading && adminUsers.length === 0 ? (
-                  <p className="muted-copy">Load users first to manage other accounts.</p>
-                ) : null}
-
-                {adminUsers.map((user) => (
-                  <div key={user.id} className="dashboard-admin-item">
-                    <div className="dashboard-admin-meta">
-                      <strong>{user.displayName || user.username || user.email || "User"}</strong>
-                      <span>
-                        {user.email || "-"} · {user.role || "-"} ·{" "}
-                        {user.isActive ? "Active" : "Inactive"}
-                      </span>
+            {/* Account Info */}
+            <Card>
+              <h3 style={{ margin: "0 0 1rem", fontSize: "1.1rem", fontWeight: 700 }}>Account Information</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "1.25rem" }}>
+                {[
+                  { label: "Username", value: profile?.username },
+                  { label: "Email", value: profile?.email },
+                  { label: "Phone", value: profile?.phone },
+                  { label: "Auth Provider", value: profile?.authProvider },
+                ].map((item) => (
+                  <div key={item.label}>
+                    <div style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--text-soft)", fontWeight: 600 }}>
+                      {item.label}
                     </div>
-
-                    <label className="field">
-                      <span>Display Name</span>
-                      <input
-                        value={user.id ? adminDisplayNames[user.id] || "" : ""}
-                        onChange={(event) => {
-                          const currentUserId = user.id;
-                          if (!currentUserId) {
-                            return;
-                          }
-
-                          setAdminDisplayNames((current) => ({
-                            ...current,
-                            [currentUserId]: event.target.value,
-                          }));
-                        }}
-                      />
-                    </label>
-
-                    <div className="home-actions dashboard-admin-actions">
-                      <button
-                        type="button"
-                        className="button button-secondary"
-                        disabled={adminLoading || !user.id}
-                        onClick={() =>
-                          user.id && void handleAdminDisplayNameUpdate(user.id)
-                        }
-                      >
-                        Update name
-                      </button>
-                      <button
-                        type="button"
-                        className="button button-ghost"
-                        disabled={adminLoading || !user.id || user.id === profile?.id}
-                        onClick={() => user.id && void handleAdminSoftDelete(user.id)}
-                      >
-                        Soft delete
-                      </button>
-                      <button
-                        type="button"
-                        className="button button-secondary"
-                        disabled={adminLoading || !user.id || user.isActive}
-                        onClick={() => user.id && void handleAdminActivate(user.id)}
-                      >
-                        Activate
-                      </button>
+                    <div style={{ marginTop: "0.25rem", fontWeight: 600, wordBreak: "break-word" }}>
+                      {item.value || "-"}
                     </div>
                   </div>
                 ))}
               </div>
-            </section>
-          ) : null}
+            </Card>
+
+            {/* Quick Links */}
+            <Card>
+              <h3 style={{ margin: "0 0 1rem", fontSize: "1.1rem", fontWeight: 700 }}>Quick Links</h3>
+              <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", justifyContent: "center" }}>
+                {quickLinks.map((link) => (
+                  <Link key={link.href} href={link.href} style={{ textDecoration: "none" }}>
+                    <Button variant="secondary" pill>{link.icon} {link.label}</Button>
+                  </Link>
+                ))}
+              </div>
+            </Card>
+
+            {/* Admin Links */}
+            {isAdmin && (
+              <Card>
+                <h3 style={{ margin: "0 0 1rem", fontSize: "1.1rem", fontWeight: 700 }}>Admin Tools</h3>
+                <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+                  {adminLinks.map((link) => (
+                    <Link key={link.href} href={link.href} style={{ textDecoration: "none" }}>
+                      <Button variant="primary" pill>{link.icon} {link.label}</Button>
+                    </Link>
+                  ))}
+                </div>
+              </Card>
+            )}
+          </div>
         </div>
-      </section>
+      </div>
     </ProtectedRoute>
   );
 }

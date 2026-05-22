@@ -1,12 +1,40 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { GoogleAuthButton } from "@/components/auth/google-auth-button";
+import { runGoogleAuthAction } from "@/components/auth/google-auth-action";
 import { useAuth } from "@/components/providers/auth-provider";
-import { extractErrorMessage } from "@/lib/auth-client";
+import { normalizeAuthError } from "@/lib/auth-client";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { Tabs } from "@/components/ui/Tabs";
+
+type RegisterMode = "email" | "phone" | "both";
+
+const REGISTER_MODE_ITEMS = [
+  { id: "email", label: "Email" },
+  { id: "phone", label: "Phone" },
+  { id: "both", label: "Both" },
+];
+
+function hasValidPhoneDigitCount(value: string): boolean {
+  const compact = value.replaceAll(/[\s\-()+]/g, "");
+  return compact.length >= 8 && compact.length <= 15 && /^\d+$/.test(compact);
+}
+
+function includesEmail(mode: RegisterMode): boolean {
+  return mode === "email" || mode === "both";
+}
+
+function includesPhone(mode: RegisterMode): boolean {
+  return mode === "phone" || mode === "both";
+}
 
 export function RegisterForm() {
   const { register, startGoogleSignIn } = useAuth();
+  const [mode, setMode] = useState<RegisterMode>("email");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -15,91 +43,124 @@ export function RegisterForm() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const trimmedEmail = email.trim();
+    const trimmedPhone = phone.trim();
+    const shouldSendEmail = includesEmail(mode);
+    const shouldSendPhone = includesPhone(mode);
+
+    if (shouldSendEmail && !trimmedEmail) {
+      setError("Email is required.");
+      return;
+    }
+
+    if (shouldSendPhone && !hasValidPhoneDigitCount(trimmedPhone)) {
+      setError("Phone number must contain 8-15 digits.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
       await register({
-        email: email.trim(),
+        email: shouldSendEmail ? trimmedEmail : undefined,
+        phone: shouldSendPhone ? trimmedPhone : undefined,
         password,
         username: username.trim() || undefined,
         displayName: displayName.trim() || undefined,
       });
     } catch (submitError) {
-      setError(extractErrorMessage(submitError, "Registration failed"));
+      setError(normalizeAuthError(submitError, "register"));
     } finally {
       setLoading(false);
     }
   }
 
-  return (
-    <div className="auth-panel-stack">
-      <button
-        type="button"
-        className="button button-secondary button-with-icon"
-        disabled={loading}
-        onClick={() => void startGoogleSignIn()}
-      >
-        <span className="button-icon">G</span>
-        Register with Google
-      </button>
+  async function handleGoogleSignIn() {
+    await runGoogleAuthAction(startGoogleSignIn, setLoading, setError);
+  }
 
-      <div className="divider-line">
-        <span>or create an account with email</span>
+  return (
+    <div className="auth-form-container">
+      <GoogleAuthButton
+        loading={loading}
+        label="Register with Google"
+        onClick={() => void handleGoogleSignIn()}
+      />
+
+      <div className="auth-form-divider">
+        <span>or create an account manually</span>
       </div>
 
-      <form className="auth-form" onSubmit={(event) => void handleSubmit(event)}>
-        <label className="field">
-          <span>Email</span>
-          <input
+      <form className="auth-form-actions" onSubmit={(event) => void handleSubmit(event)}>
+        <Tabs
+          items={REGISTER_MODE_ITEMS}
+          active={mode}
+          onChange={(nextMode) => {
+            setMode(nextMode as RegisterMode);
+            setError(null);
+          }}
+          size="sm"
+        />
+
+        {includesEmail(mode) && (
+          <Input
+            label="Email"
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            onChange={(e) => setEmail(e.target.value)}
             type="email"
             autoComplete="email"
             placeholder="you@yomu.id"
             required
           />
-        </label>
+        )}
 
-        <label className="field">
-          <span>Password</span>
-          <input
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            type="password"
-            autoComplete="new-password"
-            placeholder="Create a strong password"
+        {includesPhone(mode) && (
+          <Input
+            label="Phone number"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            type="tel"
+            autoComplete="tel"
+            placeholder="+628123456789 or 0812..."
+            inputMode="numeric"
             required
           />
-        </label>
+        )}
 
-        <label className="field">
-          <span>Username</span>
-          <input
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            type="text"
-            autoComplete="username"
-            placeholder="Optional username"
-          />
-        </label>
+        <Input
+          label="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          type="password"
+          autoComplete="new-password"
+          placeholder="Create a strong password"
+          required
+        />
 
-        <label className="field">
-          <span>Display name</span>
-          <input
-            value={displayName}
-            onChange={(event) => setDisplayName(event.target.value)}
-            type="text"
-            autoComplete="nickname"
-            placeholder="How Yomu should greet you"
-          />
-        </label>
+        <Input
+          label="Username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          type="text"
+          autoComplete="username"
+          placeholder="Choose a username"
+        />
 
-        {error ? <p className="form-feedback form-feedback-error">{error}</p> : null}
+        <Input
+          label="Display name"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          type="text"
+          autoComplete="nickname"
+          placeholder="How Yomu should greet you"
+        />
 
-        <button type="submit" className="button button-primary" disabled={loading}>
+        {error && <div className="auth-error">{error}</div>}
+
+        <Button type="submit" variant="primary" pill loading={loading} style={{ width: "100%" }}>
           {loading ? "Creating account..." : "Create account"}
-        </button>
+        </Button>
       </form>
     </div>
   );

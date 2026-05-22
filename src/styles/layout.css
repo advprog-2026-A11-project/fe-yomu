@@ -1,0 +1,48 @@
+/* ===== Main Content ===== */
+
+.main-content {
+  min-height: calc(100vh - 64px - 56px);
+}
+
+/* ===== Site Footer ===== */
+
+.site-footer {
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.site-footer-inner {
+  width: min(100%, 1200px);
+  margin: 0 auto;
+  padding: 1.25rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.site-footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.site-footer-brand strong {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.site-footer-copy {
+  font-size: 0.8rem;
+  color: var(--text-soft);
+}
+
+@media (max-width: 768px) {
+  .site-footer-inner {
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
+    padding: 1rem;
+  }
+}

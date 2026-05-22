@@ -18,7 +18,7 @@ export interface AuthProfile {
 
 export interface AuthSession {
   sub?: string;
-  aud?: string[];
+  aud?: string[] | string;
   iss?: string;
   exp?: string;
   profile?: AuthProfile | null;
@@ -29,20 +29,41 @@ export interface AuthTokenResponse {
   access_token?: string;
   refreshToken?: string;
   refresh_token?: string;
+  tokenType?: string;
+  expiresIn?: number;
   userId?: string;
   role?: string;
   authorizationUrl?: string;
   message?: string;
 }
 
+export interface UpdateProfileResponse {
+  message?: string;
+  userId?: string;
+  username?: string;
+  displayName?: string;
+  email?: string | null;
+}
+
+export interface UpdateEmailResponse {
+  message?: string;
+  userId?: string;
+  email?: string;
+}
+
+export interface UpdatePhoneResponse {
+  message?: string;
+  userId?: string;
+  phone?: string;
+}
+
+export interface DeleteAccountResponse {
+  message?: string;
+  userId?: string;
+}
+
 export interface AuthModalIntent {
   mode: AuthModalMode;
   nextPath?: string;
   reason?: string;
-}
-
-export interface AuthSnapshot {
-  token: string;
-  session: AuthSession;
-  refreshedAt: number;
 }

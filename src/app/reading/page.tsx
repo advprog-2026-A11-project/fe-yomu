@@ -1,5 +1,6 @@
 "use client";
 
+import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -18,5 +19,9 @@ export default function ReadingPage() {
         }
     }, [isAdmin, isAuthenticated, router]);
 
-    return <p>Redirecting...</p>;
+    return (
+        <ProtectedRoute description="Sign in to open reading modules.">
+            <div />
+        </ProtectedRoute>
+    );
 }
