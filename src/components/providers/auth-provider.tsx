@@ -244,6 +244,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         accessToken: data.session.access_token,
         refreshToken: data.session.refresh_token ?? null,
       });
+      await refreshWithCookie();
       await completeAuthenticatedSession("Welcome back to Yomu.", input.nextPath);
     },
     [completeAuthenticatedSession],
