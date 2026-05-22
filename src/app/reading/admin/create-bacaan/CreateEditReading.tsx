@@ -8,10 +8,12 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/ui/LoadingState";
+import { useAuth } from "@/components/providers/auth-provider";
 
 const API_ADMIN = "/api/reading-admin";
 
 export default function CreateEditReading() {
+  const { session } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("id");
@@ -21,6 +23,7 @@ export default function CreateEditReading() {
     content: "",
     category: "",
     difficultyLevel: "BEGINNER",
+    quizDurationMinutes: 10,
   });
 
   const [loading, setLoading] = useState(false);
@@ -31,7 +34,9 @@ export default function CreateEditReading() {
       const fetchOldData = async () => {
         try {
           setFetchingOld(true);
-          const response = await fetch(`${API_ADMIN}/${editId}`);
+          const response = await fetch(`${API_ADMIN}/${editId}`, {
+            headers: { ...(session?.profile?.id && { userId: session?.profile?.id }) },
+          });
           if (response.ok) {
             const data = await response.json();
             setFormData({
@@ -39,6 +44,7 @@ export default function CreateEditReading() {
               content: data.content || "",
               category: data.category || "",
               difficultyLevel: data.difficultyLevel || "BEGINNER",
+              quizDurationMinutes: data.quizDurationMinutes || 10,
             });
           }
         } catch (error) {
@@ -61,7 +67,10 @@ export default function CreateEditReading() {
     try {
       const response = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(session?.profile?.id && { userId: session.profile.id }),
+        },
         body: JSON.stringify(formData),
       });
 
@@ -134,6 +143,16 @@ export default function CreateEditReading() {
                 </select>
               </div>
             </div>
+
+            <Input
+              label="Quiz Duration (minutes)"
+              type="number"
+              min="1"
+              value={formData.quizDurationMinutes}
+              onChange={(e) => setFormData({ ...formData, quizDurationMinutes: Math.max(1, Number(e.target.value) || 1) })}
+              placeholder="10"
+              required
+            />
 
             <Textarea
               label="Content"
