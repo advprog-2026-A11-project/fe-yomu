@@ -32,10 +32,19 @@ export const API = {
     base: "/api/achievement",
     myAchievements: "/api/achievement/achievements/me",
     userAchievements: (userId: string) => `/api/achievement/users/${userId}/achievements`,
+    publicAchievements: (userId: string) => `/api/achievement/achievements/${userId}/public`,
+    completedAchievements: (userId: string) => `/api/achievement/achievements/${userId}/completed`,
     featured: (id: string, showcased: boolean) => `/api/achievement/achievements/featured/${id}?showcased=${showcased}`,
     studentProgress: (userId: string) => `/api/achievement/student-progress/${userId}`,
     studentScore: (userId: string) => `/api/achievement/student-progress/${userId}/score`,
     studentMissions: (userId: string) => `/api/achievement/student-progress/${userId}/missions`,
+    claimMission: (userId: string, missionId: string) => (
+      `/api/achievement/student-progress/${userId}/missions/${missionId}/claim`
+    ),
+    adminAchievements: "/api/achievement/admin/achievements",
+    adminAchievementById: (id: string) => `/api/achievement/admin/achievements/${id}`,
+    adminDailyMissions: "/api/achievement/admin/daily-missions",
+    adminDailyMissionById: (id: string) => `/api/achievement/admin/daily-missions/${id}`,
   },
   clan: {
     base: "/api/clan",
