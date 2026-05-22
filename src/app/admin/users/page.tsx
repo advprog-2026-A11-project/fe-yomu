@@ -73,10 +73,9 @@ export default function AdminUsersPage() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{
     displayName: string;
-    email: string;
     username: string;
     role: string;
-  }>({ displayName: "", email: "", username: "", role: "STUDENT" });
+  }>({ displayName: "", username: "", role: "STUDENT" });
 
   useEffect(() => {
     if (isAdmin) {
@@ -191,7 +190,6 @@ export default function AdminUsersPage() {
         credentials: "include",
         body: JSON.stringify({
           username: editForm.username || targetUser.username || "",
-          email: editForm.email || targetUser.email || "",
           displayName: editForm.displayName || targetUser.displayName || "",
           role: editForm.role || targetUser.role || "STUDENT",
           isActive: targetUser.isActive ?? true,
@@ -210,7 +208,6 @@ export default function AdminUsersPage() {
             ? {
                 ...user,
                 displayName: editForm.displayName || user.displayName,
-                email: editForm.email || user.email,
                 username: editForm.username || user.username,
                 role: editForm.role || user.role,
               }
@@ -230,7 +227,6 @@ export default function AdminUsersPage() {
     setEditingUserId(user.id || null);
     setEditForm({
       displayName: user.displayName || "",
-      email: user.email || "",
       username: user.username || "",
       role: user.role || "STUDENT",
     });
@@ -238,7 +234,7 @@ export default function AdminUsersPage() {
 
   function cancelEdit() {
     setEditingUserId(null);
-    setEditForm({ displayName: "", email: "", username: "", role: "STUDENT" });
+    setEditForm({ displayName: "", username: "", role: "STUDENT" });
   }
 
   function renderUserAction(user: AdminUser) {
@@ -373,13 +369,6 @@ export default function AdminUsersPage() {
                             value={editForm.username}
                             onChange={(e) => setEditForm((f) => ({ ...f, username: e.target.value }))}
                             placeholder="Username"
-                          />
-                          <Input
-                            label="Email"
-                            type="email"
-                            value={editForm.email}
-                            onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
-                            placeholder="Email address"
                           />
                           <div>
                             <label htmlFor="admin-user-role" style={{ display: "block", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--text-soft)", fontWeight: 600, marginBottom: "0.5rem" }}>
