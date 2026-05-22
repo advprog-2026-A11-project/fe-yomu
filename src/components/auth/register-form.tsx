@@ -30,6 +30,11 @@ function includesPhone(mode: RegisterMode): boolean {
   return mode === "phone" || mode === "both";
 }
 
+function normalizeOptionalText(value: string): string | undefined {
+  const trimmed = value.trim();
+  return trimmed || undefined;
+}
+
 export function RegisterForm() {
   const { register, startGoogleSignIn } = useAuth();
   const [mode, setMode] = useState<RegisterMode>("email");
@@ -43,8 +48,10 @@ export function RegisterForm() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const trimmedEmail = email.trim();
+    const trimmedEmail = email.trim().toLowerCase();
     const trimmedPhone = phone.trim();
+    const normalizedUsername = normalizeOptionalText(username);
+    const normalizedDisplayName = normalizeOptionalText(displayName);
     const shouldSendEmail = includesEmail(mode);
     const shouldSendPhone = includesPhone(mode);
 
@@ -58,6 +65,16 @@ export function RegisterForm() {
       return;
     }
 
+    if (normalizedUsername && (normalizedUsername.length < 3 || normalizedUsername.length > 30)) {
+      setError("Username must be 3-30 characters.");
+      return;
+    }
+
+    if (normalizedDisplayName && normalizedDisplayName.length > 100) {
+      setError("Display name must be 100 characters or fewer.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -66,8 +83,8 @@ export function RegisterForm() {
         email: shouldSendEmail ? trimmedEmail : undefined,
         phone: shouldSendPhone ? trimmedPhone : undefined,
         password,
-        username: username.trim() || undefined,
-        displayName: displayName.trim() || undefined,
+        username: normalizedUsername,
+        displayName: normalizedDisplayName,
       });
     } catch (submitError) {
       setError(normalizeAuthError(submitError, "register"));
