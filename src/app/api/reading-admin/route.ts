@@ -22,7 +22,11 @@ async function forward(request: NextRequest): Promise<Response> {
         );
     }
 
-    return proxyToBackend(`/api/admin/readings${request.nextUrl.search}`, request, {
+    const backendPath = request.method === "GET"
+        ? "/api/admin/readings/reading-list"
+        : "/api/admin/readings";
+
+    return proxyToBackend(`${backendPath}${request.nextUrl.search}`, request, {
         backendBaseUrl: baseUrl,
     });
 }

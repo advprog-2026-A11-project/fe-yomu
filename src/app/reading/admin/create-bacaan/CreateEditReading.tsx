@@ -23,6 +23,7 @@ export default function CreateEditReading() {
     content: "",
     category: "",
     difficultyLevel: "BEGINNER",
+    quizDurationMinutes: 10,
   });
 
   const [loading, setLoading] = useState(false);
@@ -43,6 +44,7 @@ export default function CreateEditReading() {
               content: data.content || "",
               category: data.category || "",
               difficultyLevel: data.difficultyLevel || "BEGINNER",
+              quizDurationMinutes: data.quizDurationMinutes || 10,
             });
           }
         } catch (error) {
@@ -141,6 +143,16 @@ export default function CreateEditReading() {
                 </select>
               </div>
             </div>
+
+            <Input
+              label="Quiz Duration (minutes)"
+              type="number"
+              min="1"
+              value={formData.quizDurationMinutes}
+              onChange={(e) => setFormData({ ...formData, quizDurationMinutes: Math.max(1, Number(e.target.value) || 1) })}
+              placeholder="10"
+              required
+            />
 
             <Textarea
               label="Content"

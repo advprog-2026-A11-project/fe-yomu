@@ -21,6 +21,7 @@ export interface QuizResult {
     accuracy: number;
     totalQuestions: number;
     correctAnswers: number;
+    timeTakenSeconds?: number;
     completedAt: string;
     questionDetails: QuizResultDetail[];
 }
@@ -132,6 +133,7 @@ function QuizResultModal({
         hour: "2-digit",
         minute: "2-digit",
     });
+    const timeTaken = formatDuration(result.timeTakenSeconds ?? 0);
 
     return (
         <div
@@ -190,6 +192,17 @@ function QuizResultModal({
                 </div>
 
                 {/* Question breakdown — scrollable */}
+                <div className="mx-8 mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Time Taken</p>
+                        <p className="mt-1 text-lg font-bold text-slate-800">{timeTaken}</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Completed At</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-700">{completedDate}</p>
+                    </div>
+                </div>
+
                 <div className="flex-1 overflow-y-auto px-8 py-6 space-y-5">
                     <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wider">
                         Answer Breakdown
@@ -212,6 +225,13 @@ function QuizResultModal({
             </div>
         </div>
     );
+}
+
+function formatDuration(seconds: number) {
+    const safeSeconds = Math.max(0, Math.floor(seconds));
+    const minutes = Math.floor(safeSeconds / 60).toString().padStart(2, "0");
+    const remainingSeconds = (safeSeconds % 60).toString().padStart(2, "0");
+    return `${minutes}:${remainingSeconds}`;
 }
 
 function QuestionReviewCard({

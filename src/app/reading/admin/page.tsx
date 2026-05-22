@@ -11,6 +11,7 @@ import { getDifficultyConfig } from "@/utils/tiers";
 import { ROUTES } from "@/constants";
 
 const API_BASE_URL = "/api/reading-admin";
+const API_LIST_URL = `${API_BASE_URL}/reading-list`;
 
 function getDifficultyBadgeVariant(level: string): "success" | "warning" | "danger" {
     if (level === "BEGINNER") return "success";
@@ -30,7 +31,7 @@ export default function BacaanPage() {
     const fetchReadings = async () => {
         try {
             setLoading(true);
-            const response = await fetch(API_BASE_URL, { credentials: "include" });
+            const response = await fetch(API_LIST_URL, { credentials: "include" });
             if (!response.ok) throw new Error("Failed to fetch data");
             const data = await response.json();
             setReadings(data);

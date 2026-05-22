@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ReadingAPI } from "@/lib/readings";
 import type { QuizResultDetail, QuizResult } from "@/app/reading/student/readings/[id]/page";
@@ -25,16 +25,25 @@ export default function StudentQuizPage() {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [answers, setAnswers] = useState<Record<string, string>>({});
     const [timeTakenSeconds, setTimeTakenSeconds] = useState(0);
+    const [quizDurationMinutes, setQuizDurationMinutes] = useState(10);
     const [submitted, setSubmitted] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [result, setResult] = useState<QuizResult | null>(null);
+    const autoSubmittedRef = useRef(false);
+
+    const quizDurationSeconds = quizDurationMinutes * 60;
+    const remainingSeconds = Math.max(quizDurationSeconds - timeTakenSeconds, 0);
 
     useEffect(() => {
         const fetchQuestions = async () => {
             try {
                 setLoading(true);
-                const data = await ReadingAPI.getQuizQuestions(readingId);
-                setQuestions(data);
+                const [readingData, questionData] = await Promise.all([
+                    ReadingAPI.getStudentReadingById(readingId),
+                    ReadingAPI.getQuizQuestions(readingId),
+                ]);
+                setQuizDurationMinutes(Math.max(1, Number(readingData?.quizDurationMinutes) || 10));
+                setQuestions(questionData);
             } catch (err: any) {
                 if (err.message?.toLowerCase().includes("completed")) {
                     try {
@@ -66,6 +75,22 @@ export default function StudentQuizPage() {
         return () => clearInterval(timer);
     }, [loading, submitted, questions.length]);
 
+    useEffect(() => {
+        if (
+            loading ||
+            submitted ||
+            submitting ||
+            questions.length === 0 ||
+            autoSubmittedRef.current ||
+            remainingSeconds > 0
+        ) {
+            return;
+        }
+
+        autoSubmittedRef.current = true;
+        handleSubmit(true);
+    }, [loading, remainingSeconds, questions.length, submitted, submitting]);
+
     const currentQuestion = questions[currentIndex];
 
     const progress = useMemo(() => {
@@ -86,12 +111,12 @@ export default function StudentQuizPage() {
         if (currentIndex > 0) setCurrentIndex((prev) => prev - 1);
     };
 
-    const handleSubmit = async () => {
+    async function handleSubmit(isAutoSubmit = false) {
         try {
             setSubmitting(true);
             const submitResponse = await ReadingAPI.submitQuiz(readingId, {
                 answers,
-                timeTakenSeconds,
+                timeTakenSeconds: Math.min(timeTakenSeconds, quizDurationSeconds),
             });
 
             // Setelah submit, langsung fetch hasil lengkap dengan jawaban benar
@@ -106,17 +131,18 @@ export default function StudentQuizPage() {
                     accuracy: submitResponse.accuracy,
                     totalQuestions: submitResponse.totalQuestions,
                     correctAnswers: submitResponse.correctAnswers,
+                    timeTakenSeconds: Math.min(timeTakenSeconds, quizDurationSeconds),
                     completedAt: new Date().toISOString(),
                     questionDetails: [],
                 });
             }
             setSubmitted(true);
         } catch (err: any) {
-            alert("Failed to submit quiz: " + err.message);
+            alert(`${isAutoSubmit ? "Time is up, but the quiz could not be submitted: " : "Failed to submit quiz: "}${err.message}`);
         } finally {
             setSubmitting(false);
         }
-    };
+    }
 
     const formatTime = (seconds: number) => {
         const m = Math.floor(seconds / 60).toString().padStart(2, "0");
@@ -266,8 +292,10 @@ export default function StudentQuizPage() {
                         </div>
                         <div className="flex gap-4">
                             <div className="bg-white border border-slate-200 rounded-2xl px-5 py-3 shadow-sm flex flex-col items-center">
-                                <p className="text-xs text-slate-500 mb-1">Time</p>
-                                <p className="text-lg font-bold text-slate-800">{formatTime(timeTakenSeconds)}</p>
+                                <p className="text-xs text-slate-500 mb-1">Time Left</p>
+                                <p className={`text-lg font-bold ${remainingSeconds <= 60 ? "text-rose-600" : "text-slate-800"}`}>
+                                    {formatTime(remainingSeconds)}
+                                </p>
                             </div>
                             <div className="bg-white border border-slate-200 rounded-2xl px-5 py-3 shadow-sm flex flex-col items-center">
                                 <p className="text-xs text-slate-500 mb-1">Question</p>
@@ -374,7 +402,7 @@ export default function StudentQuizPage() {
                                 </button>
                             ) : (
                                 <button
-                                    onClick={handleSubmit}
+                                    onClick={() => handleSubmit()}
                                     disabled={submitting}
                                     className="px-7 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-all shadow-sm flex items-center gap-2 disabled:opacity-75"
                                 >

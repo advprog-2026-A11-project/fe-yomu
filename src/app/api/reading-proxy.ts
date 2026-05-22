@@ -21,6 +21,17 @@ function resolveReadingBackendBaseUrl(): string | null {
   return process.env.BACKEND_BACAAN_QUIZ_URL || null;
 }
 
+function resolveBackendPath(
+  prefix: "/api/student/readings" | "/api/admin/readings",
+  path: string[],
+): string {
+  if (prefix === "/api/student/readings" && path[0] === "quiz") {
+    return `/api/student/${path.join("/")}`;
+  }
+
+  return `${prefix}/${path.join("/")}`;
+}
+
 function createForward(prefix: "/api/student/readings" | "/api/admin/readings"): RouteHandler {
   return async function forward(request: NextRequest, context: RouteContext): Promise<Response> {
     if (!["GET", "HEAD", "OPTIONS"].includes(request.method)) {
@@ -39,7 +50,7 @@ function createForward(prefix: "/api/student/readings" | "/api/admin/readings"):
     }
 
     const { path } = await context.params;
-    const backendPath = `${prefix}/${path.join("/")}`;
+    const backendPath = resolveBackendPath(prefix, path);
     const search = request.nextUrl.search;
 
     return proxyToBackend(`${backendPath}${search}`, request, {
