@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { getAuthHeaders } from "@/lib/auth-headers";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Textarea } from "@/components/ui/Textarea";
+import { Avatar } from "@/components/ui/Avatar";
+import { Badge } from "@/components/ui/Badge";
 
 export type Message = {
   id: string;
@@ -340,6 +345,45 @@ function EmojiPickerIcon({ active }: IconProps) {
   );
 }
 
+function ReactionButton({
+  active,
+  count,
+  enabled,
+  onClick,
+  children,
+  size = "md",
+}: Readonly<{
+  active: boolean;
+  count: number;
+  enabled: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  size?: "sm" | "md";
+}>) {
+  const style: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: 999,
+    border: `1px solid ${active ? ACTIVE_REACTION_COLOR : "var(--border)"}`,
+    background: active ? "rgba(249, 115, 22, 0.12)" : "var(--bg)",
+    color: active ? ACTIVE_REACTION_COLOR : "var(--text-muted)",
+    padding: size === "sm" ? "2px 7px" : "3px 8px",
+    fontSize: size === "sm" ? "0.8rem" : "0.85rem",
+    fontWeight: 600,
+    cursor: enabled ? "pointer" : "not-allowed",
+    opacity: enabled ? 1 : 0.6,
+    transition: "all 0.2s",
+  };
+
+  return (
+    <button type="button" onClick={onClick} disabled={!enabled} style={style}>
+      {children}
+      <span>{count}</span>
+    </button>
+  );
+}
+
 export function MessageCard({
   message,
   depth = 0,
@@ -416,7 +460,7 @@ export function MessageCard({
     }
 
     const handleOutsideClick = (event: MouseEvent) => {
-      if (!emojiPickerRef.current?.contains(event.target as Node)) {
+      if (event.target instanceof Node && !emojiPickerRef.current?.contains(event.target)) {
         setEmojiPickerOpen(false);
       }
     };
@@ -438,7 +482,6 @@ export function MessageCard({
     const prevCounts = reactionCounts;
     const prevUserTypes = userReactionTypes;
 
-    // Optimistic UI update: avoid full message list refetch for reaction toggles.
     const nextCounts: ReactionCounts = {
       ...reactionCounts,
       [reactionType]: Math.max(
@@ -448,7 +491,6 @@ export function MessageCard({
     };
     const nextUserTypes = new Set(userReactionTypes);
     if (method === "POST") {
-      // Mirror backend exclusive behavior (currently UPVOTE vs DOWNVOTE).
       applyExclusiveReactionConflicts(reactionType, nextUserTypes, nextCounts);
       nextUserTypes.add(reactionType);
     } else {
@@ -460,7 +502,6 @@ export function MessageCard({
     try {
       await sendReactionMutation(message.id, reactionType, method);
     } catch (err) {
-      // Roll back optimistic state if request fails.
       setReactionCounts(prevCounts);
       setUserReactionTypes(prevUserTypes);
       onError(String(err));
@@ -506,99 +547,68 @@ export function MessageCard({
     ? { marginBottom: "1rem" }
     : {
         marginLeft: Math.min(depth - 1, maxIndent) * 16,
-        borderLeft: "2px solid var(--border, #ddd)",
+        borderLeft: "2px solid var(--border)",
         paddingLeft: 12,
         marginTop: 8,
       };
 
-  const cardStyle: React.CSSProperties = isTopLevel ? {} : { padding: "8px 0" };
-
-  const fontSize = isTopLevel ? "1rem" : "0.9rem";
-  const smallFontSize = isTopLevel ? "0.85rem" : "0.8rem";
-  const buttonPadding = isTopLevel ? "4px 8px" : "2px 6px";
-
-  const reactionButtonStyle = (active: boolean): React.CSSProperties => ({
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 4,
-    borderRadius: 999,
-    border: `1px solid ${active ? ACTIVE_REACTION_COLOR : "var(--input-border, #cbd5e1)"}`,
-    background: active ? "rgba(249, 115, 22, 0.12)" : "#fff",
-    color: active ? ACTIVE_REACTION_COLOR : "var(--text-muted, #666)",
-    padding: isTopLevel ? "3px 8px" : "2px 7px",
-    fontSize: smallFontSize,
-    fontWeight: 600,
-    cursor: reactionButtonEnabled ? "pointer" : "not-allowed",
-    opacity: reactionButtonEnabled ? 1 : 0.6,
-  });
+  const formattedDate = message.createdAt
+    ? new Date(message.createdAt).toLocaleString()
+    : null;
 
   return (
     <div style={containerStyle}>
-      <div className={`${isTopLevel ? "card " : ""}message-card`} style={cardStyle}>
+      <Card style={isTopLevel ? {} : { padding: "8px 0", border: "none", boxShadow: "none", background: "transparent" }}>
         {!editing ? (
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem" }}>
             <div style={{ flex: 1 }}>
-              {isTopLevel && <div style={{ fontWeight: 700, marginBottom: 4 }}>Message</div>}
-              <div style={{ fontSize }}>{message.content}</div>
-              {message.createdAt && (
-                <div style={{ marginTop: "0.5rem", fontSize: smallFontSize, color: "var(--text-muted, #666)" }}>
-                  {new Date(message.createdAt).toLocaleString()}
+              {isTopLevel && (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
+                  <Avatar name="User" size="sm" />
+                  <span style={{ fontWeight: 700, fontSize: "0.95rem" }}>Message</span>
+                  {formattedDate && (
+                    <Badge variant="info" size="sm">{formattedDate}</Badge>
+                  )}
                 </div>
               )}
+              <div style={{ fontSize: isTopLevel ? "1rem" : "0.9rem", lineHeight: 1.6, color: "var(--text)" }}>
+                {message.content}
+              </div>
 
-              <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    void handleReactionClick("UPVOTE");
-                  }}
-                  style={reactionButtonStyle(userReactionTypes.has("UPVOTE"))}
-                  disabled={!reactionButtonEnabled}
-                  aria-label="Upvote"
-                  title="Upvote"
+              <div style={{ marginTop: "0.75rem", display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                <ReactionButton
+                  active={userReactionTypes.has("UPVOTE")}
+                  count={reactionCounts.UPVOTE}
+                  enabled={reactionButtonEnabled}
+                  onClick={() => void handleReactionClick("UPVOTE")}
                 >
                   <UpvoteIcon active={userReactionTypes.has("UPVOTE")} />
-                  <span>{reactionCounts.UPVOTE}</span>
-                </button>
+                </ReactionButton>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    void handleReactionClick("DOWNVOTE");
-                  }}
-                  style={reactionButtonStyle(userReactionTypes.has("DOWNVOTE"))}
-                  disabled={!reactionButtonEnabled}
-                  aria-label="Downvote"
-                  title="Downvote"
+                <ReactionButton
+                  active={userReactionTypes.has("DOWNVOTE")}
+                  count={reactionCounts.DOWNVOTE}
+                  enabled={reactionButtonEnabled}
+                  onClick={() => void handleReactionClick("DOWNVOTE")}
                 >
                   <DownvoteIcon active={userReactionTypes.has("DOWNVOTE")} />
-                  <span>{reactionCounts.DOWNVOTE}</span>
-                </button>
+                </ReactionButton>
 
                 {visibleEmojiCounts.length > 0 && (
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {visibleEmojiCounts.map(({ type, emoji, label }) => {
                       const active = userReactionTypes.has(type);
-
                       return (
-                        <button
+                        <ReactionButton
                           key={type}
-                          type="button"
-                          onClick={() => {
-                            void handleReactionClick(type);
-                          }}
-                          disabled={!reactionButtonEnabled}
-                          aria-label={label}
-                          title={label}
-                          style={{
-                            ...reactionButtonStyle(active),
-                            padding: isTopLevel ? "2px 7px" : "1px 6px",
-                            fontWeight: 500,
-                          }}
+                          active={active}
+                          count={reactionCounts[type]}
+                          enabled={reactionButtonEnabled}
+                          onClick={() => void handleReactionClick(type)}
+                          size="sm"
                         >
                           <span>{emoji}</span>
-                          <span>{reactionCounts[type]}</span>
-                        </button>
+                        </ReactionButton>
                       );
                     })}
                   </div>
@@ -606,15 +616,22 @@ export function MessageCard({
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+            <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0, alignItems: "center" }}>
               <div ref={emojiPickerRef} style={{ position: "relative" }}>
                 <button
                   type="button"
                   onClick={() => setEmojiPickerOpen((current) => !current)}
-                  className={`emoji-trigger ${emojiPickerOpen ? "emoji-trigger-open" : ""}`}
                   style={{
-                    ...reactionButtonStyle(false),
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    borderRadius: 999,
+                    border: "1px solid var(--border)",
+                    background: "var(--bg)",
+                    color: "var(--text-muted)",
                     padding: isTopLevel ? "4px" : "3px",
+                    cursor: reactionButtonEnabled ? "pointer" : "not-allowed",
+                    opacity: reactionButtonEnabled ? 1 : 0.6,
                   }}
                   aria-label="Open emoji reactions"
                   title="Emoji reactions"
@@ -634,170 +651,125 @@ export function MessageCard({
                       gap: 6,
                       padding: 8,
                       borderRadius: 12,
-                      border: "1px solid var(--border, #ddd)",
-                      background: "#fff",
+                      border: "1px solid var(--border)",
+                      background: "var(--bg)",
                       boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
                     }}
                   >
                     {EMOJI_REACTIONS.map(({ type, emoji, label }) => {
                       const active = userReactionTypes.has(type);
-
                       return (
-                        <button
+                        <ReactionButton
                           key={type}
-                          type="button"
-                          onClick={() => {
-                            void handleReactionClick(type);
-                          }}
-                          style={reactionButtonStyle(active)}
-                          disabled={!reactionButtonEnabled}
-                          aria-label={label}
-                          title={label}
+                          active={active}
+                          count={reactionCounts[type]}
+                          enabled={reactionButtonEnabled}
+                          onClick={() => void handleReactionClick(type)}
+                          size="sm"
                         >
                           <span>{emoji}</span>
-                          <span>{reactionCounts[type]}</span>
-                        </button>
+                        </ReactionButton>
                       );
                     })}
                   </div>
                 )}
               </div>
 
-                            <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
+                pill
                 onClick={() => setShowReplyForm(!showReplyForm)}
-                className="btn-ghost"
-                style={{ fontSize: smallFontSize, padding: buttonPadding }}
                 title="Reply to this message"
               >
                 Reply
-              </button>
+              </Button>
               {canEdit && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    beginEditing();
-                  }}
-                  className="btn"
-                  style={{ fontSize: smallFontSize, padding: buttonPadding }}
-                >
+                <Button variant="secondary" size="sm" pill onClick={beginEditing}>
                   Edit
-                </button>
+                </Button>
               )}
               {canDelete && (
-                <button
-                  type="button"
-                  onClick={deleteMessage}
-                  className="btn-danger"
-                  style={{ fontSize: smallFontSize, padding: buttonPadding }}
-                >
+                <Button variant="danger" size="sm" pill onClick={deleteMessage}>
                   Delete
-                </button>
+                </Button>
               )}
             </div>
           </div>
         ) : (
-          <form onSubmit={updateMessage} style={{ marginTop: 8 }}>
-            <div style={{ marginBottom: 8 }}>
-              <label style={{ display: "block", marginBottom: 4, fontSize: smallFontSize }}>
-                Edit {isTopLevel ? "Message" : "Reply"}
-              </label>
-              <textarea
-                required
-                value={editContent}
-                onChange={(e) => setEditContent(e.target.value)}
-                rows={isTopLevel ? 3 : 2}
-                style={{ fontSize }}
-              />
-            </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button type="submit" className="btn" style={{ fontSize: smallFontSize, padding: buttonPadding }}>
+          <form onSubmit={updateMessage} style={{ marginTop: "0.5rem" }}>
+            <Textarea
+              label={`Edit ${isTopLevel ? "Message" : "Reply"}`}
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              rows={isTopLevel ? 3 : 2}
+            />
+            <div style={{ marginTop: "0.75rem", display: "flex", gap: "0.5rem" }}>
+              <Button type="submit" variant="primary" pill size="sm">
                 Save
-              </button>
-              <button
-                type="button"
-                onClick={() => setEditing(false)}
-                className="btn-ghost"
-                style={{ fontSize: smallFontSize, padding: buttonPadding }}
-              >
+              </Button>
+              <Button type="button" variant="ghost" pill size="sm" onClick={() => setEditing(false)}>
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         )}
 
         {showReplyForm && (
-          <form onSubmit={createReply} style={{ marginTop: 12 }}>
-            <div style={{ marginBottom: 8 }}>
-              <label style={{ display: "block", marginBottom: 4, fontSize: smallFontSize }}>Write a reply</label>
-              <textarea
-                required
-                value={replyContent}
-                onChange={(e) => setReplyContent(e.target.value)}
-                rows={2}
-                placeholder="Write your reply..."
-                style={{ fontSize }}
-              />
-            </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button type="submit" className="btn" style={{ fontSize: smallFontSize, padding: buttonPadding }}>
+          <form onSubmit={createReply} style={{ marginTop: "1rem" }}>
+            <Textarea
+              label="Write a reply"
+              value={replyContent}
+              onChange={(e) => setReplyContent(e.target.value)}
+              rows={2}
+              placeholder="Write your reply..."
+            />
+            <div style={{ marginTop: "0.75rem", display: "flex", gap: "0.5rem" }}>
+              <Button type="submit" variant="primary" pill size="sm">
                 Post Reply
-              </button>
-              <button
-                type="button"
-                onClick={cancelReply}
-                className="btn-ghost"
-                style={{ fontSize: smallFontSize, padding: buttonPadding }}
-              >
+              </Button>
+              <Button type="button" variant="ghost" pill size="sm" onClick={cancelReply}>
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         )}
 
-        <div style={{ marginTop: 12 }}>
-            <button
-              type="button"
-              onClick={() => {
-                void toggleReplies();
-              }}
-              className="btn-ghost"
-              style={{
-                fontSize: smallFontSize,
-                padding: buttonPadding,
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                color: "var(--text-muted, #666)",
-              }}
-            >
-              <span style={{ fontSize: "0.7rem" }}>{collapsed ? "▶" : "▼"}</span>
-              {replyButtonText}
-            </button>
-            {!collapsed && (
-              <div style={{ marginTop: 8 }}>
-                {loadedReplies && loadedReplies.length > 0 ? (
-                  loadedReplies.map((reply) => (
-                    <MessageCard
-                      key={reply.id}
-                      message={{ ...reply, parentId: message.id }}
-                      depth={depth + 1}
-                      onReload={async () => {
-                        await onReload();
-                        await reloadRepliesForCurrentMessage();
-                      }}
-                      onError={onError}
-                    />
-                  ))
-                ) : (
-                  <div style={{ fontSize: smallFontSize, color: "var(--text-muted, #666)" }}>
-                    No replies yet.
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-      </div>
+        <div style={{ marginTop: "1rem" }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            pill
+            onClick={() => void toggleReplies()}
+            style={{ color: "var(--text-muted)", display: "inline-flex", alignItems: "center", gap: "0.5rem" }}
+          >
+            <span style={{ fontSize: "0.7rem" }}>{collapsed ? "▶" : "▼"}</span>
+            {replyButtonText}
+          </Button>
+          {!collapsed && (
+            <div style={{ marginTop: "0.75rem" }}>
+              {loadedReplies && loadedReplies.length > 0 ? (
+                loadedReplies.map((reply) => (
+                  <MessageCard
+                    key={reply.id}
+                    message={{ ...reply, parentId: message.id }}
+                    depth={depth + 1}
+                    onReload={async () => {
+                      await onReload();
+                      await reloadRepliesForCurrentMessage();
+                    }}
+                    onError={onError}
+                  />
+                ))
+              ) : (
+                <div style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                  No replies yet.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </Card>
     </div>
   );
 }

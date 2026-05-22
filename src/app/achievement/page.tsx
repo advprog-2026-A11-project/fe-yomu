@@ -1,33 +1,47 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useAuth } from "@/components/providers/auth-provider";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Input } from "@/components/ui/Input";
+import { LoadingState } from "@/components/ui/LoadingState";
+import { Progress } from "@/components/ui/Progress";
+import { Tabs } from "@/components/ui/Tabs";
+import { Textarea } from "@/components/ui/Textarea";
+import { API } from "@/constants/api";
 import { extractErrorMessage } from "@/lib/auth-client";
 
-// Define Types
-type AchievementDetail = {
+type ApiResponse<T> = {
+  success?: boolean;
+  message?: string;
+  data?: T;
+};
+
+type Achievement = {
   id: number;
   title: string;
   description: string;
   milestone: number;
-  milestoneType: string;
+  milestoneType?: string | null;
   iconUrl?: string | null;
 };
 
 type UserAchievement = {
   id: number;
   userId?: string;
-  unlockedAt: string;
+  unlockedAt?: string;
   showcased?: boolean;
   isShowcased?: boolean;
-  achievement?: AchievementDetail;
+  achievement?: Achievement;
   achievementId?: number;
   title?: string;
   description?: string;
   milestone?: number;
-  milestoneType?: string;
+  milestoneType?: string | null;
   iconUrl?: string | null;
 };
 
@@ -38,710 +52,639 @@ type DailyMission = {
   targetMilestone: number;
   rewardPoints: number;
   missionType: string;
-  active?: boolean;
-  activeDate?: string;
+  activeDate?: string | null;
 };
 
 type UserDailyMission = {
   id: number;
-  userId: string;
-  dailyMission: DailyMission;
   currentProgress: number;
   completed: boolean;
+  rewardClaimed?: boolean;
+  dailyMission: DailyMission;
 };
 
-// Global Helper Functions (Defined outside to reduce Cognitive Complexity)
-function getMissionIcon(type: string): string {
-  switch (type) {
-    case "READ_NEWS":
-      return "📰";
-    case "QUIZ_ACCURACY":
-      return "🎯";
-    case "READ_FICTION":
-      return "📚";
-    case "QUIZ_COUNT":
-      return "⚡";
-    default:
-      return "🏆";
-  }
-}
+type StudentScore = {
+  score?: number;
+  totalScore?: number;
+};
 
-function getRankName(pts: number): string {
-  if (pts >= 100) return "Master Literasi 🌟";
-  if (pts >= 50) return "Ksatria Buku 📚";
-  if (pts >= 20) return "Pembaca Aktif ⚡";
-  return "Pemula Yomu 🌱";
-}
+type NormalizedAchievement = Achievement & {
+  userAchievementId: number;
+  achievementId: number;
+  showcased: boolean;
+  unlockedAt?: string;
+};
 
-function getShowcaseButtonText(itemId: number, showcased: boolean, togglingId: number | null): string {
-  if (togglingId === itemId) {
-    return "...";
-  }
-  return showcased ? "★ Dipajang" : "☆ Pajang";
-}
+type AchievementForm = {
+  id?: number;
+  title: string;
+  description: string;
+  milestone: string;
+  milestoneType: string;
+};
 
-function normalizeAchievement(item: UserAchievement) {
-  const isShowcased = item.showcased ?? item.isShowcased ?? false;
-  if (item.achievement) {
-    return {
-      id: item.id,
-      achievementId: item.achievement.id,
-      title: item.achievement.title,
-      description: item.achievement.description,
-      milestone: item.achievement.milestone,
-      milestoneType: item.achievement.milestoneType,
-      iconUrl: item.achievement.iconUrl,
-      unlockedAt: item.unlockedAt,
-      showcased: isShowcased,
-    };
-  }
+type MissionForm = {
+  id?: number;
+  title: string;
+  description: string;
+  targetMilestone: string;
+  rewardPoints: string;
+  missionType: string;
+  activeDate: string;
+};
+
+type AchievementTab = "missions" | "achievements" | "public" | "admin-achievements" | "admin-missions";
+
+const MILESTONE_TYPES = ["QUIZ_COUNT", "READ_NEWS", "READ_FICTION", "QUIZ_ACCURACY", "CLAN_DIAMOND"];
+const SHOWCASE_LIMIT = 3;
+
+const emptyAchievementForm: AchievementForm = {
+  title: "",
+  description: "",
+  milestone: "1",
+  milestoneType: "QUIZ_COUNT",
+};
+
+const emptyMissionForm: MissionForm = {
+  title: "",
+  description: "",
+  targetMilestone: "1",
+  rewardPoints: "10",
+  missionType: "QUIZ_COUNT",
+  activeDate: new Date().toISOString().slice(0, 10),
+};
+
+function normalizeAchievement(item: UserAchievement): NormalizedAchievement {
+  const source = item.achievement;
+
   return {
-    id: item.id,
-    achievementId: item.achievementId || item.id,
-    title: item.title || "Unlocked Title",
-    description: item.description || "Description",
-    milestone: item.milestone || 0,
-    milestoneType: item.milestoneType || "UNKNOWN",
-    iconUrl: item.iconUrl,
+    id: source?.id ?? item.achievementId ?? item.id,
+    userAchievementId: item.id,
+    achievementId: source?.id ?? item.achievementId ?? item.id,
+    title: source?.title ?? item.title ?? "Achievement",
+    description: source?.description ?? item.description ?? "-",
+    milestone: source?.milestone ?? item.milestone ?? 0,
+    milestoneType: source?.milestoneType ?? item.milestoneType ?? "UNKNOWN",
+    iconUrl: source?.iconUrl ?? item.iconUrl,
+    showcased: item.showcased ?? item.isShowcased ?? false,
     unlockedAt: item.unlockedAt,
-    showcased: isShowcased,
   };
 }
 
+async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, {
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+      ...init?.headers,
+    },
+    ...init,
+  });
+  const payload = await response.json().catch(() => ({} as ApiResponse<T>));
+
+  if (!response.ok || payload.success === false) {
+    throw new Error(payload.message || "Request failed");
+  }
+
+  return (payload.data ?? payload) as T;
+}
+
+function toProgressPercent(current: number, target: number): number {
+  if (target <= 0) {
+    return 0;
+  }
+  return Math.min(100, Math.round((current / target) * 100));
+}
+
+function getMilestoneLabel(type?: string | null): string {
+  const labels: Record<string, string> = {
+    QUIZ_COUNT: "Quiz count",
+    READ_NEWS: "Read news",
+    READ_FICTION: "Read fiction",
+    QUIZ_ACCURACY: "Perfect accuracy",
+    CLAN_DIAMOND: "Diamond clan",
+  };
+
+  return labels[type || ""] || type || "Custom";
+}
+
+function isAchievementTab(tab: string): tab is AchievementTab {
+  return ["missions", "achievements", "public", "admin-achievements", "admin-missions"].includes(tab);
+}
+
 export default function AchievementPage() {
-  const { session, isAuthenticated } = useAuth();
+  const { session, isAuthenticated, isAdmin } = useAuth();
   const userId = session?.profile?.id;
 
-  // Tabs: "missions" | "gallery"
-  const [activeTab, setActiveTab] = useState<"missions" | "gallery">("missions");
-
-  // State Data
-  const [achievements, setAchievements] = useState<UserAchievement[]>([]);
+  const [activeTab, setActiveTab] = useState<AchievementTab>("missions");
+  const [score, setScore] = useState(0);
+  const [achievements, setAchievements] = useState<NormalizedAchievement[]>([]);
   const [missions, setMissions] = useState<UserDailyMission[]>([]);
-  const [score, setScore] = useState<number>(0);
+  const [adminAchievements, setAdminAchievements] = useState<Achievement[]>([]);
+  const [adminMissions, setAdminMissions] = useState<DailyMission[]>([]);
+  const [publicUserId, setPublicUserId] = useState("");
+  const [publicAchievements, setPublicAchievements] = useState<NormalizedAchievement[]>([]);
+  const [achievementForm, setAchievementForm] = useState<AchievementForm>(emptyAchievementForm);
+  const [missionForm, setMissionForm] = useState<MissionForm>(emptyMissionForm);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Status & Messaging States
-  const [loadingAchievements, setLoadingAchievements] = useState(false);
-  const [loadingMissions, setLoadingMissions] = useState(false);
-  const [loadingScore, setLoadingScore] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [togglingId, setTogglingId] = useState<number | null>(null);
+  const showcasedAchievements = useMemo(
+    () => achievements.filter((achievement) => achievement.showcased),
+    [achievements],
+  );
 
-  // Fetch Score
-  async function fetchScore() {
-    if (!userId) return;
-    setLoadingScore(true);
-    try {
-      const response = await fetch(`/api/achievement/student-progress/${userId}/score`, {
-        cache: "no-store",
-      });
-      const data = await response.json();
-      if (response.ok && data.success) {
-        setScore(data.data.score || 0);
-      }
-    } catch (err) {
-      console.error("Failed to fetch score:", err);
-    } finally {
-      setLoadingScore(false);
-    }
-  }
-
-  // Fetch Achievements
-  async function fetchAchievements() {
-    setLoadingAchievements(true);
-    setErrorMsg(null);
-    try {
-      // First try fetching /me, which is user-session bound
-      const response = await fetch("/api/achievement/achievements/me", {
-        cache: "no-store",
-      });
-      const data = await response.json();
-      if (response.ok && data.success) {
-        setAchievements(data.data || []);
-      } else if (userId) {
-        // Fallback to fetch via userId path if /me failed or is unauthorized
-        const fbResponse = await fetch(`/api/achievement/users/${userId}/achievements`, {
-          cache: "no-store",
-        });
-        const fbData = await fbResponse.json();
-        if (fbResponse.ok && fbData.success) {
-          setAchievements(fbData.data || []);
-        } else {
-          throw new Error(fbData.message || "Failed to load achievements");
-        }
-      }
-    } catch (err) {
-      setErrorMsg(extractErrorMessage(err, "Failed to load achievements. Please try again."));
-    } finally {
-      setLoadingAchievements(false);
-    }
-  }
-
-  // Fetch Daily Missions
-  async function fetchMissions() {
-    if (!userId) return;
-    setLoadingMissions(true);
-    setErrorMsg(null);
-    try {
-      const response = await fetch(`/api/achievement/student-progress/${userId}/missions`, {
-        cache: "no-store",
-      });
-      const data = await response.json();
-      if (response.ok && data.success) {
-        setMissions(data.data || []);
-      } else {
-        throw new Error(data.message || "Failed to load daily missions");
-      }
-    } catch (err) {
-      setErrorMsg(extractErrorMessage(err, "Failed to load daily missions."));
-    } finally {
-      setLoadingMissions(false);
-    }
-  }
-
-  // Initial Data Fetching
-  useEffect(() => {
-    if (isAuthenticated && userId) {
-      void fetchScore();
-      void fetchAchievements();
-      void fetchMissions();
-    }
-  }, [isAuthenticated, userId]);
-
-  // Normalize Achievement Properties
-  const normalizedAchievements = achievements.map(normalizeAchievement);
-  const featuredAchievements = normalizedAchievements.filter((a) => a.showcased);
-
-  // Toggle Showcase status
-  async function handleToggleShowcase(achievementId: number, currentStatus: boolean) {
-    if (togglingId !== null) return;
-    setTogglingId(achievementId);
-    setErrorMsg(null);
-    setSuccessMsg(null);
-
-    const nextStatus = !currentStatus;
-
-    // Enforce maximum 3 showcased achievements
-    if (nextStatus && featuredAchievements.length >= 3) {
-      setErrorMsg("Kamu hanya dapat menampilkan maksimal 3 piala di showcase!");
-      setTogglingId(null);
+  const fetchStudentData = useCallback(async () => {
+    if (!userId) {
       return;
     }
 
-    try {
-      const response = await fetch(
-        `/api/achievement/achievements/featured/${achievementId}?showcased=${nextStatus}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
+    const [scoreData, missionData, achievementData] = await Promise.all([
+      requestJson<StudentScore>(API.achievement.studentScore(userId)),
+      requestJson<UserDailyMission[]>(API.achievement.studentMissions(userId)),
+      requestJson<UserAchievement[]>(API.achievement.myAchievements)
+        .catch(() => requestJson<UserAchievement[]>(API.achievement.userAchievements(userId))),
+    ]);
 
-      const data = await response.json();
-      if (response.ok && data.success) {
-        setSuccessMsg(
-          nextStatus
-            ? "Piala berhasil dipajang di Showcase!"
-            : "Piala berhasil diturunkan dari Showcase."
-        );
-        await fetchAchievements();
-      } else {
-        throw new Error(data.message || "Failed to update showcase status");
-      }
+    setScore(scoreData.score ?? scoreData.totalScore ?? 0);
+    setMissions(missionData);
+    setAchievements(achievementData.map(normalizeAchievement));
+  }, [userId]);
+
+  const fetchAdminData = useCallback(async () => {
+    if (!isAdmin) {
+      return;
+    }
+
+    const [achievementData, missionData] = await Promise.all([
+      requestJson<Achievement[]>(API.achievement.adminAchievements),
+      requestJson<DailyMission[]>(API.achievement.adminDailyMissions),
+    ]);
+
+    setAdminAchievements(achievementData);
+    setAdminMissions(missionData);
+  }, [isAdmin]);
+
+  const refreshData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await Promise.all([fetchStudentData(), fetchAdminData()]);
     } catch (err) {
-      setErrorMsg(extractErrorMessage(err, "Gagal merubah status showcase piala."));
+      setError(extractErrorMessage(err, "Gagal memuat data achievement."));
     } finally {
-      setTogglingId(null);
+      setLoading(false);
+    }
+  }, [fetchAdminData, fetchStudentData]);
+
+  useEffect(() => {
+    if (isAuthenticated && userId) {
+      void Promise.resolve().then(refreshData);
+    }
+  }, [isAuthenticated, refreshData, userId]);
+
+  async function handleToggleShowcase(achievementId: number, currentStatus: boolean) {
+    const nextStatus = !currentStatus;
+    if (nextStatus && showcasedAchievements.length >= SHOWCASE_LIMIT) {
+      setError(`Maksimal ${SHOWCASE_LIMIT} achievement yang bisa ditampilkan di profil.`);
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await requestJson<UserAchievement>(API.achievement.featured(String(achievementId), nextStatus), {
+        method: "PUT",
+      });
+      setMessage(nextStatus ? "Achievement ditampilkan di profil." : "Achievement disembunyikan dari profil.");
+      await fetchStudentData();
+    } catch (err) {
+      setError(extractErrorMessage(err, "Gagal mengubah showcase achievement."));
+    } finally {
+      setSaving(false);
     }
   }
 
-  // Sub-renderers to eliminate nested ternaries and reduce complexity
-  function renderMissionsTab() {
-    if (loadingMissions) {
-      return (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "4rem 0" }}>
-          <div className="loading-orb"></div>
-          <p style={{ marginTop: "1rem", color: "var(--text-soft)", fontWeight: 700 }}>Memuat Misi Harian Anda...</p>
-        </div>
+  async function handleClaimMission(missionId: number) {
+    if (!userId) {
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await requestJson<UserDailyMission>(API.achievement.claimMission(userId, String(missionId)), {
+        method: "POST",
+      });
+      setMessage("Reward daily mission berhasil diklaim.");
+      await fetchStudentData();
+    } catch (err) {
+      setError(extractErrorMessage(err, "Gagal klaim reward daily mission."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleFindPublicProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!publicUserId.trim()) {
+      setError("Masukkan user ID pelajar yang ingin dilihat.");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const data = await requestJson<UserAchievement[]>(
+        API.achievement.completedAchievements(publicUserId.trim()),
       );
+      setPublicAchievements(data.map(normalizeAchievement));
+    } catch (err) {
+      setError(extractErrorMessage(err, "Gagal memuat profil publik pelajar."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSaveAchievement(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const payload = {
+      title: achievementForm.title.trim(),
+      description: achievementForm.description.trim(),
+      milestone: Number(achievementForm.milestone),
+      milestoneType: achievementForm.milestoneType,
+    };
+    const url = achievementForm.id
+      ? API.achievement.adminAchievementById(String(achievementForm.id))
+      : API.achievement.adminAchievements;
+
+    setSaving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await requestJson<Achievement>(url, {
+        method: achievementForm.id ? "PUT" : "POST",
+        body: JSON.stringify(payload),
+      });
+      setAchievementForm(emptyAchievementForm);
+      setMessage(achievementForm.id ? "Achievement berhasil diupdate." : "Achievement berhasil dibuat.");
+      await fetchAdminData();
+    } catch (err) {
+      setError(extractErrorMessage(err, "Gagal menyimpan achievement."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDeleteAchievement(id: number) {
+    setSaving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await requestJson<void>(API.achievement.adminAchievementById(String(id)), {
+        method: "DELETE",
+      });
+      setMessage("Achievement berhasil dihapus.");
+      await fetchAdminData();
+    } catch (err) {
+      setError(extractErrorMessage(err, "Gagal menghapus achievement."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSaveMission(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const payload = {
+      title: missionForm.title.trim(),
+      description: missionForm.description.trim(),
+      targetMilestone: Number(missionForm.targetMilestone),
+      rewardPoints: Number(missionForm.rewardPoints),
+      missionType: missionForm.missionType,
+      activeDate: missionForm.activeDate,
+    };
+    const url = missionForm.id
+      ? API.achievement.adminDailyMissionById(String(missionForm.id))
+      : API.achievement.adminDailyMissions;
+
+    setSaving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await requestJson<DailyMission>(url, {
+        method: missionForm.id ? "PUT" : "POST",
+        body: JSON.stringify(payload),
+      });
+      setMissionForm(emptyMissionForm);
+      setMessage(missionForm.id ? "Daily mission berhasil diupdate." : "Daily mission berhasil dibuat.");
+      await fetchAdminData();
+      await fetchStudentData();
+    } catch (err) {
+      setError(extractErrorMessage(err, "Gagal menyimpan daily mission."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDeleteMission(id: number) {
+    setSaving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await requestJson<void>(API.achievement.adminDailyMissionById(String(id)), {
+        method: "DELETE",
+      });
+      setMessage("Daily mission berhasil dihapus.");
+      await fetchAdminData();
+      await fetchStudentData();
+    } catch (err) {
+      setError(extractErrorMessage(err, "Gagal menghapus daily mission."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function renderMissionList() {
+    if (loading) {
+      return <LoadingState message="Memuat daily mission..." />;
     }
 
     if (missions.length === 0) {
-      return (
-        <div className="card text-center" style={{ padding: "3rem", textAlign: "center" }}>
-          <div style={{ fontSize: "3rem" }}>😴</div>
-          <h3 style={{ margin: "1rem 0 0.5rem" }}>Tidak Ada Misi Hari Ini</h3>
-          <p className="muted-copy">Belum ada misi harian yang diaktifkan untuk hari ini. Silahkan cek lagi nanti!</p>
-        </div>
-      );
+      return <EmptyState title="Belum ada daily mission aktif" description="Daily mission aktif akan tampil di sini." />;
     }
 
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1rem" }}>
-        {missions.map((userMission) => {
-          const progressPercent = Math.min(
-            100,
-            Math.round((userMission.currentProgress / userMission.dailyMission.targetMilestone) * 100)
-          );
+      <div style={{ display: "grid", gap: "1rem" }}>
+        {missions.map((mission) => {
+          const target = mission.dailyMission.targetMilestone;
+          const percent = toProgressPercent(mission.currentProgress, target);
+          const canClaim = mission.completed && !mission.rewardClaimed;
 
           return (
-            <div
-              key={userMission.id}
-              className="card"
-              style={{
-                display: "flex",
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "1.5rem",
-                border: userMission.completed ? "1.5px solid var(--success)" : "1px solid var(--border)",
-                background: userMission.completed ? "rgba(21, 128, 61, 0.02)" : "var(--surface)",
-                borderRadius: "var(--radius-lg)",
-                transition: "transform 0.2s, box-shadow 0.2s",
-                flexWrap: "wrap",
-                gap: "1.5rem"
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "1.2rem", flex: 1, minWidth: "260px" }}>
-                <div style={{
-                  fontSize: "2.2rem",
-                  background: userMission.completed ? "rgba(21, 128, 61, 0.1)" : "var(--background)",
-                  borderRadius: "var(--radius-md)",
-                  width: "3.8rem",
-                  height: "3.8rem",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center"
-                }}>
-                  {getMissionIcon(userMission.dailyMission.missionType)}
+            <Card key={mission.id} style={{ padding: "1.25rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+                <div style={{ minWidth: 240, flex: 1 }}>
+                  <Badge variant={mission.completed ? "success" : "info"} size="sm">
+                    {mission.completed ? "Completed" : getMilestoneLabel(mission.dailyMission.missionType)}
+                  </Badge>
+                  <h3 style={{ margin: "0.5rem 0 0.25rem", fontSize: "1.1rem" }}>
+                    {mission.dailyMission.title}
+                  </h3>
+                  <p style={{ margin: 0, color: "var(--text-soft)" }}>{mission.dailyMission.description}</p>
                 </div>
-                
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800 }}>
-                      {userMission.dailyMission.title}
-                    </h3>
-                    <span style={{
-                      fontSize: "0.75rem",
-                      background: "#fef3c7",
-                      color: "#d97706",
-                      padding: "0.2rem 0.5rem",
-                      borderRadius: "999px",
-                      fontWeight: 800
-                    }}>
-                      +{userMission.dailyMission.rewardPoints} Pts
-                    </span>
-                  </div>
-                  <p style={{ margin: "0.25rem 0 0.75rem", color: "var(--text-soft)", fontSize: "0.9rem" }}>
-                    {userMission.dailyMission.description}
+                <div style={{ minWidth: 160, textAlign: "right" }}>
+                  <strong>{mission.currentProgress} / {target}</strong>
+                  <p style={{ margin: "0.25rem 0 0", color: "var(--text-soft)" }}>
+                    Reward {mission.dailyMission.rewardPoints} pts
                   </p>
-
-                  <div style={{ width: "100%", maxWidth: "450px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", fontWeight: 700, marginBottom: "0.3rem", color: "var(--text-soft)" }}>
-                      <span>Progres Misi</span>
-                      <span>{userMission.currentProgress} / {userMission.dailyMission.targetMilestone}</span>
-                    </div>
-                    <div style={{ width: "100%", background: "var(--border)", height: "8px", borderRadius: "999px", overflow: "hidden" }}>
-                      <div style={{
-                        width: `${progressPercent}%`,
-                        background: userMission.completed ? "var(--success)" : "var(--primary-soft)",
-                        height: "100%",
-                        borderRadius: "999px",
-                        transition: "width 0.4s ease-out"
-                      }}></div>
-                    </div>
-                  </div>
                 </div>
               </div>
-
-              <div style={{ textAlign: "right" }}>
-                {userMission.completed ? (
-                  <span style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "0.4rem",
-                    background: "rgba(21, 128, 61, 0.12)",
-                    color: "var(--success)",
-                    padding: "0.6rem 1.2rem",
-                    borderRadius: "999px",
-                    fontWeight: 800,
-                    fontSize: "0.9rem"
-                  }}>
-                    ✓ Selesai
-                  </span>
-                ) : (
-                  <span style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    background: "var(--background)",
-                    color: "var(--text-soft)",
-                    padding: "0.6rem 1.2rem",
-                    borderRadius: "999px",
-                    fontWeight: 800,
-                    fontSize: "0.9rem"
-                  }}>
-                    Aktif
-                  </span>
-                )}
+              <Progress value={percent} color={mission.completed ? "success" : "brand"} style={{ marginTop: "1rem" }} />
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "1rem" }}>
+                <Button
+                  type="button"
+                  variant={canClaim ? "success" : "secondary"}
+                  disabled={!canClaim || saving}
+                  onClick={() => void handleClaimMission(mission.dailyMission.id)}
+                >
+                  {mission.rewardClaimed ? "Reward claimed" : canClaim ? "Claim reward" : "Belum selesai"}
+                </Button>
               </div>
-            </div>
+            </Card>
           );
         })}
       </div>
     );
   }
 
-  function renderGalleryTab() {
-    if (loadingAchievements) {
-      return (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "4rem 0" }}>
-          <div className="loading-orb"></div>
-          <p style={{ marginTop: "1rem", color: "var(--text-soft)", fontWeight: 700 }}>Memuat Galeri Piala...</p>
-        </div>
-      );
+  function renderAchievementList(items: NormalizedAchievement[], allowShowcase: boolean) {
+    if (loading && allowShowcase) {
+      return <LoadingState message="Memuat achievement..." />;
     }
 
-    if (normalizedAchievements.length === 0) {
-      return (
-        <div className="card text-center" style={{ padding: "3rem", textAlign: "center" }}>
-          <div style={{ fontSize: "3rem" }}>📭</div>
-          <h3 style={{ margin: "1rem 0 0.5rem" }}>Belum Ada Piala Terkunci</h3>
-          <p className="muted-copy">Lanjutkan membaca buku dan menyelesaikan kuis untuk membuka piala-piala pertamamu!</p>
-        </div>
-      );
+    if (items.length === 0) {
+      return <EmptyState title="Belum ada achievement selesai" description="Achievement selesai akan tampil di sini." />;
     }
 
     return (
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-        gap: "1.5rem"
-      }}>
-        {normalizedAchievements.map((item) => (
-          <div
-            key={item.id}
-            className="card"
-            style={{
-              padding: "1.5rem",
-              borderRadius: "var(--radius-lg)",
-              border: item.showcased ? "2px solid #fbbf24" : "1px solid var(--border)",
-              background: "var(--surface)",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              transition: "all 0.2s"
-            }}
-          >
-            <div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "1rem" }}>
-                <span style={{
-                  fontSize: "2.4rem",
-                  background: "var(--background)",
-                  width: "3.8rem",
-                  height: "3.8rem",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: "var(--radius-md)"
-                }}>
-                  🏆
-                </span>
-                <span style={{
-                  fontSize: "0.7rem",
-                  background: "rgba(0,0,0,0.05)",
-                  color: "var(--text-soft)",
-                  padding: "0.25rem 0.5rem",
-                  borderRadius: "999px",
-                  fontWeight: 800
-                }}>
-                  {item.milestoneType}
-                </span>
-              </div>
-
-              <h3 style={{ margin: "0 0 0.4rem 0", fontSize: "1.15rem", fontWeight: 800, color: "var(--text)" }}>
-                {item.title}
-              </h3>
-              <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-soft)", lineHeight: 1.5 }}>
-                {item.description}
-              </p>
-              <small style={{ display: "block", marginTop: "0.5rem", color: "var(--text-muted)", fontSize: "0.75rem", fontWeight: 700 }}>
-                Milestone: {item.milestone}
-              </small>
-            </div>
-
-            {/* Showcase action button */}
-            <div style={{
-              marginTop: "1.2rem",
-              paddingTop: "0.8rem",
-              borderTop: "1px solid var(--border)",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center"
-            }}>
-              <span style={{ fontSize: "0.75rem", color: "var(--text-soft)", fontWeight: 600 }}>
-                Showcase status
-              </span>
-              
-              <button
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1rem" }}>
+        {items.map((achievement) => (
+          <Card key={`${achievement.userAchievementId}-${achievement.achievementId}`} style={{ padding: "1.25rem" }}>
+            <Badge variant={achievement.showcased ? "warning" : "brand"} size="sm">
+              {achievement.showcased ? "Showcase" : getMilestoneLabel(achievement.milestoneType)}
+            </Badge>
+            <h3 style={{ margin: "0.75rem 0 0.35rem", fontSize: "1.1rem" }}>{achievement.title}</h3>
+            <p style={{ margin: 0, color: "var(--text-soft)" }}>{achievement.description}</p>
+            <p style={{ margin: "0.75rem 0 0", fontWeight: 700 }}>Milestone {achievement.milestone}</p>
+            {allowShowcase && (
+              <Button
                 type="button"
-                onClick={() => void handleToggleShowcase(item.achievementId, item.showcased)}
-                disabled={togglingId !== null}
-                className="btn"
-                style={{
-                  background: item.showcased ? "#fbbf24" : "var(--background)",
-                  color: item.showcased ? "#1e1b4b" : "var(--text)",
-                  border: "none",
-                  borderRadius: "999px",
-                  padding: "0.4rem 0.8rem",
-                  fontSize: "0.78rem",
-                  fontWeight: 800,
-                  cursor: togglingId === null ? "pointer" : "not-allowed"
-                }}
+                variant={achievement.showcased ? "gold" : "secondary"}
+                size="sm"
+                style={{ marginTop: "1rem" }}
+                disabled={saving}
+                onClick={() => void handleToggleShowcase(achievement.achievementId, achievement.showcased)}
               >
-                {getShowcaseButtonText(item.achievementId, item.showcased, togglingId)}
-              </button>
-            </div>
-          </div>
+                {achievement.showcased ? "Sembunyikan dari profil" : "Tampilkan di profil"}
+              </Button>
+            )}
+          </Card>
         ))}
       </div>
     );
   }
 
+  function renderPublicProfile() {
+    return (
+      <div style={{ display: "grid", gap: "1.25rem" }}>
+        <Card style={{ padding: "1.25rem" }}>
+          <form onSubmit={(event) => void handleFindPublicProfile(event)} style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "end" }}>
+            <Input
+              label="User ID pelajar"
+              value={publicUserId}
+              onChange={(event) => setPublicUserId(event.target.value)}
+              placeholder="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+              style={{ minWidth: 320 }}
+            />
+            <Button type="submit" disabled={saving}>Lihat profile</Button>
+          </form>
+        </Card>
+        {renderAchievementList(publicAchievements, false)}
+      </div>
+    );
+  }
+
+  function renderAchievementForm() {
+    return (
+      <div style={{ display: "grid", gap: "1rem" }}>
+        <Card style={{ padding: "1.25rem" }}>
+          <form onSubmit={(event) => void handleSaveAchievement(event)} style={{ display: "grid", gap: "1rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem" }}>
+              <Input label="Nama achievement" value={achievementForm.title} required onChange={(event) => setAchievementForm({ ...achievementForm, title: event.target.value })} />
+              <Input label="Milestone" type="number" min="1" value={achievementForm.milestone} required onChange={(event) => setAchievementForm({ ...achievementForm, milestone: event.target.value })} />
+              <label className="yomu-input-wrapper">
+                <span className="yomu-input-label">Milestone type</span>
+                <select className="yomu-input" value={achievementForm.milestoneType} onChange={(event) => setAchievementForm({ ...achievementForm, milestoneType: event.target.value })}>
+                  {MILESTONE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+                </select>
+              </label>
+            </div>
+            <Textarea label="Deskripsi" value={achievementForm.description} required onChange={(event) => setAchievementForm({ ...achievementForm, description: event.target.value })} />
+            <div style={{ display: "flex", gap: "0.75rem" }}>
+              <Button type="submit" disabled={saving}>{achievementForm.id ? "Update achievement" : "Buat achievement"}</Button>
+              {achievementForm.id && (
+                <Button type="button" variant="secondary" onClick={() => setAchievementForm(emptyAchievementForm)}>Batal edit</Button>
+              )}
+            </div>
+          </form>
+        </Card>
+        <div style={{ display: "grid", gap: "0.75rem" }}>
+          {adminAchievements.map((achievement) => (
+            <Card key={achievement.id} style={{ padding: "1rem", display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+              <div>
+                <strong>{achievement.title}</strong>
+                <p style={{ margin: "0.25rem 0", color: "var(--text-soft)" }}>{achievement.description}</p>
+                <Badge variant="info" size="sm">{getMilestoneLabel(achievement.milestoneType)} - {achievement.milestone}</Badge>
+              </div>
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                <Button type="button" variant="secondary" size="sm" onClick={() => setAchievementForm({
+                  id: achievement.id,
+                  title: achievement.title,
+                  description: achievement.description,
+                  milestone: String(achievement.milestone),
+                  milestoneType: achievement.milestoneType || "QUIZ_COUNT",
+                })}>
+                  Edit
+                </Button>
+                <Button type="button" variant="danger" size="sm" disabled={saving} onClick={() => void handleDeleteAchievement(achievement.id)}>
+                  Hapus
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function renderMissionForm() {
+    return (
+      <div style={{ display: "grid", gap: "1rem" }}>
+        <Card style={{ padding: "1.25rem" }}>
+          <form onSubmit={(event) => void handleSaveMission(event)} style={{ display: "grid", gap: "1rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem" }}>
+              <Input label="Nama mission" value={missionForm.title} required onChange={(event) => setMissionForm({ ...missionForm, title: event.target.value })} />
+              <Input label="Target milestone" type="number" min="1" value={missionForm.targetMilestone} required onChange={(event) => setMissionForm({ ...missionForm, targetMilestone: event.target.value })} />
+              <Input label="Reward points" type="number" min="0" value={missionForm.rewardPoints} required onChange={(event) => setMissionForm({ ...missionForm, rewardPoints: event.target.value })} />
+              <Input label="Active date" type="date" value={missionForm.activeDate} required onChange={(event) => setMissionForm({ ...missionForm, activeDate: event.target.value })} />
+              <label className="yomu-input-wrapper">
+                <span className="yomu-input-label">Mission type</span>
+                <select className="yomu-input" value={missionForm.missionType} onChange={(event) => setMissionForm({ ...missionForm, missionType: event.target.value })}>
+                  {MILESTONE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+                </select>
+              </label>
+            </div>
+            <Textarea label="Deskripsi" value={missionForm.description} required onChange={(event) => setMissionForm({ ...missionForm, description: event.target.value })} />
+            <div style={{ display: "flex", gap: "0.75rem" }}>
+              <Button type="submit" disabled={saving}>{missionForm.id ? "Update daily mission" : "Buat daily mission"}</Button>
+              {missionForm.id && (
+                <Button type="button" variant="secondary" onClick={() => setMissionForm(emptyMissionForm)}>Batal edit</Button>
+              )}
+            </div>
+          </form>
+        </Card>
+        <div style={{ display: "grid", gap: "0.75rem" }}>
+          {adminMissions.map((mission) => (
+            <Card key={mission.id} style={{ padding: "1rem", display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+              <div>
+                <strong>{mission.title}</strong>
+                <p style={{ margin: "0.25rem 0", color: "var(--text-soft)" }}>{mission.description}</p>
+                <Badge variant="info" size="sm">
+                  {mission.missionType} - {mission.targetMilestone} target - {mission.rewardPoints} pts
+                </Badge>
+              </div>
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                <Button type="button" variant="secondary" size="sm" onClick={() => setMissionForm({
+                  id: mission.id,
+                  title: mission.title,
+                  description: mission.description,
+                  targetMilestone: String(mission.targetMilestone),
+                  rewardPoints: String(mission.rewardPoints),
+                  missionType: mission.missionType,
+                  activeDate: mission.activeDate || emptyMissionForm.activeDate,
+                })}>
+                  Edit
+                </Button>
+                <Button type="button" variant="danger" size="sm" disabled={saving} onClick={() => void handleDeleteMission(mission.id)}>
+                  Hapus
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const tabItems = [
+    { id: "missions", label: "Daily Mission" },
+    { id: "achievements", label: `Achievement Saya (${achievements.length})` },
+    { id: "public", label: "Profile Publik" },
+    ...(isAdmin
+      ? [
+          { id: "admin-achievements", label: "Admin Achievement" },
+          { id: "admin-missions", label: "Admin Mission" },
+        ]
+      : []),
+  ];
+
   return (
-    <ProtectedRoute description="Masuk ke akun Anda untuk melihat koleksi piala & misi harian Anda.">
-      <div style={{ padding: "1.5rem 0", minHeight: "100vh" }}>
-        
-        {/* Navigation & Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
-          <div>
-            <p className="eyebrow" style={{ margin: 0 }}>PENCAPAIAN</p>
-            <h1 style={{ fontSize: "2.5rem", fontWeight: 800, margin: "0.2rem 0 0 0", letterSpacing: "-0.04em" }}>
-              Hall of Fame Yomu
-            </h1>
-          </div>
-          <Link href="/" className="btn btn-ghost" style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
-            <span>← Kembali</span>
-          </Link>
-        </div>
-
-        {/* Global Alert Notification */}
-        {errorMsg && (
-          <div style={{
-            background: "rgba(220, 38, 38, 0.1)",
-            border: "1px solid var(--error)",
-            color: "var(--error)",
-            borderRadius: "var(--radius-md)",
-            padding: "1rem",
-            marginBottom: "1.5rem",
-            fontWeight: 600,
-            fontSize: "0.95rem"
-          }}>
-            ⚠️ {errorMsg}
-          </div>
-        )}
-
-        {successMsg && (
-          <div style={{
-            background: "rgba(21, 128, 61, 0.1)",
-            border: "1px solid var(--success)",
-            color: "var(--success)",
-            borderRadius: "var(--radius-md)",
-            padding: "1rem",
-            marginBottom: "1.5rem",
-            fontWeight: 600,
-            fontSize: "0.95rem"
-          }}>
-            ✅ {successMsg}
-          </div>
-        )}
-
-        {/* PROFILE SCORECARD & SHOWCASE HERO */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "1fr",
-          gap: "1.5rem",
-          marginBottom: "2rem"
-        }}>
-          {/* Main User Card with score */}
-          <div className="card" style={{
-            background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)",
-            color: "white",
-            border: "none",
-            borderRadius: "var(--radius-lg)",
-            padding: "2rem",
-            display: "flex",
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: "1.5rem",
-            boxShadow: "0 20px 40px rgba(49, 46, 129, 0.25)"
-          }}>
+    <ProtectedRoute description="Masuk untuk melihat achievement dan daily mission.">
+      <div style={{ padding: "2rem 0 4rem" }}>
+        <div className="container">
+          <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap", marginBottom: "1.5rem" }}>
             <div>
-              <span style={{ textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "0.15em", color: "#a5b4fc", fontWeight: 800 }}>
-                Skor Literasi Kamu
-              </span>
-              <h2 style={{ fontSize: "3rem", fontWeight: 900, margin: "0.5rem 0", color: "#fbbf24" }}>
-                {loadingScore ? "..." : `${score} Pts`}
-              </h2>
-              <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", background: "rgba(255, 255, 255, 0.1)", padding: "0.4rem 0.8rem", borderRadius: "999px" }}>
-                <span style={{ fontSize: "0.85rem", fontWeight: 700 }}>
-                  Rank: {getRankName(score)}
-                </span>
-              </div>
+              <p className="yomu-eyebrow">ACHIEVEMENT</p>
+              <h1 style={{ margin: "0.25rem 0", fontSize: "2rem" }}>Gamifikasi Yomu</h1>
+              <p style={{ margin: 0, color: "var(--text-soft)" }}>Score kamu saat ini: <strong>{score} pts</strong></p>
             </div>
-
-            <div style={{
-              background: "rgba(255, 255, 255, 0.05)",
-              border: "1px solid rgba(255, 255, 255, 0.1)",
-              borderRadius: "var(--radius-md)",
-              padding: "1rem 1.5rem",
-              textAlign: "right"
-            }}>
-              <div style={{ color: "#c7d2fe", fontSize: "0.85rem", fontWeight: 700 }}>MISI HARI INI</div>
-              <div style={{ fontSize: "1.8rem", fontWeight: 800, marginTop: "0.25rem" }}>
-                {loadingMissions ? "..." : `${missions.filter(m => m.completed).length} / ${missions.length}`}
-              </div>
-              <div style={{ color: "#a5b4fc", fontSize: "0.8rem", marginTop: "0.2rem" }}>Selesai</div>
-            </div>
+            <Card style={{ padding: "1rem", minWidth: 220 }}>
+              <strong>Showcase profile</strong>
+              <p style={{ margin: "0.25rem 0 0", color: "var(--text-soft)" }}>
+                {showcasedAchievements.length} / {SHOWCASE_LIMIT} achievement ditampilkan
+              </p>
+            </Card>
           </div>
 
-          {/* Showcased Slots */}
-          <div className="card" style={{
-            background: "var(--surface)",
-            padding: "1.5rem",
-            borderRadius: "var(--radius-lg)",
-            boxShadow: "var(--shadow-soft)",
-            border: "1px solid var(--border)"
-          }}>
-            <p className="eyebrow" style={{ margin: "0 0 1rem 0" }}>🏆 Lemari Pajangan Piala (Maksimal 3)</p>
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: "1rem",
-              minHeight: "130px"
-            }}>
-              {[0, 1, 2].map((index) => {
-                const item = featuredAchievements[index];
-                if (item) {
-                  return (
-                    <div key={item.id} style={{
-                      background: "linear-gradient(to bottom, #fffbeb, #fef3c7)",
-                      border: "1.5px solid #f59e0b",
-                      borderRadius: "var(--radius-md)",
-                      padding: "1rem",
-                      textAlign: "center",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      position: "relative",
-                      transition: "transform 0.2s",
-                      boxShadow: "0 4px 12px rgba(245, 158, 11, 0.15)"
-                    }}>
-                      <button
-                        title="Turunkan dari showcase"
-                        onClick={() => void handleToggleShowcase(item.achievementId, true)}
-                        disabled={togglingId !== null}
-                        style={{
-                          position: "absolute",
-                          top: "0.3rem",
-                          right: "0.3rem",
-                          background: "var(--error)",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "999px",
-                          width: "1.3rem",
-                          height: "1.3rem",
-                          fontSize: "0.75rem",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontWeight: "bold"
-                        }}
-                      >
-                        ×
-                      </button>
-                      <div style={{ fontSize: "2rem", marginBottom: "0.25rem" }}>⭐</div>
-                      <strong style={{ fontSize: "0.85rem", color: "#78350f", display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                        {item.title}
-                      </strong>
-                      <span style={{ fontSize: "0.7rem", color: "#b45309" }}>{item.milestoneType}</span>
-                    </div>
-                  );
-                } else {
-                  return (
-                    <div key={index} style={{
-                      border: "2px dashed var(--border)",
-                      borderRadius: "var(--radius-md)",
-                      background: "rgba(0,0,0,0.01)",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      color: "var(--text-soft)",
-                      fontSize: "0.8rem",
-                      textAlign: "center",
-                      padding: "1rem"
-                    }}>
-                      <div style={{ fontSize: "1.5rem", opacity: 0.3, marginBottom: "0.25rem" }}>🔒</div>
-                      <span>Kosong</span>
-                    </div>
-                  );
-                }
-              })}
+          {error && (
+            <div style={{ marginBottom: "1rem", padding: "0.85rem 1rem", border: "1px solid var(--error)", borderRadius: 8, color: "var(--error)" }}>
+              {error}
             </div>
+          )}
+          {message && (
+            <div style={{ marginBottom: "1rem", padding: "0.85rem 1rem", border: "1px solid var(--success)", borderRadius: 8, color: "var(--success)" }}>
+              {message}
+            </div>
+          )}
+
+          <Tabs
+            items={tabItems}
+            active={activeTab}
+            onChange={(tab) => isAchievementTab(tab) && setActiveTab(tab)}
+          />
+
+          <div style={{ marginTop: "1.5rem" }}>
+            {activeTab === "missions" && renderMissionList()}
+            {activeTab === "achievements" && renderAchievementList(achievements, true)}
+            {activeTab === "public" && renderPublicProfile()}
+            {activeTab === "admin-achievements" && renderAchievementForm()}
+            {activeTab === "admin-missions" && renderMissionForm()}
           </div>
-        </div>
-
-        {/* INTERACTIVE NAVIGATION TABS */}
-        <div style={{
-          display: "flex",
-          borderBottom: "2px solid var(--border)",
-          gap: "1.5rem",
-          marginBottom: "1.5rem"
-        }}>
-          <button
-            onClick={() => setActiveTab("missions")}
-            style={{
-              padding: "0.75rem 1rem",
-              background: "none",
-              border: "none",
-              borderBottom: activeTab === "missions" ? "3px solid var(--primary-soft)" : "3px solid transparent",
-              color: activeTab === "missions" ? "var(--primary-soft)" : "var(--text-soft)",
-              fontWeight: 800,
-              fontSize: "1.1rem",
-              cursor: "pointer",
-              transition: "all 0.2s"
-            }}
-          >
-            🎯 Misi Harian
-          </button>
-          <button
-            onClick={() => setActiveTab("gallery")}
-            style={{
-              padding: "0.75rem 1rem",
-              background: "none",
-              border: "none",
-              borderBottom: activeTab === "gallery" ? "3px solid var(--primary-soft)" : "3px solid transparent",
-              color: activeTab === "gallery" ? "var(--primary-soft)" : "var(--text-soft)",
-              fontWeight: 800,
-              fontSize: "1.1rem",
-              cursor: "pointer",
-              transition: "all 0.2s"
-            }}
-          >
-            🏆 Galeri Piala ({achievements.length})
-          </button>
-        </div>
-
-        {/* TAB CONTENTS */}
-        <div>
-          {activeTab === "missions" ? renderMissionsTab() : renderGalleryTab()}
         </div>
       </div>
     </ProtectedRoute>

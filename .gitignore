@@ -32,3 +32,6 @@ yarn-error.log*
 next-env.d.ts
 
 docker-compose.yml
+
+folder_tree.txt
+fe_clan_context.txt

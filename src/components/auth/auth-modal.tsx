@@ -1,84 +1,38 @@
 "use client";
 
-import { useEffect } from "react";
 import { LoginForm } from "@/components/auth/login-form";
 import { RegisterForm } from "@/components/auth/register-form";
 import { useAuth } from "@/components/providers/auth-provider";
+import { Modal } from "@/components/ui/Modal";
 
 export function AuthModal() {
   const { authModal, closeAuthModal, openAuthModal } = useAuth();
 
-  useEffect(() => {
-    if (!authModal) {
-      return;
-    }
-
-    function handleKeydown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        closeAuthModal();
-      }
-    }
-
-    document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", handleKeydown);
-
-    return () => {
-      document.body.style.overflow = "";
-      window.removeEventListener("keydown", handleKeydown);
-    };
-  }, [authModal, closeAuthModal]);
-
-  if (!authModal) {
-    return null;
-  }
+  if (!authModal) return null;
 
   const isLogin = authModal.mode === "login";
 
   return (
-    <div
-      className="modal-backdrop"
-      role="presentation"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          closeAuthModal();
-        }
-      }}
-    >
-      <div
-        className="modal-card auth-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="auth-modal-title"
-      >
-        <div className="auth-modal-header">
-          <div>
-            <p className="eyebrow">Yomu Access</p>
-            <h2 id="auth-modal-title">
-              {isLogin ? "Continue your learning run" : "Create your Yomu profile"}
-            </h2>
-            <p>{authModal.reason}</p>
-          </div>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Close authentication modal"
-            onClick={closeAuthModal}
-          >
-            ×
-          </button>
+    <Modal
+      open={!!authModal}
+      onClose={closeAuthModal}
+      title={
+        <div>
+          <p className="yomu-eyebrow" style={{ marginBottom: "0.25rem" }}>Yomu Access</p>
+          <span style={{ fontSize: "1.5rem", fontWeight: 700 }}>
+            {isLogin ? "Welcome Back" : "Create Account"}
+          </span>
         </div>
-
-        <div className="auth-modal-content">
-          {isLogin ? <LoginForm /> : <RegisterForm />}
-        </div>
-
-        <div className="auth-modal-footer">
+      }
+      size="md"
+      footer={
+        <div className="auth-form-footer" style={{ width: "100%", marginTop: 0 }}>
           <span>
             {isLogin ? "New around here?" : "Already have an account?"}
           </span>
           <button
             type="button"
-            className="text-button"
+            className="auth-form-footer-link"
             onClick={() =>
               openAuthModal({
                 mode: isLogin ? "register" : "login",
@@ -89,7 +43,14 @@ export function AuthModal() {
             {isLogin ? "Create an account" : "Sign in instead"}
           </button>
         </div>
+      }
+    >
+      <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.95rem", lineHeight: 1.6 }}>
+        {authModal.reason}
+      </p>
+      <div style={{ marginTop: "1.5rem" }}>
+        {isLogin ? <LoginForm /> : <RegisterForm />}
       </div>
-    </div>
+    </Modal>
   );
 }

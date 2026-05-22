@@ -1,15 +1,14 @@
 export function SiteFooter() {
   return (
     <footer className="site-footer">
-      <div className="shell site-footer-content">
-        <div>
+      <div className="site-footer-inner">
+        <div className="site-footer-brand">
           <strong>Yomu</strong>
-          <p>
-            Study, play, and progress through focused reading, community, and
-            achievement loops.
-          </p>
+          <span>— Gamified Learning Platform</span>
         </div>
-        <small>Built for students who want a calmer, clearer learning flow.</small>
+        <div className="site-footer-copy">
+          &copy; {new Date().getFullYear()} Yomu. Built for better information literacy.
+        </div>
       </div>
     </footer>
   );
