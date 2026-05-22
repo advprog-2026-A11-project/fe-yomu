@@ -36,6 +36,7 @@ type AchievementForm = {
   title: string;
   description: string;
   milestone: string;
+  milestoneType: string;
 };
 
 type MissionForm = {
@@ -43,6 +44,7 @@ type MissionForm = {
   description: string;
   targetMilestone: string;
   rewardPoints: string;
+  missionType: string;
   activeDate: string;
 };
 
@@ -50,6 +52,7 @@ const emptyAchievementForm: AchievementForm = {
   title: "",
   description: "",
   milestone: "1",
+  milestoneType: "QUIZ_COUNT",
 };
 
 const emptyMissionForm: MissionForm = {
@@ -57,6 +60,7 @@ const emptyMissionForm: MissionForm = {
   description: "",
   targetMilestone: "1",
   rewardPoints: "10",
+  missionType: "QUIZ_COUNT",
   activeDate: "",
 };
 
@@ -149,6 +153,7 @@ export default function AchievementAdminPage() {
       title: item.title,
       description: item.description,
       milestone: String(item.milestone),
+      milestoneType: item.milestoneType || "QUIZ_COUNT",
     });
     setMessage(null);
     setError(null);
@@ -162,6 +167,7 @@ export default function AchievementAdminPage() {
       description: item.description,
       targetMilestone: String(item.targetMilestone),
       rewardPoints: String(item.rewardPoints),
+      missionType: item.missionType || "QUIZ_COUNT",
       activeDate: toDateInputValue(item.activeDate),
     });
     setMessage(null);
@@ -178,6 +184,7 @@ export default function AchievementAdminPage() {
         title: achievementForm.title.trim(),
         description: achievementForm.description.trim(),
         milestone: Number(achievementForm.milestone),
+        milestoneType: achievementForm.milestoneType,
       };
 
       const response = await fetch(
@@ -216,6 +223,7 @@ export default function AchievementAdminPage() {
         description: missionForm.description.trim(),
         targetMilestone: Number(missionForm.targetMilestone),
         rewardPoints: Number(missionForm.rewardPoints),
+        missionType: missionForm.missionType,
         ...(missionForm.activeDate ? { activeDate: missionForm.activeDate } : {}),
       };
 
@@ -362,6 +370,16 @@ export default function AchievementAdminPage() {
                     required
                   />
                 </label>
+                <label className="field">
+                  <span>Rule Type</span>
+                  <select
+                    value={achievementForm.milestoneType}
+                    onChange={(event) => setAchievementForm((form) => ({ ...form, milestoneType: event.target.value }))}
+                  >
+                    <option value="QUIZ_COUNT">Quiz Count</option>
+                    <option value="QUIZ_ACCURACY">Perfect Accuracy</option>
+                  </select>
+                </label>
                 <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
                   <button className="button button-primary" type="submit" disabled={saving}>
                     {saving ? "Saving..." : editingAchievement ? "Update" : "Create"}
@@ -439,6 +457,16 @@ export default function AchievementAdminPage() {
                     onChange={(event) => setMissionForm((form) => ({ ...form, rewardPoints: event.target.value }))}
                     required
                   />
+                </label>
+                <label className="field">
+                  <span>Rule Type</span>
+                  <select
+                    value={missionForm.missionType}
+                    onChange={(event) => setMissionForm((form) => ({ ...form, missionType: event.target.value }))}
+                  >
+                    <option value="QUIZ_COUNT">Quiz Count</option>
+                    <option value="QUIZ_ACCURACY">Perfect Accuracy</option>
+                  </select>
                 </label>
                 <label className="field">
                   <span>Active Date</span>

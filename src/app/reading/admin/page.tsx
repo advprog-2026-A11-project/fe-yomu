@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 
-const API_BASE_URL = "http://172.25.35.224:8082/api/admin/readings";
+const API_BASE_URL = "/api/bacaan/admin/readings";
 
 export default function BacaanPage() {
     const [readings, setReadings] = useState([]);

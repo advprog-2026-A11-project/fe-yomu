@@ -5,7 +5,7 @@ import Link from "next/link";
 import ReadingForum from "../../ReadingForum";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 
-const API_STUDENT = "http://172.25.35.224:8082/api/student/readings";
+const API_STUDENT = "/api/bacaan/student/readings";
 
 export default function ReadingView() {
     const { id } = useParams();

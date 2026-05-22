@@ -48,6 +48,7 @@ type UserDailyMission = {
   dailyMission: DailyMission;
   currentProgress: number;
   completed: boolean;
+  rewardClaimed?: boolean;
 };
 
 // Global Helper Functions (Defined outside to reduce Cognitive Complexity)
@@ -127,6 +128,7 @@ export default function AchievementPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [claimingMissionId, setClaimingMissionId] = useState<number | null>(null);
 
   // Fetch Score
   async function fetchScore() {
@@ -255,6 +257,32 @@ export default function AchievementPage() {
       setErrorMsg(extractErrorMessage(err, "Gagal merubah status showcase piala."));
     } finally {
       setTogglingId(null);
+    }
+  }
+
+  async function handleClaimReward(missionId: number) {
+    if (!userId || claimingMissionId !== null) return;
+    setClaimingMissionId(missionId);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      const response = await fetch(
+        `/api/achievement/student-progress/${userId}/missions/${missionId}/claim`,
+        { method: "POST" }
+      );
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setSuccessMsg("Reward misi berhasil diklaim!");
+        await Promise.all([fetchMissions(), fetchScore()]);
+      } else {
+        throw new Error(data.message || "Failed to claim mission reward");
+      }
+    } catch (err) {
+      setErrorMsg(extractErrorMessage(err, "Gagal mengklaim reward misi."));
+    } finally {
+      setClaimingMissionId(null);
     }
   }
 
