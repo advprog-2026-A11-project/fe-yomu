@@ -1,68 +1,73 @@
 "use client";
 
 import Link from "next/link";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { getDifficultyConfig } from "@/utils/tiers";
+
+function getDifficultyBadgeVariant(level: string): "success" | "warning" | "danger" {
+  if (level === "BEGINNER") return "success";
+  if (level === "INTERMEDIATE") return "warning";
+  return "danger";
+}
 
 export default function ReadingLayout({
-                                          reading,
-                                          backHref,
-                                          children,
-                                      }: {
-    reading: any;
-    backHref: string;
-    children?: React.ReactNode;
+  reading,
+  backHref,
+  children,
+}: {
+  reading: any;
+  backHref: string;
+  children?: React.ReactNode;
 }) {
-    const difficultyColor: Record<string, string> = {
-        BEGINNER: "bg-emerald-100 text-emerald-700",
-        INTERMEDIATE: "bg-amber-100 text-amber-700",
-        ADVANCED: "bg-rose-100 text-rose-700",
-    };
+  const diffConfig = getDifficultyConfig(reading?.difficultyLevel || "");
 
-    if (!reading) return null;
+  if (!reading) return null;
 
-    return (
-        <div className="min-h-screen bg-white">
-            <div className="max-w-3xl mx-auto px-6 py-12">
+  return (
+    <div style={{ padding: "2rem 0 4rem" }}>
+      <div className="container" style={{ maxWidth: "800px" }}>
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
+          <Link href={backHref}>
+            <Button variant="secondary" pill leftIcon="←">
+              Back to List
+            </Button>
+          </Link>
 
-                {/* HEADER */}
-                <div className="flex justify-between items-center mb-10">
-
-                    <Link
-                        href={backHref}
-                        className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-xl text-white bg-orange-400 hover:bg-orange-500 transition-colors shadow-sm"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                        </svg>
-                        Back to List
-                    </Link>
-
-                    <div className="flex gap-3">
-                        <span className="px-4 py-1.5 rounded-full bg-indigo-50 text-indigo-600 text-xs font-bold uppercase">
-                          {reading.category}
-                        </span>
-                            <span
-                                className={`px-4 py-1.5 rounded-full text-xs font-semibold ${
-                                    difficultyColor[reading.difficultyLevel]
-                                }`}
-                            >
-                          {reading.difficultyLevel}
-                        </span>
-                    </div>
-                </div>
-
-                {/* TITLE */}
-                <h1 className="text-4xl font-extrabold text-center mb-8">
-                    {reading.title}
-                </h1>
-
-                {/* CONTENT */}
-                <div className="prose prose-lg whitespace-pre-wrap text-gray-700">
-                    {reading.content}
-                </div>
-
-                {/* EXTRA SECTION (quiz, dll) */}
-                {children}
-            </div>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            {reading.category && <Badge variant="brand">{reading.category}</Badge>}
+            {reading.difficultyLevel && (
+              <Badge variant={getDifficultyBadgeVariant(reading.difficultyLevel)}>
+                {diffConfig.label}
+              </Badge>
+            )}
+          </div>
         </div>
-    );
+
+        {/* Title */}
+        <h1 style={{ margin: "0 0 1.5rem", fontSize: "clamp(1.75rem, 4vw, 2.5rem)", fontWeight: 800, letterSpacing: "-0.03em", textAlign: "center" }}>
+          {reading.title}
+        </h1>
+
+        {/* Content */}
+        <Card padding="lg">
+          <div
+            style={{
+              fontSize: "1.05rem",
+              lineHeight: 1.8,
+              color: "var(--text)",
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            {reading.content}
+          </div>
+        </Card>
+
+        {/* Extra Section (quiz, forum, etc) */}
+        {children}
+      </div>
+    </div>
+  );
 }

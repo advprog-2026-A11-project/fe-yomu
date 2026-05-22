@@ -2,294 +2,300 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { Progress } from "@/components/ui/Progress";
+import { Textarea } from "@/components/ui/Textarea";
+import { ProtectedRoute } from "@/components/auth/protected-route";
 
 interface Question {
-    id: string;
-    text: string;
-    questionType: "MULTIPLE_CHOICE" | "TRUE_FALSE" | "ESSAY";
-    options?: string[];
+  id: string;
+  text: string;
+  questionType: "MULTIPLE_CHOICE" | "TRUE_FALSE" | "ESSAY";
+  options?: string[];
+}
+
+function getOptionStyle(selected: boolean, isTrue: boolean): React.CSSProperties {
+  let border = "1px solid var(--border)";
+  let background = "var(--surface)";
+  let color = "var(--text)";
+
+  if (selected) {
+    border = `2px solid ${isTrue ? "var(--success)" : "var(--danger)"}`;
+    background = isTrue ? "var(--success-soft)" : "var(--danger-soft)";
+    color = isTrue ? "var(--success)" : "var(--danger)";
+  }
+
+  return {
+    margin: 0,
+    fontSize: "1.5rem",
+    fontWeight: 800,
+    color,
+    border,
+    borderRadius: "var(--radius-lg)",
+    background,
+    cursor: "pointer",
+    transition: "all 0.15s ease",
+  };
+}
+
+function getNavButtonStyle(active: boolean, answered: boolean): React.CSSProperties {
+  let background = "var(--surface-raised)";
+  let color = "var(--text-muted)";
+
+  if (active) {
+    background = "var(--brand)";
+    color = "white";
+  } else if (answered) {
+    background = "var(--success-soft)";
+    color = "var(--success)";
+  }
+
+  return {
+    width: "2.75rem",
+    height: "2.75rem",
+    borderRadius: "var(--radius-md)",
+    fontWeight: 700,
+    fontSize: "0.85rem",
+    cursor: "pointer",
+    border: "none",
+    background,
+    color,
+    transition: "all 0.15s ease",
+  };
+}
+
+function getTrueFalseBorder(selected: boolean, isTrue: boolean): string {
+  if (!selected) return "1px solid var(--border)";
+  return `2px solid ${isTrue ? "var(--success)" : "var(--danger)"}`;
+}
+
+function getTrueFalseBackground(selected: boolean, isTrue: boolean): string {
+  if (!selected) return "var(--surface)";
+  return isTrue ? "var(--success-soft)" : "var(--danger-soft)";
 }
 
 const SAMPLE_QUESTIONS: Question[] = [
-    {
-        id: "1",
-        text: "What is the main idea of the passage?",
-        questionType: "MULTIPLE_CHOICE",
-        options: [
-            "Environmental awareness",
-            "Technology development",
-            "Historical events",
-            "Scientific research",
-        ],
-    },
-    {
-        id: "2",
-        text: "The writer agrees that reading daily improves comprehension.",
-        questionType: "TRUE_FALSE",
-        options: ["True", "False"],
-    },
-    {
-        id: "3",
-        text: "Write one benefit of reading books regularly.",
-        questionType: "ESSAY",
-    },
+  {
+    id: "1",
+    text: "What is the main idea of the passage?",
+    questionType: "MULTIPLE_CHOICE",
+    options: ["Environmental awareness", "Technology development", "Historical events", "Scientific research"],
+  },
+  {
+    id: "2",
+    text: "The writer agrees that reading daily improves comprehension.",
+    questionType: "TRUE_FALSE",
+    options: ["True", "False"],
+  },
+  {
+    id: "3",
+    text: "Write one benefit of reading books regularly.",
+    questionType: "ESSAY",
+  },
 ];
 
 export default function StudentQuizPage() {
-    const router = useRouter();
+  const router = useRouter();
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [submitted, setSubmitted] = useState(false);
 
-    const [currentIndex, setCurrentIndex] = useState(0);
-    const [answers, setAnswers] = useState<Record<string, string>>({});
-    const [submitted, setSubmitted] = useState(false);
+  const currentQuestion = SAMPLE_QUESTIONS[currentIndex];
+  const progress = useMemo(() => ((currentIndex + 1) / SAMPLE_QUESTIONS.length) * 100, [currentIndex]);
 
-    const currentQuestion = SAMPLE_QUESTIONS[currentIndex];
+  const handleAnswer = (value: string) => {
+    setAnswers((prev) => ({ ...prev, [currentQuestion.id]: value }));
+  };
 
-    const progress = useMemo(() => {
-        return ((currentIndex + 1) / SAMPLE_QUESTIONS.length) * 100;
-    }, [currentIndex]);
-
-    const handleAnswer = (value: string) => {
-        setAnswers((prev) => ({
-            ...prev,
-            [currentQuestion.id]: value,
-        }));
-    };
-
-    const nextQuestion = () => {
-        if (currentIndex < SAMPLE_QUESTIONS.length - 1) {
-            setCurrentIndex((prev) => prev + 1);
-        }
-    };
-
-    const previousQuestion = () => {
-        if (currentIndex > 0) {
-            setCurrentIndex((prev) => prev - 1);
-        }
-    };
-
-    const handleSubmit = () => {
-        setSubmitted(true);
-        console.log("Submitted Answers:", answers);
-    };
-
-    if (submitted) {
-        return (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-                <div className="bg-white max-w-xl w-full rounded-3xl shadow-lg border border-slate-200 p-10 text-center">
-                    <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-6">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-10 w-10 text-emerald-600"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M5 13l4 4L19 7"
-                            />
-                        </svg>
-                    </div>
-
-                    <h1 className="text-3xl font-bold text-slate-800 mb-3">
-                        Quiz Submitted!
-                    </h1>
-
-                    <p className="text-slate-500 leading-relaxed mb-8">
-                        Your answers have been submitted successfully. Great job completing
-                        the reading quiz.
-                    </p>
-
-                    <button
-                        onClick={() => router.push("/reading/student/readings")}
-                        className="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-all"
-                    >
-                        Back to Readings
-                    </button>
-                </div>
-            </div>
-        );
+  const nextQuestion = () => {
+    if (currentIndex < SAMPLE_QUESTIONS.length - 1) {
+      setCurrentIndex((prev) => prev + 1);
     }
+  };
 
+  const previousQuestion = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex((prev) => prev - 1);
+    }
+  };
+
+  const handleSubmit = () => {
+    setSubmitted(true);
+  };
+
+  if (submitted) {
     return (
-        <div className="min-h-screen bg-slate-50 py-10 px-4">
-            <div className="max-w-4xl mx-auto">
-                <div className="mb-8">
-                    <div className="flex items-center justify-between mb-3">
-                        <div>
-                            <p className="text-sm font-semibold text-indigo-600 uppercase tracking-wide">
-                                Reading Quiz
-                            </p>
-                            <h1 className="text-3xl font-bold text-slate-900 mt-1">
-                                Reading Comprehension Test
-                            </h1>
-                        </div>
-
-                        <div className="bg-white border border-slate-200 rounded-2xl px-5 py-3 shadow-sm">
-                            <p className="text-xs text-slate-500 mb-1">Question</p>
-                            <p className="text-lg font-bold text-slate-800">
-                                {currentIndex + 1} / {SAMPLE_QUESTIONS.length}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
-                        <div
-                            className="h-full bg-indigo-600 transition-all duration-300"
-                            style={{ width: `${progress}%` }}
-                        />
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
-                            {currentIndex + 1}
-                        </div>
-
-                        <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold uppercase tracking-wide">
-              {currentQuestion.questionType.replace("_", " ")}
-            </span>
-                    </div>
-
-                    <h2 className="text-2xl font-bold text-slate-800 leading-relaxed mb-8">
-                        {currentQuestion.text}
-                    </h2>
-
-                    {currentQuestion.questionType === "MULTIPLE_CHOICE" && (
-                        <div className="space-y-4">
-                            {currentQuestion.options?.map((option, index) => {
-                                const selected =
-                                    answers[currentQuestion.id] === option;
-
-                                return (
-                                    <button
-                                        key={option}
-                                        onClick={() => handleAnswer(option)}
-                                        className={`w-full text-left rounded-2xl border p-5 transition-all ${
-                                            selected
-                                                ? "border-indigo-600 bg-indigo-50"
-                                                : "border-slate-200 hover:border-indigo-300 hover:bg-slate-50"
-                                        }`}
-                                    >
-                                        <div className="flex items-center gap-4">
-                                            <div
-                                                className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
-                                                    selected
-                                                        ? "bg-indigo-600 text-white"
-                                                        : "bg-slate-100 text-slate-600"
-                                                }`}
-                                            >
-                                                {String.fromCharCode(65 + index)}
-                                            </div>
-
-                                            <p className="font-medium text-slate-700">{option}</p>
-                                        </div>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    )}
-
-                    {currentQuestion.questionType === "TRUE_FALSE" && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            {currentQuestion.options?.map((option) => {
-                                const selected =
-                                    answers[currentQuestion.id] === option;
-
-                                return (
-                                    <button
-                                        key={option}
-                                        onClick={() => handleAnswer(option)}
-                                        className={`rounded-2xl border p-8 text-center transition-all ${
-                                            selected
-                                                ? option === "True"
-                                                    ? "border-emerald-500 bg-emerald-50"
-                                                    : "border-rose-500 bg-rose-50"
-                                                : "border-slate-200 hover:border-slate-300"
-                                        }`}
-                                    >
-                                        <p className="text-2xl font-bold text-slate-800">
-                                            {option}
-                                        </p>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    )}
-
-                    {currentQuestion.questionType === "ESSAY" && (
-                        <div>
-              <textarea
-                  rows={6}
-                  value={answers[currentQuestion.id] || ""}
-                  onChange={(e) => handleAnswer(e.target.value)}
-                  placeholder="Write your answer here..."
-                  className="w-full rounded-2xl border border-slate-200 px-5 py-4 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
-              />
-                        </div>
-                    )}
-
-                    <div className="flex items-center justify-between mt-10 gap-4 flex-wrap">
-                        <button
-                            onClick={previousQuestion}
-                            disabled={currentIndex === 0}
-                            className="px-6 py-3 rounded-2xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                        >
-                            Previous
-                        </button>
-
-                        <div className="flex gap-3">
-                            {currentIndex < SAMPLE_QUESTIONS.length - 1 ? (
-                                <button
-                                    onClick={nextQuestion}
-                                    className="px-7 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-all shadow-sm"
-                                >
-                                    Next Question
-                                </button>
-                            ) : (
-                                <button
-                                    onClick={handleSubmit}
-                                    className="px-7 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-all shadow-sm"
-                                >
-                                    Submit Quiz
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                <div className="mt-8 bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
-                    <h3 className="text-lg font-bold text-slate-800 mb-4">
-                        Quiz Navigation
-                    </h3>
-
-                    <div className="flex flex-wrap gap-3">
-                        {SAMPLE_QUESTIONS.map((question, index) => {
-                            const answered = !!answers[question.id];
-                            const active = currentIndex === index;
-
-                            return (
-                                <button
-                                    key={question.id}
-                                    onClick={() => setCurrentIndex(index)}
-                                    className={`w-12 h-12 rounded-xl font-bold transition-all ${
-                                        active
-                                            ? "bg-indigo-600 text-white"
-                                            : answered
-                                                ? "bg-emerald-100 text-emerald-700"
-                                                : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                                    }`}
-                                >
-                                    {index + 1}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
+      <div style={{ padding: "4rem 0" }}>
+        <div className="container" style={{ maxWidth: "600px" }}>
+          <Card variant="raised" padding="lg" style={{ textAlign: "center" }}>
+            <div style={{
+              width: "5rem", height: "5rem", borderRadius: "50%",
+              background: "var(--success-soft)", display: "flex",
+              alignItems: "center", justifyContent: "center",
+              margin: "0 auto 1.5rem", fontSize: "2.5rem",
+            }}>
+              ✓
             </div>
+            <h1 style={{ margin: "0 0 0.5rem", fontSize: "1.75rem", fontWeight: 800 }}>Quiz Submitted!</h1>
+            <p style={{ margin: "0 0 2rem", color: "var(--text-muted)", lineHeight: 1.6 }}>
+              Your answers have been submitted successfully. Great job completing the reading quiz.
+            </p>
+            <Button variant="primary" size="lg" pill onClick={() => router.push("/reading/student/readings")}>
+              Back to Readings
+            </Button>
+          </Card>
         </div>
+      </div>
     );
+  }
+
+  return (
+    <ProtectedRoute description="Sign in to take reading quizzes.">
+      <div style={{ padding: "2rem 0 4rem" }}>
+      <div className="container" style={{ maxWidth: "800px" }}>
+        {/* Header */}
+        <div style={{ marginBottom: "2rem" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
+            <div>
+              <p className="yomu-eyebrow">Reading Quiz</p>
+              <h1 style={{ margin: "0.25rem 0 0", fontSize: "1.75rem", fontWeight: 800 }}>Reading Comprehension Test</h1>
+            </div>
+            <Badge variant="brand" size="lg">
+              {currentIndex + 1} / {SAMPLE_QUESTIONS.length}
+            </Badge>
+          </div>
+          <Progress value={progress} max={100} color="brand" size="md" />
+        </div>
+
+        {/* Question Card */}
+        <Card variant="raised" padding="lg">
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.5rem" }}>
+            <div style={{
+              width: "2.5rem", height: "2.5rem", borderRadius: "var(--radius-md)",
+              background: "var(--brand-soft)", color: "var(--brand)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontWeight: 800, fontSize: "1rem",
+            }}>
+              {currentIndex + 1}
+            </div>
+            <Badge>{currentQuestion.questionType.replace("_", " ")}</Badge>
+          </div>
+
+          <h2 style={{ margin: "0 0 2rem", fontSize: "1.25rem", fontWeight: 700, lineHeight: 1.5 }}>
+            {currentQuestion.text}
+          </h2>
+
+          {currentQuestion.questionType === "MULTIPLE_CHOICE" && (
+            <div style={{ display: "grid", gap: "0.75rem" }}>
+              {currentQuestion.options?.map((option, index) => {
+                const selected = answers[currentQuestion.id] === option;
+                return (
+                  <button
+                    key={option}
+                    onClick={() => handleAnswer(option)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: "1rem",
+                      width: "100%", textAlign: "left", padding: "1rem 1.25rem",
+                      border: selected ? "2px solid var(--brand)" : "1px solid var(--border)",
+                      borderRadius: "var(--radius-md)",
+                      background: selected ? "var(--brand-soft)" : "var(--surface)",
+                      cursor: "pointer", transition: "all 0.15s ease",
+                    }}
+                  >
+                    <div style={{
+                      width: "2.25rem", height: "2.25rem", borderRadius: "var(--radius-sm)",
+                      background: selected ? "var(--brand)" : "var(--surface-raised)",
+                      color: selected ? "white" : "var(--text-muted)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontWeight: 700, fontSize: "0.85rem", flexShrink: 0,
+                    }}>
+                      {String.fromCharCode(65 + index)}
+                    </div>
+                    <span style={{ fontWeight: 600, color: selected ? "var(--brand)" : "var(--text)" }}>
+                      {option}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {currentQuestion.questionType === "TRUE_FALSE" && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "1rem" }}>
+              {currentQuestion.options?.map((option) => {
+                const selected = answers[currentQuestion.id] === option;
+                const isTrue = option === "True";
+                return (
+                  <button
+                    key={option}
+                    onClick={() => handleAnswer(option)}
+                    style={{
+                      padding: "2rem", textAlign: "center",
+                      border: getTrueFalseBorder(selected, isTrue),
+                      borderRadius: "var(--radius-lg)",
+                      background: getTrueFalseBackground(selected, isTrue),
+                      cursor: "pointer", transition: "all 0.15s ease",
+                    }}
+                  >
+                    <p style={getOptionStyle(selected, isTrue)}>
+                      {option}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {currentQuestion.questionType === "ESSAY" && (
+            <Textarea
+              value={answers[currentQuestion.id] || ""}
+              onChange={(e) => handleAnswer(e.target.value)}
+              placeholder="Write your answer here..."
+              rows={6}
+            />
+          )}
+
+          {/* Navigation */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "2rem", flexWrap: "wrap", gap: "1rem" }}>
+            <Button variant="secondary" pill onClick={previousQuestion} disabled={currentIndex === 0}>
+              ← Previous
+            </Button>
+
+            {currentIndex < SAMPLE_QUESTIONS.length - 1 ? (
+              <Button variant="primary" pill onClick={nextQuestion}>
+                Next Question →
+              </Button>
+            ) : (
+              <Button variant="success" pill onClick={handleSubmit}>
+                Submit Quiz ✓
+              </Button>
+            )}
+          </div>
+        </Card>
+
+        {/* Quiz Navigation Dots */}
+        <Card style={{ marginTop: "1.5rem" }}>
+          <h3 style={{ margin: "0 0 1rem", fontSize: "0.95rem", fontWeight: 700 }}>Quiz Navigation</h3>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+            {SAMPLE_QUESTIONS.map((question, index) => {
+              const answered = !!answers[question.id];
+              const active = currentIndex === index;
+              return (
+                <button
+                  key={question.id}
+                  onClick={() => setCurrentIndex(index)}
+                  style={getNavButtonStyle(active, answered)}
+                >
+                  {index + 1}
+                </button>
+              );
+            })}
+          </div>
+        </Card>
+      </div>
+      </div>
+    </ProtectedRoute>
+  );
 }

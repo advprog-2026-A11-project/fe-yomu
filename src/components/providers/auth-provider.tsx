@@ -23,10 +23,10 @@ import {
   refreshWithCookie,
   registerWithPassword,
 } from "@/lib/auth-client";
+import { isAdminRole } from "@/lib/auth-role";
 import { getSupabaseClient } from "@/lib/supabase";
 import type {
   AuthModalIntent,
-  AuthModalMode,
   AuthSession,
   AuthStatus,
   AuthTokenResponse,
@@ -48,8 +48,8 @@ type AuthContextValue = {
   toast: ToastState;
   signIn: (input: { identifier: string; password: string }) => Promise<void>;
   register: (input: {
-    email: string;
-    phone: string;
+    email?: string;
+    phone?: string;
     password: string;
     username?: string;
     displayName?: string;
@@ -175,8 +175,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(
     async (input: {
-      email: string;
-      phone: string;
+      email?: string;
+      phone?: string;
       password: string;
       username?: string;
       displayName?: string;
@@ -205,7 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const startGoogleSignIn = useCallback(
     async (nextPath?: string) => {
-      const redirectTo = `${window.location.origin}/auth/callback${
+      const redirectTo = `${globalThis.location.origin}/auth/callback${
         nextPath || authModal?.nextPath || pathname
           ? `?next=${encodeURIComponent(nextPath || authModal?.nextPath || inferNextPath(pathname || "/"))}`
           : ""
@@ -223,7 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.url) {
-        window.location.assign(data.url);
+        globalThis.location.assign(data.url);
       }
     },
     [authModal?.nextPath, pathname],
@@ -290,7 +290,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       status,
       session,
       isAuthenticated: status === "authenticated" && !!session?.profile?.id,
-      isAdmin: session?.profile?.role === "ADMIN",
+      isAdmin: isAdminRole(session?.profile?.role),
       authModal,
       toast,
       signIn,

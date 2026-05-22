@@ -183,6 +183,9 @@ export async function proxyToBackend(
         ...(sourceRequest.headers.get("accept-language") && {
           "accept-language": sourceRequest.headers.get("accept-language")!,
         }),
+        ...(sourceRequest.headers.get("userId") && {
+          userId: sourceRequest.headers.get("userId")!,
+        }),
         // Add auth header if available
         ...(authHeader && { authorization: authHeader }),
         // Apply custom headers (overrides defaults)

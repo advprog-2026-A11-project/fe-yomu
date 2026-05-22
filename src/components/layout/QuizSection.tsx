@@ -1,22 +1,18 @@
-export default function StartQuizSection({onStart,}: {
-    onStart?: () => void;
-}) {
-    return (
-        <div className="mt-12 p-8 bg-green-50 rounded-2xl text-center">
-            <h4 className="font-bold text-green-900 mb-2">
-                Finish reading?
-            </h4>
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 
-            <p className="text-green-700 mb-6 text-sm">
-                Let's test your knowledge by taking this quiz.
-            </p>
-
-            <button
-                onClick={onStart}
-                className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-green-700 transition-all shadow-lg active:scale-95"
-            >
-                Start Quiz
-            </button>
-        </div>
-    );
+export default function StartQuizSection({ onStart }: Readonly<{ onStart?: () => void }>) {
+  return (
+    <Card variant="pressed" style={{ marginTop: "3rem", textAlign: "center", background: "var(--success-soft)", borderColor: "var(--success)" }}>
+      <h4 style={{ margin: "0 0 0.5rem", fontSize: "1.25rem", fontWeight: 700, color: "var(--success-shadow)" }}>
+        Finish Reading?
+      </h4>
+      <p style={{ margin: "0 0 1.5rem", color: "var(--text-muted)", fontSize: "0.95rem" }}>
+        Test your knowledge by taking the quiz. You won't be able to retake it!
+      </p>
+      <Button variant="success" size="lg" pill onClick={onStart}>
+        Start Quiz →
+      </Button>
+    </Card>
+  );
 }

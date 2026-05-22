@@ -1,58 +1,65 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
-import { usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/auth-provider";
-import { LoadingState } from "@/components/states/loading-state";
-import { EmptyState } from "@/components/states/empty-state";
+import { LoadingState } from "@/components/ui/LoadingState";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 
 export function ProtectedRoute({
   children,
-  title = "Sign in required",
-  description = "This page is part of the Yomu app experience. Sign in to continue.",
+  title = "Login Required",
+  description = "You need to be logged in to access this page. Please sign in to continue.",
 }: {
-  children: ReactNode;
+  children: React.ReactNode;
   title?: string;
   description?: string;
 }) {
-  const pathname = usePathname();
+  const router = useRouter();
   const { status, isAuthenticated, openAuthModal } = useAuth();
 
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      openAuthModal({
-        mode: "login",
-        nextPath: pathname || "/dashboard",
-        reason: description,
-      });
-    }
-  }, [description, openAuthModal, pathname, status]);
-
   if (status === "loading") {
-    return <LoadingState />;
+    return <LoadingState message="Checking authentication..." />;
   }
 
   if (!isAuthenticated) {
     return (
-      <EmptyState
-        title={title}
-        description={description}
-        action={
-          <button
-            type="button"
-            className="button button-primary"
-            onClick={() =>
-              openAuthModal({
-                mode: "login",
-                nextPath: pathname || "/dashboard",
-                reason: description,
-              })
-            }
-          >
-            Open sign in
-          </button>
-        }
-      />
+      <div style={{ padding: "4rem 0", minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div className="container" style={{ maxWidth: "480px" }}>
+          <Card padding="lg" style={{ textAlign: "center" }}>
+            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🔒</div>
+            <h2 style={{ margin: "0 0 0.5rem", fontSize: "1.5rem", fontWeight: 800 }}>{title}</h2>
+            <p style={{ margin: "0 0 2rem", color: "var(--text-muted)", fontSize: "0.95rem", lineHeight: 1.6 }}>
+              {description}
+            </p>
+
+            <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", flexWrap: "wrap" }}>
+              <Button
+                variant="primary"
+                pill
+                size="lg"
+                onClick={() =>
+                  openAuthModal({
+                    mode: "login",
+                    nextPath: globalThis.location.pathname,
+                    reason: description,
+                  })
+                }
+              >
+                Sign In
+              </Button>
+              <Button
+                variant="secondary"
+                pill
+                size="lg"
+                onClick={() => router.push("/")}
+              >
+                Back to Home
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </div>
     );
   }
 

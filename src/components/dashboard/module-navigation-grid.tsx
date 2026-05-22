@@ -9,12 +9,6 @@ const modules = [
     tag: "Core learning",
   },
   {
-    title: "Forums",
-    description: "Discuss reading takeaways, share ideas, and participate in community threads.",
-    href: "/forums",
-    tag: "Community",
-  },
-  {
     title: "Achievement",
     description: "Review unlocked milestones, current missions, and motivation loops.",
     href: "/achievement",
