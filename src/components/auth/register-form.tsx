@@ -7,14 +7,32 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { normalizeAuthError } from "@/lib/auth-client";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { Tabs } from "@/components/ui/Tabs";
+
+type RegisterMode = "email" | "phone" | "both";
+
+const REGISTER_MODE_ITEMS = [
+  { id: "email", label: "Email" },
+  { id: "phone", label: "Phone" },
+  { id: "both", label: "Both" },
+];
 
 function hasValidPhoneDigitCount(value: string): boolean {
   const compact = value.replaceAll(/[\s\-()+]/g, "");
   return compact.length >= 8 && compact.length <= 15 && /^\d+$/.test(compact);
 }
 
+function includesEmail(mode: RegisterMode): boolean {
+  return mode === "email" || mode === "both";
+}
+
+function includesPhone(mode: RegisterMode): boolean {
+  return mode === "phone" || mode === "both";
+}
+
 export function RegisterForm() {
   const { register, startGoogleSignIn } = useAuth();
+  const [mode, setMode] = useState<RegisterMode>("email");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -25,9 +43,17 @@ export function RegisterForm() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const trimmedEmail = email.trim();
     const trimmedPhone = phone.trim();
+    const shouldSendEmail = includesEmail(mode);
+    const shouldSendPhone = includesPhone(mode);
 
-    if (!hasValidPhoneDigitCount(trimmedPhone)) {
+    if (shouldSendEmail && !trimmedEmail) {
+      setError("Email is required.");
+      return;
+    }
+
+    if (shouldSendPhone && !hasValidPhoneDigitCount(trimmedPhone)) {
       setError("Phone number must contain 8-15 digits.");
       return;
     }
@@ -37,8 +63,8 @@ export function RegisterForm() {
 
     try {
       await register({
-        email: email.trim(),
-        phone: trimmedPhone,
+        email: shouldSendEmail ? trimmedEmail : undefined,
+        phone: shouldSendPhone ? trimmedPhone : undefined,
         password,
         username: username.trim() || undefined,
         displayName: displayName.trim() || undefined,
@@ -63,30 +89,44 @@ export function RegisterForm() {
       />
 
       <div className="auth-form-divider">
-        <span>or create an account with email and phone</span>
+        <span>or create an account manually</span>
       </div>
 
       <form className="auth-form-actions" onSubmit={(event) => void handleSubmit(event)}>
-        <Input
-          label="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          type="email"
-          autoComplete="email"
-          placeholder="you@yomu.id"
-          required
+        <Tabs
+          items={REGISTER_MODE_ITEMS}
+          active={mode}
+          onChange={(nextMode) => {
+            setMode(nextMode as RegisterMode);
+            setError(null);
+          }}
+          size="sm"
         />
 
-        <Input
-          label="Phone number"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          type="tel"
-          autoComplete="tel"
-          placeholder="+628123456789 or 0812..."
-          inputMode="numeric"
-          required
-        />
+        {includesEmail(mode) && (
+          <Input
+            label="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            type="email"
+            autoComplete="email"
+            placeholder="you@yomu.id"
+            required
+          />
+        )}
+
+        {includesPhone(mode) && (
+          <Input
+            label="Phone number"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            type="tel"
+            autoComplete="tel"
+            placeholder="+628123456789 or 0812..."
+            inputMode="numeric"
+            required
+          />
+        )}
 
         <Input
           label="Password"

@@ -4,7 +4,12 @@ import type {
   AuthModalMode,
   AuthSession,
   AuthTokenResponse,
+  DeleteAccountResponse,
+  UpdateEmailResponse,
+  UpdatePhoneResponse,
+  UpdateProfileResponse,
 } from "@/types/auth";
+import { API } from "@/constants/api";
 
 export function normalizeAuthApiBase(): string {
   const configured = process.env.NEXT_PUBLIC_AUTH_API_URL?.replace(/\/$/, "");
@@ -137,7 +142,14 @@ function sanitizeAuthMessage(message: string, fallback: string): string {
   return firstLine.length > 180 ? `${firstLine.slice(0, 177)}...` : firstLine;
 }
 
-export type AuthErrorIntent = "login" | "register" | "google" | "session" | "password";
+export type AuthErrorIntent =
+  | "login"
+  | "register"
+  | "google"
+  | "session"
+  | "password"
+  | "profile"
+  | "account";
 
 export function normalizeAuthError(error: unknown, intent: AuthErrorIntent): string {
   const raw = sanitizeAuthMessage(extractErrorMessage(error, ""), "");
@@ -254,6 +266,45 @@ export function normalizeAuthError(error: unknown, intent: AuthErrorIntent): str
     return "We could not update your password right now. Please try again.";
   }
 
+  if (intent === "profile") {
+    if (normalized.includes("username is already taken")
+      || normalized.includes("username already")) {
+      return "That username is already in use.";
+    }
+
+    if (normalized.includes("email already")
+      || normalized.includes("email address is already in use")) {
+      return "That email address is already in use.";
+    }
+
+    if (normalized.includes("phone already")
+      || normalized.includes("phone number is already in use")) {
+      return "That phone number is already in use.";
+    }
+
+    if (normalized.includes("phone must")) {
+      return "Phone number must contain 8-15 digits.";
+    }
+
+    if (raw) {
+      return raw;
+    }
+
+    return "We could not update your account right now. Please try again.";
+  }
+
+  if (intent === "account") {
+    if (normalized.includes("confirmation must be delete")) {
+      return "Type DELETE to confirm account deletion.";
+    }
+
+    if (raw) {
+      return raw;
+    }
+
+    return "We could not delete your account right now. Please try again.";
+  }
+
   if (raw) {
     return raw;
   }
@@ -296,13 +347,13 @@ export async function loginWithPassword(input: {
 }
 
 export async function registerWithPassword(input: {
-  email: string;
-  phone: string;
+  email?: string;
+  phone?: string;
   password: string;
   username?: string;
   displayName?: string;
 }): Promise<AuthTokenResponse> {
-  return request<AuthTokenResponse>("/auth/register", {
+  return request<AuthTokenResponse>(API.auth.register, {
     method: "POST",
     body: JSON.stringify(input),
   });
@@ -346,6 +397,43 @@ export async function changePassword(input: {
       currentPassword: input.currentPassword,
       newPassword: input.newPassword,
     }),
+  });
+}
+
+export async function updateCurrentProfile(input: {
+  username?: string;
+  displayName?: string;
+}): Promise<UpdateProfileResponse> {
+  return request<UpdateProfileResponse>(API.auth.userMe, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateCurrentEmail(input: {
+  email: string;
+}): Promise<UpdateEmailResponse> {
+  return request<UpdateEmailResponse>(API.auth.userMeEmail, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateCurrentPhone(input: {
+  phone: string;
+}): Promise<UpdatePhoneResponse> {
+  return request<UpdatePhoneResponse>(API.auth.userMePhone, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteCurrentAccount(input: {
+  confirmation: string;
+}): Promise<DeleteAccountResponse> {
+  return request<DeleteAccountResponse>(API.auth.userMe, {
+    method: "DELETE",
+    body: JSON.stringify(input),
   });
 }
 

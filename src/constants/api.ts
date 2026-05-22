@@ -9,6 +9,8 @@ export const API = {
     users: "/users",
     userById: (id: string) => `/users/${id}`,
     userMe: "/users/me",
+    userMeEmail: "/users/me/email",
+    userMePhone: "/users/me/phone",
     activateUser: (id: string) => `/users/${id}/activate`,
   },
   reading: {
