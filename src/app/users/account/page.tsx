@@ -23,6 +23,16 @@ function supportsPasswordAuth(authProvider?: string) {
   return (authProvider || "").toUpperCase().includes("PASSWORD");
 }
 
+function isSyntheticEmail(email?: string | null): boolean {
+  if (!email) return false;
+  return email.endsWith("@phone-login.yomu.example.com")
+    || email.endsWith("@phone-login.yomu.internal");
+}
+
+function hasRealEmail(email?: string | null): boolean {
+  return !!email && !isSyntheticEmail(email);
+}
+
 function getPasswordButtonText(saving: boolean, hasPassword: boolean): string {
   if (saving) {
     return hasPassword ? "Updating password..." : "Setting password...";
@@ -339,23 +349,34 @@ function AccountContent({
               </p>
 
               <div style={{ display: "grid", gap: "1.25rem" }}>
-                <form onSubmit={(event) => void handleEmailSubmit(event)} style={{ display: "grid", gap: "1rem", maxWidth: "480px" }}>
-                  <Input
-                    label={profile?.email ? "Email" : "Add email"}
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    type="email"
-                    autoComplete="email"
-                    placeholder="you@yomu.id"
-                  />
+                {hasRealEmail(profile?.email) ? (
+                  <div>
+                    <div style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--text-soft)", fontWeight: 600, marginBottom: "0.25rem" }}>
+                      Email
+                    </div>
+                    <div style={{ fontWeight: 600, wordBreak: "break-word" }}>
+                      {profile.email}
+                    </div>
+                  </div>
+                ) : (
+                  <form onSubmit={(event) => void handleEmailSubmit(event)} style={{ display: "grid", gap: "1rem", maxWidth: "480px" }}>
+                    <Input
+                      label="Add email"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      type="email"
+                      autoComplete="email"
+                      placeholder="you@yomu.id"
+                    />
 
-                  {emailError && <div className="auth-error">{emailError}</div>}
-                  {emailMessage && <div className="auth-success">{emailMessage}</div>}
+                    {emailError && <div className="auth-error">{emailError}</div>}
+                    {emailMessage && <div className="auth-success">{emailMessage}</div>}
 
-                  <Button type="submit" variant="secondary" pill loading={emailSaving}>
-                    {emailSaving ? "Saving email..." : profile?.email ? "Update Email Login" : "Add Email Login"}
-                  </Button>
-                </form>
+                    <Button type="submit" variant="secondary" pill loading={emailSaving}>
+                      {emailSaving ? "Saving email..." : "Add Email Login"}
+                    </Button>
+                  </form>
+                )}
 
                 <form onSubmit={(event) => void handlePhoneSubmit(event)} style={{ display: "grid", gap: "1rem", maxWidth: "480px" }}>
                   <Input

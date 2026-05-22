@@ -11,27 +11,10 @@ import {
 
 const refreshSession = vi.fn();
 const signOut = vi.fn();
+const mockUseAuth = vi.fn();
 
 vi.mock("@/components/providers/auth-provider", () => ({
-  useAuth: () => ({
-    session: {
-      profile: {
-        id: "user-1",
-        username: "learner",
-        displayName: "Yomu Learner",
-        email: "learner@yomu.test",
-        phone: null,
-        role: "STUDENT",
-        authProvider: "PASSWORD",
-        isActive: true,
-      },
-    },
-    status: "authenticated",
-    isAuthenticated: true,
-    refreshSession,
-    signOut,
-    openAuthModal: vi.fn(),
-  }),
+  useAuth: (...args: unknown[]) => mockUseAuth(...args),
 }));
 
 vi.mock("@/lib/auth-client", async () => {
@@ -45,6 +28,29 @@ vi.mock("@/lib/auth-client", async () => {
   };
 });
 
+function createAuthSession(overrides: Record<string, unknown> = {}) {
+  return {
+    session: {
+      profile: {
+        id: "user-1",
+        username: "learner",
+        displayName: "Yomu Learner",
+        email: "learner@yomu.test",
+        phone: null,
+        role: "STUDENT",
+        authProvider: "PASSWORD",
+        isActive: true,
+        ...overrides,
+      },
+    },
+    status: "authenticated",
+    isAuthenticated: true,
+    refreshSession,
+    signOut,
+    openAuthModal: vi.fn(),
+  };
+}
+
 describe("AccountPage", () => {
   beforeEach(() => {
     vi.mocked(updateCurrentProfile).mockReset();
@@ -53,6 +59,7 @@ describe("AccountPage", () => {
     vi.mocked(deleteCurrentAccount).mockReset();
     refreshSession.mockReset();
     signOut.mockReset();
+    mockUseAuth.mockReset();
 
     vi.mocked(updateCurrentProfile).mockResolvedValue({ message: "Profile updated" });
     vi.mocked(updateCurrentEmail).mockResolvedValue({ message: "Email updated" });
@@ -60,6 +67,7 @@ describe("AccountPage", () => {
     vi.mocked(deleteCurrentAccount).mockResolvedValue({ message: "Account deleted" });
     refreshSession.mockResolvedValue(undefined);
     signOut.mockResolvedValue(undefined);
+    mockUseAuth.mockReturnValue(createAuthSession());
   });
 
   it("updates the current user's public profile", async () => {
@@ -76,14 +84,27 @@ describe("AccountPage", () => {
     await waitFor(() => expect(refreshSession).toHaveBeenCalled());
   });
 
-  it("updates email and phone login methods", async () => {
+  it("shows email as read-only text when user already has one", async () => {
     render(<AccountPage />);
 
-    await userEvent.clear(screen.getByLabelText("Email"));
-    await userEvent.type(screen.getByLabelText("Email"), "new@yomu.test");
-    await userEvent.click(screen.getByRole("button", { name: "Update Email Login" }));
+    expect(screen.getAllByText("learner@yomu.test").length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByLabelText("Email")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /email login/i })).not.toBeInTheDocument();
+  });
 
-    expect(updateCurrentEmail).toHaveBeenCalledWith({ email: "new@yomu.test" });
+  it("shows add email form when user has a synthetic phone email", async () => {
+    mockUseAuth.mockReturnValue(createAuthSession({
+      email: "phone-abc123@phone-login.yomu.example.com",
+    }));
+
+    render(<AccountPage />);
+
+    expect(screen.getByLabelText("Add email")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Email Login" })).toBeInTheDocument();
+  });
+
+  it("updates phone login methods", async () => {
+    render(<AccountPage />);
 
     await userEvent.type(screen.getByLabelText("Add phone number"), "+62 812 3456 789");
     await userEvent.click(screen.getByRole("button", { name: "Add Phone Login" }));
