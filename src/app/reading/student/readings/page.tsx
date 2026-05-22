@@ -1,114 +1,145 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { ProtectedRoute } from "@/components/auth/protected-route";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { LoadingState } from "@/components/ui/LoadingState";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { getDifficultyConfig } from "@/utils/tiers";
+import { truncate } from "@/utils/format";
+import { ROUTES } from "@/constants";
 
-const API_STUDENT = `${process.env.NEXT_PUBLIC_BACKEND_BACAAN_QUIZ_URL}/api/student/readings`;
-const USER_ID = "user-123";
+const API_STUDENT = "/api/reading-student";
 
-export default function StudentReadingPage() {
-    const [readings, setReadings] = useState([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const fetchReadings = async () => {
-            try {
-                const response = await fetch (API_STUDENT, {
-                    method: "GET",
-                    headers: {
-                        "userId": USER_ID,
-                        "Content-Type": "application/json",
-                    },
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    setReadings(data);
-                }
-            } catch (error) {
-                console.error("Failed to load readings: ", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchReadings();
-    }, []);
-
-    if (loading) return (
-        <div className="flex items-center justify-center min-h-screen">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
-        </div>
-    );
-
-    return (
-        <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-7xl mx-auto">
-                {/* Header Section */}
-                <header className="mb-12 text-center">
-                    <h1 className="text-4xl font-extrabold text-slate-900 sm:text-5xl">
-                        Reading <span className="text-orange-500">Materials</span>
-                    </h1>
-                    <p className="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">
-                        Discover a reading that excites you today and take your comprehension to the next level!
-                    </p>
-                </header>
-
-                {/* Grid Layout */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {readings.map((reading: any) => (
-                        <ReadingCard key={reading.id} reading={reading} />
-                    ))}
-                </div>
-
-                {readings.length === 0 && (
-                    <div className="text-center py-20 bg-white rounded-3xl shadow-sm border-2 border-dashed border-slate-200">
-                        <p className="text-slate-400 text-lg">There's not material yet.</p>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
+function getDifficultyBadgeVariant(level: string): "success" | "warning" | "danger" {
+  if (level === "BEGINNER") return "success";
+  if (level === "INTERMEDIATE") return "warning";
+  return "danger";
 }
 
-function ReadingCard({ reading }: {reading: any}) {
-    const difficultyColor = {
-        BEGINNER: "bg-emerald-100 text-emerald-700",
-        INTERMEDIATE: "bg-amber-100 text-amber-700",
-        ADVANCED: "bg-rose-100 text-rose-700"
+export default function StudentReadingPage() {
+  const [readings, setReadings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchReadings = async () => {
+      try {
+        const response = await fetch(API_STUDENT, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setReadings(data);
+        } else {
+          setError("Failed to load readings");
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        setError(`Failed to load readings: ${message}`);
+      } finally {
+        setLoading(false);
+      }
     };
+    fetchReadings();
+  }, []);
 
+  if (loading) {
     return (
-        <div className="group bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 overflow-hidden flex flex-col">
-            <div className="p-6 flex-grow">
-                {/* Badge Category */}
-                <div className="flex justify-between items-start mb-4">
-                    <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-indigo-50 text-indigo-600">
-                        {reading.category}
-                    </span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${difficultyColor[reading.difficultyLevel as keyof typeof difficultyColor]}`}>
-                        {reading.difficultyLevel}
-                    </span>
-                </div>
-
-                <h3 className="text-xl font-bold text-slate-800 mb-2 group-hover:text-orange-400 transition-colors">
-                    {reading.title}
-                </h3>
-
-                <p className="text-slate-500 text-sm line-clamp-3 mb-4">
-                    {reading.content}
-                </p>
-            </div>
-
-            <div className="p-6 pt-0">
-                <Link
-                    href={`/reading/student/readings/${reading.id}`}
-                    className="w-full inline-flex justify-center items-center px-6 py-3 border border-transparent text-base font-medium rounded-xl text-white bg-orange-400 hover:bg-orange-500 transition-colors shadow-sm"
-                >
-                    Start Reading
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                </Link>
-            </div>
+      <div style={{ padding: "4rem 0" }}>
+        <div className="container">
+          <LoadingState message="Loading reading materials..." />
         </div>
+      </div>
     );
+  }
+
+  if (error) {
+    return (
+      <div style={{ padding: "4rem 0" }}>
+        <div className="container">
+          <EmptyState
+            icon="⚠️"
+            title="Failed to Load"
+            description={error}
+          />
+          <div style={{ textAlign: "center", marginTop: "1rem" }}>
+            <Button variant="primary" pill onClick={() => globalThis.location.reload()}>Try Again</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <ProtectedRoute description="Sign in to access reading materials.">
+      <div style={{ padding: "2rem 0 4rem" }}>
+        <div className="container">
+          <div style={{ textAlign: "center", marginBottom: "3rem" }}>
+            <p className="yomu-eyebrow">Reading Materials</p>
+            <h1 style={{ margin: "0.5rem 0 0", fontSize: "clamp(2rem, 5vw, 2.75rem)", fontWeight: 800, letterSpacing: "-0.03em" }}>
+              Discover Your Next Read
+            </h1>
+            <p style={{ margin: "0.75rem auto 0", maxWidth: "600px", color: "var(--text-muted)", fontSize: "1.05rem", lineHeight: 1.6 }}>
+              Choose a reading, test your comprehension, and level up your literacy skills.
+            </p>
+          </div>
+
+          {readings.length === 0 ? (
+            <EmptyState
+              icon="📚"
+              title="No Materials Yet"
+              description="There are no reading materials available yet. Check back later!"
+            />
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1.5rem" }}>
+              {readings.map((reading: any) => (
+                <ReadingCard key={reading.id} reading={reading} />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </ProtectedRoute>
+  );
+}
+
+function ReadingCard({ reading }: { reading: any }) {
+  const diffConfig = getDifficultyConfig(reading.difficultyLevel || "");
+
+  return (
+    <Card hoverable style={{ display: "flex", flexDirection: "column", padding: 0, overflow: "hidden" }}>
+      <div style={{ padding: "1.5rem", flex: 1 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "1rem", gap: "0.5rem" }}>
+          <Badge variant="brand">{reading.category || "General"}</Badge>
+          {reading.difficultyLevel && (
+            <Badge variant={getDifficultyBadgeVariant(reading.difficultyLevel)}>
+              {diffConfig.label}
+            </Badge>
+          )}
+        </div>
+
+        <h3 style={{ margin: "0 0 0.5rem", fontSize: "1.15rem", fontWeight: 700, lineHeight: 1.3 }}>
+          {reading.title}
+        </h3>
+
+        <p style={{ margin: 0, fontSize: "0.9rem", color: "var(--text-muted)", lineHeight: 1.6 }}>
+          {truncate(reading.content || "", 120)}
+        </p>
+      </div>
+
+      <div style={{ padding: "0 1.5rem 1.5rem" }}>
+        <Link href={ROUTES.reading.studentDetail(reading.id)} style={{ textDecoration: "none" }}>
+          <Button variant="primary" pill style={{ width: "100%" }} rightIcon="→">
+            Start Reading
+          </Button>
+        </Link>
+      </div>
+    </Card>
+  );
 }

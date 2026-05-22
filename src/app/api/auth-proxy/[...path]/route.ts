@@ -21,8 +21,15 @@ function resolveTargetBase(): string | null {
   }
 
   const normalized = configured.replace(/\/$/, "");
-  if (normalized.startsWith("http://localhost:")) {
-    return normalized.replace("http://localhost:", "http://127.0.0.1:");
+
+  try {
+    const targetUrl = new URL(normalized);
+    if (targetUrl.protocol === "http:" && targetUrl.hostname === "localhost") {
+      targetUrl.hostname = "127.0.0.1";
+      return targetUrl.toString().replace(/\/$/, "");
+    }
+  } catch {
+    return normalized;
   }
 
   return normalized;

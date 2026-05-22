@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { getAuthHeaders } from "@/lib/auth-headers";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Textarea } from "@/components/ui/Textarea";
+import { Avatar } from "@/components/ui/Avatar";
+import { Badge } from "@/components/ui/Badge";
 
 export type Message = {
   id: string;
@@ -11,6 +16,9 @@ export type Message = {
   replies?: Message[];
   parentId?: string | null;
   userId?: string;
+  replyCount?: number;
+  reactions?: Reaction[];
+  reactionCounts?: Partial<Record<ReactionType, number>>;
 };
 
 type ReactionType =
@@ -34,7 +42,7 @@ type Reaction = {
 type MessageCardProps = Readonly<{
   message: Message;
   depth?: number;
-  onReload: () => void;
+  onReload: () => Promise<void>;
   onError: (err: string) => void;
 }>;
 
@@ -49,8 +57,8 @@ type EmojiReactionDescriptor = Readonly<{
 type ReactionCounts = Record<ReactionType, number>;
 type SubmitEvent = React.FormEvent | undefined;
 
-const USER_ID_STORAGE_KEY = "forum-user-id";
 const ACTIVE_REACTION_COLOR = "#f97316";
+const EXCLUSIVE_REACTION_GROUPS: ReactionType[][] = [["UPVOTE", "DOWNVOTE"]];
 
 const EMOJI_REACTIONS: EmojiReactionDescriptor[] = [
   { type: "FIRE", emoji: "🔥", label: "Fire" },
@@ -60,24 +68,39 @@ const EMOJI_REACTIONS: EmojiReactionDescriptor[] = [
   { type: "THINKING", emoji: "🤔", label: "Thinking" },
 ];
 
-function createAnonymousUserId(): string {
-  const browserWindow = globalThis.window;
-  if (browserWindow === undefined) {
-    throw new Error("createAnonymousUserId must run in a browser context");
-  }
-
-  const existing = browserWindow.localStorage.getItem(USER_ID_STORAGE_KEY);
-  if (existing) {
-    return existing;
-  }
-
-  const generated = globalThis.crypto.randomUUID();
-  browserWindow.localStorage.setItem(USER_ID_STORAGE_KEY, generated);
-  return generated;
+async function buildDetailedFetchError(response: Response, context: string): Promise<Error> {
+  const detail = (await response.text()).trim();
+  const suffix = detail ? ` - ${detail.slice(0, 240)}` : "";
+  return new Error(`${context} failed: HTTP ${response.status}${suffix}`);
 }
 
-function buildReactionCounts(reactions: Reaction[]): ReactionCounts {
-  const counts: ReactionCounts = {
+function buildNetworkFetchError(error: unknown, context: string): Error {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.toLowerCase().includes("failed to fetch")) {
+    return new Error(
+      `${context} failed before response (network/proxy/backend unreachable).`
+    );
+  }
+  return new Error(`${context} failed: ${message}`);
+}
+
+async function fetchRepliesRequest(messageId: string): Promise<Message[]> {
+  const endpoint = `/api/messages/${messageId}/replies`;
+  let res: Response;
+  try {
+    res = await fetch(endpoint, { cache: "no-store" });
+  } catch (error) {
+    throw buildNetworkFetchError(error, `GET ${endpoint}`);
+  }
+  if (!res.ok) {
+    throw await buildDetailedFetchError(res, `GET ${endpoint}`);
+  }
+  const data: unknown = await res.json();
+  return Array.isArray(data) ? (data as Message[]) : [];
+}
+
+function emptyReactionCounts(): ReactionCounts {
+  return {
     UPVOTE: 0,
     DOWNVOTE: 0,
     FIRE: 0,
@@ -86,42 +109,56 @@ function buildReactionCounts(reactions: Reaction[]): ReactionCounts {
     PARTY: 0,
     THINKING: 0,
   };
-
-  for (const reaction of reactions) {
-    counts[reaction.reactionType] += 1;
-  }
-
-  return counts;
 }
 
-async function fetchMessageReactions(messageId: string): Promise<Reaction[]> {
-  const res = await fetch(`/api/messages/${messageId}/reactions`, { cache: "no-store" });
-  if (!res.ok) {
-    throw new Error("Failed to load reactions. Please try again.");
+function applyExclusiveReactionConflicts(
+  reactionType: ReactionType,
+  nextUserTypes: Set<ReactionType>,
+  nextCounts: ReactionCounts
+): void {
+  const exclusiveGroup = EXCLUSIVE_REACTION_GROUPS.find((group) => group.includes(reactionType));
+  if (!exclusiveGroup) {
+    return;
   }
 
-  const data: unknown = await res.json();
-  return Array.isArray(data) ? (data as Reaction[]) : [];
+  for (const conflictType of exclusiveGroup) {
+    if (conflictType !== reactionType && nextUserTypes.has(conflictType)) {
+      nextUserTypes.delete(conflictType);
+      nextCounts[conflictType] = Math.max(0, nextCounts[conflictType] - 1);
+    }
+  }
 }
 
 async function sendReactionMutation(
   messageId: string,
-  userId: string,
   reactionType: ReactionType,
   method: "POST" | "DELETE"
 ): Promise<void> {
-  const res = await fetch(`/api/messages/${messageId}/reactions`, {
-    method,
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-    body: JSON.stringify({ userId, reactionType }),
-  });
+  const endpoint = `/api/messages/${messageId}/reactions`;
+  let res: Response;
+  try {
+    res = await fetch(endpoint, {
+      method,
+      credentials: "include",
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      body: JSON.stringify({ reactionType }),
+    });
+  } catch (error) {
+    throw buildNetworkFetchError(error, `${method} ${endpoint}`);
+  }
 
   if (method === "POST" && !res.ok && res.status !== 409) {
-    throw new Error("Failed to add reaction. Please try again.");
+    throw await buildDetailedFetchError(
+      res,
+      `${method} /api/messages/${messageId}/reactions`
+    );
   }
 
   if (method === "DELETE" && !res.ok && res.status !== 404) {
-    throw new Error("Failed to remove reaction. Please try again.");
+    throw await buildDetailedFetchError(
+      res,
+      `${method} /api/messages/${messageId}/reactions`
+    );
   }
 }
 
@@ -132,41 +169,60 @@ function getMessageEndpoint(message: Message, isTopLevel: boolean): string {
 }
 
 async function createReplyRequest(messageId: string, content: string): Promise<void> {
-  const res = await fetch(`/api/messages/${messageId}/replies`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-    body: JSON.stringify({ content }),
-  });
+  const endpoint = `/api/messages/${messageId}/replies`;
+  let res: Response;
+  try {
+    res = await fetch(endpoint, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      body: JSON.stringify({ content }),
+    });
+  } catch (error) {
+    throw buildNetworkFetchError(error, `POST ${endpoint}`);
+  }
   if (!res.ok) {
-    throw new Error("Failed to create reply. Please try again.");
+    throw await buildDetailedFetchError(res, `POST ${endpoint}`);
   }
 }
 
 async function updateMessageRequest(endpoint: string, content: string): Promise<void> {
-  const res = await fetch(endpoint, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-    body: JSON.stringify({ content }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(endpoint, {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      body: JSON.stringify({ content }),
+    });
+  } catch (error) {
+    throw buildNetworkFetchError(error, `PUT ${endpoint}`);
+  }
   if (!res.ok) {
-    throw new Error("Failed to update message. Please try again.");
+    throw await buildDetailedFetchError(res, `PUT ${endpoint}`);
   }
 }
 
 async function deleteMessageRequest(endpoint: string): Promise<void> {
-  const res = await fetch(endpoint, {
-    method: "DELETE",
-    headers: getAuthHeaders(),
-  });
+  let res: Response;
+  try {
+    res = await fetch(endpoint, {
+      method: "DELETE",
+      credentials: "include",
+      headers: getAuthHeaders(),
+    });
+  } catch (error) {
+    throw buildNetworkFetchError(error, `DELETE ${endpoint}`);
+  }
   if (!res.ok) {
-    throw new Error("Failed to delete message. Please try again.");
+    throw await buildDetailedFetchError(res, `DELETE ${endpoint}`);
   }
 }
 
 function useMessageComposer(params: Readonly<{
   message: Message;
   isTopLevel: boolean;
-  onReload: () => void;
+  onReload: () => Promise<void>;
   onError: (err: string) => void;
 }>) {
   const { message, isTopLevel, onReload, onError } = params;
@@ -174,7 +230,7 @@ function useMessageComposer(params: Readonly<{
   const [replyContent, setReplyContent] = useState("");
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   const runWithErrorHandling = async (operation: () => Promise<void>) => {
     try {
@@ -190,7 +246,7 @@ function useMessageComposer(params: Readonly<{
       await createReplyRequest(message.id, replyContent);
       setReplyContent("");
       setShowReplyForm(false);
-      onReload();
+      await onReload();
     });
   };
 
@@ -200,7 +256,7 @@ function useMessageComposer(params: Readonly<{
     void runWithErrorHandling(async () => {
       await updateMessageRequest(endpoint, editContent);
       setEditing(false);
-      onReload();
+      await onReload();
     });
   };
 
@@ -213,7 +269,7 @@ function useMessageComposer(params: Readonly<{
     const endpoint = getMessageEndpoint(message, isTopLevel);
     void runWithErrorHandling(async () => {
       await deleteMessageRequest(endpoint);
-      onReload();
+      await onReload();
     });
   };
 
@@ -243,107 +299,6 @@ function useMessageComposer(params: Readonly<{
     deleteMessage,
     beginEditing,
     cancelReply,
-  };
-}
-
-function useMessageReactions(messageId: string, onError: (err: string) => void) {
-  const [reactions, setReactions] = useState<Reaction[]>([]);
-  const [reactionBusy, setReactionBusy] = useState(false);
-  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const emojiPickerRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    setUserId(createAnonymousUserId());
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      try {
-        const next = await fetchMessageReactions(messageId);
-        if (!cancelled) {
-          setReactions(next);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          onError(String(err));
-        }
-      }
-    };
-
-    void load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [messageId, onError]);
-
-  useEffect(() => {
-    if (!emojiPickerOpen) {
-      return;
-    }
-
-    const handleOutsideClick = (event: MouseEvent) => {
-      if (!emojiPickerRef.current?.contains(event.target as Node)) {
-        setEmojiPickerOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => {
-      document.removeEventListener("mousedown", handleOutsideClick);
-    };
-  }, [emojiPickerOpen]);
-
-  const userReactionTypes = useMemo(() => {
-    if (!userId) {
-      return new Set<ReactionType>();
-    }
-
-    return new Set(
-      reactions
-        .filter((reaction) => reaction.userId === userId)
-        .map((reaction) => reaction.reactionType)
-    );
-  }, [reactions, userId]);
-
-  const reactionCounts = useMemo(() => buildReactionCounts(reactions), [reactions]);
-
-  const visibleEmojiCounts = useMemo(
-    () => EMOJI_REACTIONS.filter(({ type }) => reactionCounts[type] > 0),
-    [reactionCounts]
-  );
-
-  const reactionButtonEnabled = Boolean(userId) && !reactionBusy;
-
-  const handleReactionClick = async (reactionType: ReactionType) => {
-    if (!userId || reactionBusy) {
-      return;
-    }
-
-    setReactionBusy(true);
-    try {
-      const method = userReactionTypes.has(reactionType) ? "DELETE" : "POST";
-      await sendReactionMutation(messageId, userId, reactionType, method);
-      setReactions(await fetchMessageReactions(messageId));
-    } catch (err) {
-      onError(String(err));
-    } finally {
-      setReactionBusy(false);
-    }
-  };
-
-  return {
-    emojiPickerOpen,
-    setEmojiPickerOpen,
-    emojiPickerRef,
-    reactionCounts,
-    userReactionTypes,
-    visibleEmojiCounts,
-    reactionButtonEnabled,
-    handleReactionClick,
   };
 }
 
@@ -390,6 +345,45 @@ function EmojiPickerIcon({ active }: IconProps) {
   );
 }
 
+function ReactionButton({
+  active,
+  count,
+  enabled,
+  onClick,
+  children,
+  size = "md",
+}: Readonly<{
+  active: boolean;
+  count: number;
+  enabled: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  size?: "sm" | "md";
+}>) {
+  const style: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: 999,
+    border: `1px solid ${active ? ACTIVE_REACTION_COLOR : "var(--border)"}`,
+    background: active ? "rgba(249, 115, 22, 0.12)" : "var(--bg)",
+    color: active ? ACTIVE_REACTION_COLOR : "var(--text-muted)",
+    padding: size === "sm" ? "2px 7px" : "3px 8px",
+    fontSize: size === "sm" ? "0.8rem" : "0.85rem",
+    fontWeight: 600,
+    cursor: enabled ? "pointer" : "not-allowed",
+    opacity: enabled ? 1 : 0.6,
+    transition: "all 0.2s",
+  };
+
+  return (
+    <button type="button" onClick={onClick} disabled={!enabled} style={style}>
+      {children}
+      <span>{count}</span>
+    </button>
+  );
+}
+
 export function MessageCard({
   message,
   depth = 0,
@@ -397,15 +391,21 @@ export function MessageCard({
   onError,
 }: Readonly<MessageCardProps>) {
   const isTopLevel = depth === 0;
-  const hasReplies = message.replies && message.replies.length > 0;
-  const replyCount = message.replies?.length || 0;
+  const [loadedReplies, setLoadedReplies] = useState<Message[] | null>(message.replies ?? null);
+  const [loadingReplies, setLoadingReplies] = useState(false);
+  const replyCount = loadedReplies?.length ?? message.replyCount ?? 0;
+  const replyLabel = replyCount === 1 ? "Reply" : "Replies";
+  const replyButtonText = loadingReplies ? "Loading replies..." : `${replyCount} ${replyLabel}`;
   const maxIndent = 10;
 
-  const { session, isAdmin } = useAuth();
+  const { session, isAdmin, isAuthenticated } = useAuth();
   const currentUserId = session?.profile?.id;
 
   const canEdit = currentUserId === message.userId;
   const canDelete = isAdmin || currentUserId === message.userId;
+  const [reactionBusy, setReactionBusy] = useState(false);
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const emojiPickerRef = useRef<HTMLDivElement | null>(null);
 
   const {
     showReplyForm,
@@ -425,114 +425,190 @@ export function MessageCard({
     cancelReply,
   } = useMessageComposer({ message, isTopLevel, onReload, onError });
 
-  const {
-    emojiPickerOpen,
-    setEmojiPickerOpen,
-    emojiPickerRef,
-    reactionCounts,
-    userReactionTypes,
-    visibleEmojiCounts,
-    reactionButtonEnabled,
-    handleReactionClick,
-  } = useMessageReactions(message.id, onError);
+  const initialReactionCounts: ReactionCounts = useMemo(
+    () => ({
+      ...emptyReactionCounts(),
+      ...(message.reactionCounts ?? {}),
+    }),
+    [message.reactionCounts]
+  );
+  const initialUserReactionTypes = useMemo(
+    () =>
+      new Set(
+        (message.reactions ?? [])
+          .filter((reaction) => reaction.userId === currentUserId)
+          .map((reaction) => reaction.reactionType)
+      ),
+    [message.reactions, currentUserId]
+  );
+  const [reactionCounts, setReactionCounts] = useState<ReactionCounts>(initialReactionCounts);
+  const [userReactionTypes, setUserReactionTypes] = useState<Set<ReactionType>>(initialUserReactionTypes);
+
+  useEffect(() => {
+    setReactionCounts(initialReactionCounts);
+    setUserReactionTypes(initialUserReactionTypes);
+  }, [initialReactionCounts, initialUserReactionTypes]);
+  const visibleEmojiCounts = useMemo(
+    () => EMOJI_REACTIONS.filter(({ type }) => reactionCounts[type] > 0),
+    [reactionCounts]
+  );
+  const reactionButtonEnabled = isAuthenticated && !reactionBusy;
+
+  useEffect(() => {
+    if (!emojiPickerOpen) {
+      return;
+    }
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (event.target instanceof Node && !emojiPickerRef.current?.contains(event.target)) {
+        setEmojiPickerOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [emojiPickerOpen]);
+
+  const handleReactionClick = async (reactionType: ReactionType) => {
+    if (!isAuthenticated || reactionBusy) {
+      return;
+    }
+
+    setReactionBusy(true);
+    const currentlyActive = userReactionTypes.has(reactionType);
+    const method: "POST" | "DELETE" = currentlyActive ? "DELETE" : "POST";
+    const prevCounts = reactionCounts;
+    const prevUserTypes = userReactionTypes;
+
+    const nextCounts: ReactionCounts = {
+      ...reactionCounts,
+      [reactionType]: Math.max(
+        0,
+        reactionCounts[reactionType] + (method === "POST" ? 1 : -1)
+      ),
+    };
+    const nextUserTypes = new Set(userReactionTypes);
+    if (method === "POST") {
+      applyExclusiveReactionConflicts(reactionType, nextUserTypes, nextCounts);
+      nextUserTypes.add(reactionType);
+    } else {
+      nextUserTypes.delete(reactionType);
+    }
+    setReactionCounts(nextCounts);
+    setUserReactionTypes(nextUserTypes);
+
+    try {
+      await sendReactionMutation(message.id, reactionType, method);
+    } catch (err) {
+      setReactionCounts(prevCounts);
+      setUserReactionTypes(prevUserTypes);
+      onError(String(err));
+    } finally {
+      setReactionBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    setLoadedReplies(message.replies ?? null);
+  }, [message.id, message.replies]);
+
+  const toggleReplies = async () => {
+    if (collapsed) {
+      if (loadedReplies == null) {
+        setLoadingReplies(true);
+        try {
+          const replies = await fetchRepliesRequest(message.id);
+          setLoadedReplies(replies);
+        } catch (err) {
+          onError(String(err));
+          setLoadingReplies(false);
+          return;
+        } finally {
+          setLoadingReplies(false);
+        }
+      }
+      setCollapsed(false);
+      return;
+    }
+    setCollapsed(true);
+  };
+
+  const reloadRepliesForCurrentMessage = async () => {
+    if (loadedReplies == null) {
+      return;
+    }
+    const replies = await fetchRepliesRequest(message.id);
+    setLoadedReplies(replies);
+  };
 
   const containerStyle: React.CSSProperties = isTopLevel
     ? { marginBottom: "1rem" }
     : {
         marginLeft: Math.min(depth - 1, maxIndent) * 16,
-        borderLeft: "2px solid var(--border, #ddd)",
+        borderLeft: "2px solid var(--border)",
         paddingLeft: 12,
         marginTop: 8,
       };
 
-  const cardStyle: React.CSSProperties = isTopLevel ? {} : { padding: "8px 0" };
-
-  const fontSize = isTopLevel ? "1rem" : "0.9rem";
-  const smallFontSize = isTopLevel ? "0.85rem" : "0.8rem";
-  const buttonPadding = isTopLevel ? "4px 8px" : "2px 6px";
-
-  const reactionButtonStyle = (active: boolean): React.CSSProperties => ({
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 4,
-    borderRadius: 999,
-    border: `1px solid ${active ? ACTIVE_REACTION_COLOR : "var(--input-border, #cbd5e1)"}`,
-    background: active ? "rgba(249, 115, 22, 0.12)" : "#fff",
-    color: active ? ACTIVE_REACTION_COLOR : "var(--text-muted, #666)",
-    padding: isTopLevel ? "3px 8px" : "2px 7px",
-    fontSize: smallFontSize,
-    fontWeight: 600,
-    cursor: reactionButtonEnabled ? "pointer" : "not-allowed",
-    opacity: reactionButtonEnabled ? 1 : 0.6,
-  });
+  const formattedDate = message.createdAt
+    ? new Date(message.createdAt).toLocaleString()
+    : null;
 
   return (
     <div style={containerStyle}>
-      <div className={`${isTopLevel ? "card " : ""}message-card`} style={cardStyle}>
+      <Card style={isTopLevel ? {} : { padding: "8px 0", border: "none", boxShadow: "none", background: "transparent" }}>
         {!editing ? (
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem" }}>
             <div style={{ flex: 1 }}>
-              {isTopLevel && <div style={{ fontWeight: 700, marginBottom: 4 }}>Message</div>}
-              <div style={{ fontSize }}>{message.content}</div>
-              {message.createdAt && (
-                <div style={{ marginTop: "0.5rem", fontSize: smallFontSize, color: "var(--text-muted, #666)" }}>
-                  {new Date(message.createdAt).toLocaleString()}
+              {isTopLevel && (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
+                  <Avatar name="User" size="sm" />
+                  <span style={{ fontWeight: 700, fontSize: "0.95rem" }}>Message</span>
+                  {formattedDate && (
+                    <Badge variant="info" size="sm">{formattedDate}</Badge>
+                  )}
                 </div>
               )}
+              <div style={{ fontSize: isTopLevel ? "1rem" : "0.9rem", lineHeight: 1.6, color: "var(--text)" }}>
+                {message.content}
+              </div>
 
-              <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    void handleReactionClick("UPVOTE");
-                  }}
-                  style={reactionButtonStyle(userReactionTypes.has("UPVOTE"))}
-                  disabled={!reactionButtonEnabled}
-                  aria-label="Upvote"
-                  title="Upvote"
+              <div style={{ marginTop: "0.75rem", display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                <ReactionButton
+                  active={userReactionTypes.has("UPVOTE")}
+                  count={reactionCounts.UPVOTE}
+                  enabled={reactionButtonEnabled}
+                  onClick={() => void handleReactionClick("UPVOTE")}
                 >
                   <UpvoteIcon active={userReactionTypes.has("UPVOTE")} />
-                  <span>{reactionCounts.UPVOTE}</span>
-                </button>
+                </ReactionButton>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    void handleReactionClick("DOWNVOTE");
-                  }}
-                  style={reactionButtonStyle(userReactionTypes.has("DOWNVOTE"))}
-                  disabled={!reactionButtonEnabled}
-                  aria-label="Downvote"
-                  title="Downvote"
+                <ReactionButton
+                  active={userReactionTypes.has("DOWNVOTE")}
+                  count={reactionCounts.DOWNVOTE}
+                  enabled={reactionButtonEnabled}
+                  onClick={() => void handleReactionClick("DOWNVOTE")}
                 >
                   <DownvoteIcon active={userReactionTypes.has("DOWNVOTE")} />
-                  <span>{reactionCounts.DOWNVOTE}</span>
-                </button>
+                </ReactionButton>
 
                 {visibleEmojiCounts.length > 0 && (
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {visibleEmojiCounts.map(({ type, emoji, label }) => {
                       const active = userReactionTypes.has(type);
-
                       return (
-                        <button
+                        <ReactionButton
                           key={type}
-                          type="button"
-                          onClick={() => {
-                            void handleReactionClick(type);
-                          }}
-                          disabled={!reactionButtonEnabled}
-                          aria-label={label}
-                          title={label}
-                          style={{
-                            ...reactionButtonStyle(active),
-                            padding: isTopLevel ? "2px 7px" : "1px 6px",
-                            fontWeight: 500,
-                          }}
+                          active={active}
+                          count={reactionCounts[type]}
+                          enabled={reactionButtonEnabled}
+                          onClick={() => void handleReactionClick(type)}
+                          size="sm"
                         >
                           <span>{emoji}</span>
-                          <span>{reactionCounts[type]}</span>
-                        </button>
+                        </ReactionButton>
                       );
                     })}
                   </div>
@@ -540,15 +616,22 @@ export function MessageCard({
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+            <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0, alignItems: "center" }}>
               <div ref={emojiPickerRef} style={{ position: "relative" }}>
                 <button
                   type="button"
                   onClick={() => setEmojiPickerOpen((current) => !current)}
-                  className={`emoji-trigger ${emojiPickerOpen ? "emoji-trigger-open" : ""}`}
                   style={{
-                    ...reactionButtonStyle(false),
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    borderRadius: 999,
+                    border: "1px solid var(--border)",
+                    background: "var(--bg)",
+                    color: "var(--text-muted)",
                     padding: isTopLevel ? "4px" : "3px",
+                    cursor: reactionButtonEnabled ? "pointer" : "not-allowed",
+                    opacity: reactionButtonEnabled ? 1 : 0.6,
                   }}
                   aria-label="Open emoji reactions"
                   title="Emoji reactions"
@@ -568,161 +651,125 @@ export function MessageCard({
                       gap: 6,
                       padding: 8,
                       borderRadius: 12,
-                      border: "1px solid var(--border, #ddd)",
-                      background: "#fff",
+                      border: "1px solid var(--border)",
+                      background: "var(--bg)",
                       boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
                     }}
                   >
                     {EMOJI_REACTIONS.map(({ type, emoji, label }) => {
                       const active = userReactionTypes.has(type);
-
                       return (
-                        <button
+                        <ReactionButton
                           key={type}
-                          type="button"
-                          onClick={() => {
-                            void handleReactionClick(type);
-                          }}
-                          style={reactionButtonStyle(active)}
-                          disabled={!reactionButtonEnabled}
-                          aria-label={label}
-                          title={label}
+                          active={active}
+                          count={reactionCounts[type]}
+                          enabled={reactionButtonEnabled}
+                          onClick={() => void handleReactionClick(type)}
+                          size="sm"
                         >
                           <span>{emoji}</span>
-                          <span>{reactionCounts[type]}</span>
-                        </button>
+                        </ReactionButton>
                       );
                     })}
                   </div>
                 )}
               </div>
 
-                            <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
+                pill
                 onClick={() => setShowReplyForm(!showReplyForm)}
-                className="btn-ghost"
-                style={{ fontSize: smallFontSize, padding: buttonPadding }}
                 title="Reply to this message"
               >
                 Reply
-              </button>
+              </Button>
               {canEdit && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    beginEditing();
-                  }}
-                  className="btn"
-                  style={{ fontSize: smallFontSize, padding: buttonPadding }}
-                >
+                <Button variant="secondary" size="sm" pill onClick={beginEditing}>
                   Edit
-                </button>
+                </Button>
               )}
               {canDelete && (
-                <button
-                  type="button"
-                  onClick={deleteMessage}
-                  className="btn-danger"
-                  style={{ fontSize: smallFontSize, padding: buttonPadding }}
-                >
+                <Button variant="danger" size="sm" pill onClick={deleteMessage}>
                   Delete
-                </button>
+                </Button>
               )}
             </div>
           </div>
         ) : (
-          <form onSubmit={updateMessage} style={{ marginTop: 8 }}>
-            <div style={{ marginBottom: 8 }}>
-              <label style={{ display: "block", marginBottom: 4, fontSize: smallFontSize }}>
-                Edit {isTopLevel ? "Message" : "Reply"}
-              </label>
-              <textarea
-                required
-                value={editContent}
-                onChange={(e) => setEditContent(e.target.value)}
-                rows={isTopLevel ? 3 : 2}
-                style={{ fontSize }}
-              />
-            </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button type="submit" className="btn" style={{ fontSize: smallFontSize, padding: buttonPadding }}>
+          <form onSubmit={updateMessage} style={{ marginTop: "0.5rem" }}>
+            <Textarea
+              label={`Edit ${isTopLevel ? "Message" : "Reply"}`}
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              rows={isTopLevel ? 3 : 2}
+            />
+            <div style={{ marginTop: "0.75rem", display: "flex", gap: "0.5rem" }}>
+              <Button type="submit" variant="primary" pill size="sm">
                 Save
-              </button>
-              <button
-                type="button"
-                onClick={() => setEditing(false)}
-                className="btn-ghost"
-                style={{ fontSize: smallFontSize, padding: buttonPadding }}
-              >
+              </Button>
+              <Button type="button" variant="ghost" pill size="sm" onClick={() => setEditing(false)}>
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         )}
 
         {showReplyForm && (
-          <form onSubmit={createReply} style={{ marginTop: 12 }}>
-            <div style={{ marginBottom: 8 }}>
-              <label style={{ display: "block", marginBottom: 4, fontSize: smallFontSize }}>Write a reply</label>
-              <textarea
-                required
-                value={replyContent}
-                onChange={(e) => setReplyContent(e.target.value)}
-                rows={2}
-                placeholder="Write your reply..."
-                style={{ fontSize }}
-              />
-            </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button type="submit" className="btn" style={{ fontSize: smallFontSize, padding: buttonPadding }}>
+          <form onSubmit={createReply} style={{ marginTop: "1rem" }}>
+            <Textarea
+              label="Write a reply"
+              value={replyContent}
+              onChange={(e) => setReplyContent(e.target.value)}
+              rows={2}
+              placeholder="Write your reply..."
+            />
+            <div style={{ marginTop: "0.75rem", display: "flex", gap: "0.5rem" }}>
+              <Button type="submit" variant="primary" pill size="sm">
                 Post Reply
-              </button>
-              <button
-                type="button"
-                onClick={cancelReply}
-                className="btn-ghost"
-                style={{ fontSize: smallFontSize, padding: buttonPadding }}
-              >
+              </Button>
+              <Button type="button" variant="ghost" pill size="sm" onClick={cancelReply}>
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         )}
 
-        {hasReplies && (
-          <div style={{ marginTop: 12 }}>
-            <button
-              type="button"
-              onClick={() => setCollapsed(!collapsed)}
-              className="btn-ghost"
-              style={{
-                fontSize: smallFontSize,
-                padding: buttonPadding,
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                color: "var(--text-muted, #666)",
-              }}
-            >
-              <span style={{ fontSize: "0.7rem" }}>{collapsed ? "▶" : "▼"}</span>
-              {replyCount} {replyCount === 1 ? "Reply" : "Replies"}
-            </button>
-            {!collapsed && (
-              <div style={{ marginTop: 8 }}>
-                {message.replies!.map((reply) => (
+        <div style={{ marginTop: "1rem" }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            pill
+            onClick={() => void toggleReplies()}
+            style={{ color: "var(--text-muted)", display: "inline-flex", alignItems: "center", gap: "0.5rem" }}
+          >
+            <span style={{ fontSize: "0.7rem" }}>{collapsed ? "▶" : "▼"}</span>
+            {replyButtonText}
+          </Button>
+          {!collapsed && (
+            <div style={{ marginTop: "0.75rem" }}>
+              {loadedReplies && loadedReplies.length > 0 ? (
+                loadedReplies.map((reply) => (
                   <MessageCard
                     key={reply.id}
                     message={{ ...reply, parentId: message.id }}
                     depth={depth + 1}
-                    onReload={onReload}
+                    onReload={async () => {
+                      await onReload();
+                      await reloadRepliesForCurrentMessage();
+                    }}
                     onError={onError}
                   />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+                ))
+              ) : (
+                <div style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                  No replies yet.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </Card>
     </div>
   );
 }

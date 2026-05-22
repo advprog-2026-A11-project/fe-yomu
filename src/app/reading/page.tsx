@@ -21,7 +21,7 @@ export default function ReadingPage() {
 
     return (
         <ProtectedRoute description="Sign in to open reading modules.">
-            <p>Redirecting...</p>
+            <div />
         </ProtectedRoute>
     );
 }

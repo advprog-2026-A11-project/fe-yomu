@@ -5,6 +5,8 @@ import { GoogleAuthButton } from "@/components/auth/google-auth-button";
 import { runGoogleAuthAction } from "@/components/auth/google-auth-action";
 import { useAuth } from "@/components/providers/auth-provider";
 import { normalizeAuthError } from "@/lib/auth-client";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
 
 export function LoginForm() {
   const { signIn, startGoogleSignIn } = useAuth();
@@ -35,50 +37,43 @@ export function LoginForm() {
   }
 
   return (
-    <div className="auth-panel-stack">
+    <div className="auth-form-container">
       <GoogleAuthButton
         loading={loading}
         label="Continue with Google"
         onClick={() => void handleGoogleSignIn()}
       />
 
-      <div className="divider-line">
+      <div className="auth-form-divider">
         <span>or sign in with your account</span>
       </div>
 
-      <form className="auth-form" onSubmit={(event) => void handleSubmit(event)}>
-        <label className="field">
-          <span>Email, username, or phone</span>
-          <input
-            value={identifier}
-            onChange={(event) => setIdentifier(event.target.value)}
-            type="text"
-            autoComplete="username"
-            placeholder="you@yomu.id / username / 0812..."
-            required
-          />
-        </label>
-        <p className="form-feedback">
-          You can sign in with your email, username, or registered phone number.
-        </p>
+      <form className="auth-form-actions" onSubmit={(event) => void handleSubmit(event)}>
+        <Input
+          label="Email, username, or phone"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          type="text"
+          autoComplete="username"
+          placeholder="you@yomu.id / username / 0812..."
+          required
+        />
 
-        <label className="field">
-          <span>Password</span>
-          <input
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            type="password"
-            autoComplete="current-password"
-            placeholder="Enter your password"
-            required
-          />
-        </label>
+        <Input
+          label="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          type="password"
+          autoComplete="current-password"
+          placeholder="Enter your password"
+          required
+        />
 
-        {error ? <p className="form-feedback form-feedback-error">{error}</p> : null}
+        {error && <div className="auth-error">{error}</div>}
 
-        <button type="submit" className="button button-primary" disabled={loading}>
+        <Button type="submit" variant="primary" pill loading={loading} style={{ width: "100%" }}>
           {loading ? "Signing in..." : "Sign in"}
-        </button>
+        </Button>
       </form>
     </div>
   );

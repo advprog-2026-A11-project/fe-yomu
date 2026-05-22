@@ -37,6 +37,31 @@ export interface AuthTokenResponse {
   message?: string;
 }
 
+export interface UpdateProfileResponse {
+  message?: string;
+  userId?: string;
+  username?: string;
+  displayName?: string;
+  email?: string | null;
+}
+
+export interface UpdateEmailResponse {
+  message?: string;
+  userId?: string;
+  email?: string;
+}
+
+export interface UpdatePhoneResponse {
+  message?: string;
+  userId?: string;
+  phone?: string;
+}
+
+export interface DeleteAccountResponse {
+  message?: string;
+  userId?: string;
+}
+
 export interface AuthModalIntent {
   mode: AuthModalMode;
   nextPath?: string;
