@@ -108,23 +108,11 @@ export default function ReadingViewStudent() {
 function QuizResultModal({
                              result,
                              onClose,
-                         }: {
+                         }: Readonly<{
     result: QuizResult;
     onClose: () => void;
-}) {
-    const scoreColor =
-        result.score >= 80
-            ? "text-emerald-600"
-            : result.score >= 60
-                ? "text-amber-500"
-                : "text-rose-500";
-
-    const scoreBg =
-        result.score >= 80
-            ? "bg-emerald-50 border-emerald-200"
-            : result.score >= 60
-                ? "bg-amber-50 border-amber-200"
-                : "bg-rose-50 border-rose-200";
+}>) {
+    const { scoreColor, scoreBg } = getScoreStyles(result.score);
 
     const completedDate = new Date(result.completedAt).toLocaleDateString("id-ID", {
         day: "numeric",
@@ -174,16 +162,8 @@ function QuizResultModal({
                     <div className="flex gap-2">
                         {["🥇", "🥈", "🥉"].map((medal, i) => (
                             <span
-                                key={i}
-                                className={`text-2xl transition-opacity ${
-                                    result.score >= 80 && i === 0
-                                        ? "opacity-100"
-                                        : result.score >= 60 && i === 1
-                                            ? "opacity-100"
-                                            : result.score < 60 && i === 2
-                                                ? "opacity-100"
-                                                : "opacity-20"
-                                }`}
+                                key={medal}
+                                className={`text-2xl transition-opacity ${getMedalOpacity(result.score, i)}`}
                             >
                                 {medal}
                             </span>
@@ -234,28 +214,74 @@ function formatDuration(seconds: number) {
     return `${minutes}:${remainingSeconds}`;
 }
 
+function getScoreStyles(score: number) {
+    if (score >= 80) {
+        return {
+            scoreColor: "text-emerald-600",
+            scoreBg: "bg-emerald-50 border-emerald-200",
+        };
+    }
+
+    if (score >= 60) {
+        return {
+            scoreColor: "text-amber-500",
+            scoreBg: "bg-amber-50 border-amber-200",
+        };
+    }
+
+    return {
+        scoreColor: "text-rose-500",
+        scoreBg: "bg-rose-50 border-rose-200",
+    };
+}
+
+function getMedalOpacity(score: number, index: number) {
+    let selectedIndex = 2;
+    if (score >= 80) {
+        selectedIndex = 0;
+    } else if (score >= 60) {
+        selectedIndex = 1;
+    }
+    return selectedIndex === index ? "opacity-100" : "opacity-20";
+}
+
+function getAnswerOptionClass(isCorrect: boolean, isUserAnswer: boolean) {
+    if (isCorrect) {
+        return "bg-emerald-100 border-emerald-400 text-emerald-700";
+    }
+
+    if (isUserAnswer) {
+        return "bg-rose-100 border-rose-400 text-rose-700";
+    }
+
+    return "bg-white border-slate-200 text-slate-500";
+}
+
+function getReviewCardStyles(isCorrect: boolean) {
+    return {
+        card: isCorrect ? "border-emerald-200 bg-emerald-50" : "border-rose-200 bg-rose-50",
+        marker: isCorrect ? "bg-emerald-500 text-white" : "bg-rose-500 text-white",
+        badge: isCorrect ? "bg-emerald-200 text-emerald-700" : "bg-rose-200 text-rose-700",
+        answer: isCorrect ? "text-emerald-600" : "text-rose-600",
+    };
+}
+
 function QuestionReviewCard({
                                 detail,
                                 index,
-                            }: {
+                            }: Readonly<{
     detail: QuizResultDetail;
     index: number;
-}) {
+}>) {
+    const styles = getReviewCardStyles(detail.correct);
+
     return (
         <div
-            className={`rounded-2xl border p-5 ${
-                detail.correct
-                    ? "border-emerald-200 bg-emerald-50"
-                    : "border-rose-200 bg-rose-50"
-            }`}
+            className={`rounded-2xl border p-5 ${styles.card}`}
         >
             <div className="flex items-start gap-3 mb-4">
                 <div
-                    className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
-                        detail.correct
-                            ? "bg-emerald-500 text-white"
-                            : "bg-rose-500 text-white"
-                    }`}
+                    className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${styles.marker}`}
                 >
                     {index + 1}
                 </div>
@@ -265,11 +291,7 @@ function QuestionReviewCard({
                             {detail.questionType.replace("_", " ")}
                         </span>
                         <span
-                            className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                                detail.correct
-                                    ? "bg-emerald-200 text-emerald-700"
-                                    : "bg-rose-200 text-rose-700"
-                            }`}
+                            className={`text-xs font-bold px-2 py-0.5 rounded-full ${styles.badge}`}
                         >
                             {detail.correct ? "✓ Correct" : "✗ Incorrect"}
                         </span>
@@ -289,13 +311,7 @@ function QuestionReviewCard({
                             return (
                                 <span
                                     key={opt}
-                                    className={`px-3 py-1 rounded-lg text-sm font-medium border ${
-                                        isCorrect
-                                            ? "bg-emerald-100 border-emerald-400 text-emerald-700"
-                                            : isUserAnswer && !isCorrect
-                                                ? "bg-rose-100 border-rose-400 text-rose-700"
-                                                : "bg-white border-slate-200 text-slate-500"
-                                    }`}
+                                    className={`px-3 py-1 rounded-lg text-sm font-medium border ${getAnswerOptionClass(isCorrect, isUserAnswer)}`}
                                 >
                                     {opt}
                                     {isCorrect && " ✓"}
@@ -309,7 +325,7 @@ function QuestionReviewCard({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div className="bg-white rounded-xl px-4 py-2.5 border border-slate-200">
                         <p className="text-xs text-slate-400 mb-0.5">Your answer</p>
-                        <p className={`font-semibold text-sm ${detail.correct ? "text-emerald-600" : "text-rose-600"}`}>
+                        <p className={`font-semibold text-sm ${styles.answer}`}>
                             {detail.userAnswer ?? <span className="italic text-slate-400">No answer</span>}
                         </p>
                     </div>

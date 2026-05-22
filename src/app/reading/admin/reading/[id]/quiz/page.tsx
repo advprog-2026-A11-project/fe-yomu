@@ -22,6 +22,10 @@ interface QuizQuestionRequest {
 
 import { ReadingAPI } from "@/lib/readings";
 
+function getOptionLetter(index: number) {
+    return String.fromCodePoint(65 + index);
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function Badge({ type }: { type: string }) {
@@ -165,19 +169,22 @@ function QuestionForm({ initial, onSubmit, onCancel }: QuestionFormProps) {
                         <span className="text-gray-400 font-normal">(min. 2)</span>
                     </label>
                     <div className="space-y-2">
-                        {options.map((opt, idx) => (
-                            <div key={idx} className="flex items-center gap-3">
+                        {options.map((opt, idx) => {
+                            const letter = getOptionLetter(idx);
+                            return (
+                            <div key={letter} className="flex items-center gap-3">
             <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-100 text-xs font-bold text-gray-500">
-                {String.fromCharCode(65 + idx)}
+                {letter}
                 </span>
                                 <input
                                     value={opt}
                                     onChange={(e) => handleOptionChange(idx, e.target.value)}
-                                    placeholder={`Option ${String.fromCharCode(65 + idx)}`}
+                                    placeholder={`Option ${letter}`}
                                     className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                                 />
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
                     <div className="mt-3">
                         <label className="block text-sm font-semibold text-gray-700 mb-1">
@@ -192,9 +199,9 @@ function QuestionForm({ initial, onSubmit, onCancel }: QuestionFormProps) {
                             {options
                                 .filter((o) => o.trim())
                                 .map((o, idx) => {
-                                    const letter = String.fromCharCode(65 + idx);
+                                    const letter = getOptionLetter(idx);
                                     return (
-                                        <option key={idx} value={letter}>
+                                        <option key={`${letter}-${o}`} value={letter}>
                                             {letter}. {o}
                                         </option>
                                     );
@@ -301,10 +308,10 @@ function QuestionCard({ q, index, onEdit, onDelete }: QuestionCardProps) {
                         {q.questionType === "MULTIPLE_CHOICE" && q.options && (
                             <ul className="mt-3 space-y-1">
                                 {q.options.map((opt, i) => {
-                                    const letter = String.fromCharCode(65 + i);
+                                    const letter = getOptionLetter(i);
                                     return (
                                         <li
-                                            key={i}
+                                            key={`${letter}-${opt}`}
                                             className={`flex items-center gap-2 text-xs rounded-lg px-3 py-1.5 ${
                                                 letter === q.correctAnswer
                                                     ? "bg-emerald-50 text-emerald-700 font-semibold"

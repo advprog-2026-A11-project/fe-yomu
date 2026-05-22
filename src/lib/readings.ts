@@ -4,12 +4,12 @@ const API_STUDENT = "/api/reading-student";
 const API_ADMIN = "/api/reading-admin";
 
 async function apiFetch(url: string, options: RequestInit = {}): Promise<any> {
+    const headers = new Headers(options.headers);
+    headers.set("Content-Type", "application/json");
+
     const response = await fetch(url, {
         ...options,
-        headers: {
-            "Content-Type": "application/json",
-            ...(options.headers || {}),
-        },
+        headers,
         credentials: "include",
     });
 
