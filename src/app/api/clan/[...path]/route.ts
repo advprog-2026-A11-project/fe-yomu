@@ -3,7 +3,9 @@ import { proxyToBackend } from "@/lib/backend-proxy";
 async function handleClanRequest(request: Request, { params }: { params: Promise<{ path: string[] }> }) {
   const { path } = await params;
   const backendPath = `/api/clan/${path.join("/")}`;
-  return proxyToBackend(backendPath, request);
+  return proxyToBackend(backendPath, request, {
+    backendService: "liga",
+  });
 }
 
 export {
