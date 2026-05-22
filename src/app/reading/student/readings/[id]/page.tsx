@@ -173,7 +173,7 @@ function QuizResultModal({
                             <div className="font-semibold text-slate-700">
                                 {result.correctAnswers} / {result.totalQuestions} correct
                             </div>
-                            <div>Accuracy: {(result.accuracy * 100).toFixed(1)}%</div>
+                            <div>Accuracy: {(result.accuracy <= 1 ? result.accuracy * 100 : result.accuracy).toFixed(1)}%</div>
                         </div>
                     </div>
                     <div className="flex gap-2">
