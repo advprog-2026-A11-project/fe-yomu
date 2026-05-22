@@ -1,30 +1,16 @@
-// lib/reading.ts
-import { proxyToBackend } from "@/lib/backend-proxy";
+// lib/readings.ts
 
-// Gunakan backendBaseUrl dari environment variable
-const READING_BACKEND_OPTIONS = {
-    backendBaseUrl: process.env.NEXT_PUBLIC_BACKEND_BACAAN_QUIZ_URL
-};
+const API_STUDENT = "/api/reading-student";
+const API_ADMIN = "/api/reading-admin";
 
-async function proxyToBacaanQuiz(path: string, method: string, headers?: Record<string, string>, body?: any) {
-    if (!READING_BACKEND_OPTIONS.backendBaseUrl) {
-        throw new Error("NEXT_PUBLIC_BACKEND_BACAAN_QUIZ_URL is not configured");
-    }
-
-    // Buat Request object (required oleh proxyToBackend)
-    const request = new Request(`http://internal${path}`, {
-        method,
+async function apiFetch(url: string, options: RequestInit = {}): Promise<any> {
+    const response = await fetch(url, {
+        ...options,
         headers: {
-            ...headers,
-            ...(body && { "Content-Type": "application/json" }),
+            "Content-Type": "application/json",
+            ...(options.headers || {}),
         },
-        ...(body && { body: JSON.stringify(body) }),
-    });
-
-    // Gunakan proxyToBackend (akan otomatis mengambil token dari cookie)
-    const response = await proxyToBackend(path, request, {
-        ...READING_BACKEND_OPTIONS,
-        headers,
+        credentials: "include",
     });
 
     if (!response.ok) {
@@ -33,77 +19,100 @@ async function proxyToBacaanQuiz(path: string, method: string, headers?: Record<
             const errorText = await response.text();
             try {
                 const errorData = JSON.parse(errorText);
-                if (errorData && errorData.message) {
+                if (errorData?.message) {
                     errorMsg += ` - ${errorData.message}`;
                 } else if (errorText) {
                     errorMsg += ` - ${errorText}`;
                 }
-            } catch (e) {
-                if (errorText) {
-                    errorMsg += ` - ${errorText}`;
-                }
+            } catch {
+                if (errorText) errorMsg += ` - ${errorText}`;
             }
-        } catch (e) {
-            // Ignore
+        } catch {
+            // ignore
         }
         throw new Error(errorMsg);
     }
 
-    if (response.status === 204) {
-        return null;
-    }
+    if (response.status === 204) return null;
 
     const text = await response.text();
-    if (!text) {
-        return null;
-    }
+    if (!text) return null;
 
     return JSON.parse(text);
 }
 
 export const ReadingAPI = {
-    getStudentReadingById: async (id: string, userId: string) => {
-        return proxyToBacaanQuiz(`/api/student/readings/${id}`, "GET", { userId });
+    // ── Student: Reading ──────────────────────────────────────────────────────
+
+    getStudentReadings: async () => {
+        return apiFetch(API_STUDENT);
     },
 
-    getReadingById: async (id: string, userId: string) => {
-        return proxyToBacaanQuiz(`/api/admin/readings/${id}`, "GET", { userId });
+    getStudentReadingById: async (id: string) => {
+        return apiFetch(`${API_STUDENT}/${id}`);
     },
 
-    getQuestionsCount: async (id: string, userId: string) => {
-        return proxyToBacaanQuiz(`/api/admin/readings/${id}/questions/count`, "GET", { userId });
+    // GET /api/student/readings/stats  (endpoint baru — userId dari JWT)
+    getUserStats: async () => {
+        return apiFetch(`${API_STUDENT}/stats`);
     },
 
-    getQuizQuestions: async (readingId: string, userId: string) => {
-        return proxyToBacaanQuiz(`/api/student/quiz/readings/${readingId}/questions`, "GET", { userId });
+    // ── Student: Quiz ─────────────────────────────────────────────────────────
+
+    getQuizQuestions: async (readingId: string) => {
+        return apiFetch(`${API_STUDENT}/quiz/readings/${readingId}/questions`);
     },
 
-    submitQuiz: async (readingId: string, userId: string, data: any) => {
-        return proxyToBacaanQuiz(`/api/student/quiz/readings/${readingId}/submit`, "POST", { userId }, data);
+    submitQuiz: async (readingId: string, data: any) => {
+        return apiFetch(`${API_STUDENT}/quiz/readings/${readingId}/submit`, {
+            method: "POST",
+            body: JSON.stringify(data),
+        });
     },
 
-    getQuizResult: async (readingId: string, userId: string) => {
-        return proxyToBacaanQuiz(`/api/student/quiz/readings/${readingId}/result`, "GET", { userId });
+    getQuizResult: async (readingId: string) => {
+        return apiFetch(`${API_STUDENT}/quiz/readings/${readingId}/result`);
     },
 
-    // Admin Quiz APIs
-    getAdminQuizQuestions: async (readingId: string, userId: string) => {
-        return proxyToBacaanQuiz(`/api/admin/readings/${readingId}/questions`, "GET", { userId });
+    // ── Admin: Reading ────────────────────────────────────────────────────────
+
+    getReadingById: async (id: string) => {
+        return apiFetch(`${API_ADMIN}/${id}`);
     },
 
-    createAdminQuizQuestion: async (readingId: string, userId: string, data: any) => {
-        return proxyToBacaanQuiz(`/api/admin/readings/${readingId}/questions`, "POST", { userId }, data);
+    getQuestionsCount: async (id: string) => {
+        return apiFetch(`${API_ADMIN}/${id}/questions/count`);
     },
 
-    updateAdminQuizQuestion: async (readingId: string, questionId: string, userId: string, data: any) => {
-        return proxyToBacaanQuiz(`/api/admin/readings/${readingId}/questions/${questionId}`, "PUT", { userId }, data);
+    // ── Admin: Quiz ───────────────────────────────────────────────────────────
+
+    getAdminQuizQuestions: async (readingId: string) => {
+        return apiFetch(`${API_ADMIN}/${readingId}/questions`);
     },
 
-    deleteAdminQuizQuestion: async (readingId: string, questionId: string, userId: string) => {
-        return proxyToBacaanQuiz(`/api/admin/readings/${readingId}/questions/${questionId}`, "DELETE", { userId });
+    createAdminQuizQuestion: async (readingId: string, data: any) => {
+        return apiFetch(`${API_ADMIN}/${readingId}/questions`, {
+            method: "POST",
+            body: JSON.stringify(data),
+        });
     },
 
-    deleteAllAdminQuizQuestions: async (readingId: string, userId: string) => {
-        return proxyToBacaanQuiz(`/api/admin/readings/${readingId}/questions`, "DELETE", { userId });
+    updateAdminQuizQuestion: async (readingId: string, questionId: string, data: any) => {
+        return apiFetch(`${API_ADMIN}/${readingId}/questions/${questionId}`, {
+            method: "PUT",
+            body: JSON.stringify(data),
+        });
+    },
+
+    deleteAdminQuizQuestion: async (readingId: string, questionId: string) => {
+        return apiFetch(`${API_ADMIN}/${readingId}/questions/${questionId}`, {
+            method: "DELETE",
+        });
+    },
+
+    deleteAllAdminQuizQuestions: async (readingId: string) => {
+        return apiFetch(`${API_ADMIN}/${readingId}/questions`, {
+            method: "DELETE",
+        });
     },
 };

@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ReadingAPI } from "@/lib/readings";
 import type { QuizResultDetail, QuizResult } from "@/app/reading/student/readings/[id]/page";
 
+
 interface Question {
     id: string;
     text: string;
@@ -16,8 +17,6 @@ export default function StudentQuizPage() {
     const router = useRouter();
     const params = useParams();
     const readingId = params.id as string;
-    // TODO: ganti dengan userId dari auth context/provider
-    const userId = "user123";
 
     const [questions, setQuestions] = useState<Question[]>([]);
     const [loading, setLoading] = useState(true);
@@ -34,12 +33,12 @@ export default function StudentQuizPage() {
         const fetchQuestions = async () => {
             try {
                 setLoading(true);
-                const data = await ReadingAPI.getQuizQuestions(readingId, userId);
+                const data = await ReadingAPI.getQuizQuestions(readingId);
                 setQuestions(data);
             } catch (err: any) {
                 if (err.message?.toLowerCase().includes("completed")) {
                     try {
-                        const resultData = await ReadingAPI.getQuizResult(readingId, userId);
+                        const resultData = await ReadingAPI.getQuizResult(readingId);
                         setResult(resultData);
                         setSubmitted(true);
                         setLoading(false);
@@ -55,7 +54,7 @@ export default function StudentQuizPage() {
         };
 
         if (readingId) fetchQuestions();
-    }, [readingId, userId]);
+    }, [readingId]);
 
     useEffect(() => {
         let timer: NodeJS.Timeout;
@@ -90,14 +89,14 @@ export default function StudentQuizPage() {
     const handleSubmit = async () => {
         try {
             setSubmitting(true);
-            const submitResponse = await ReadingAPI.submitQuiz(readingId, userId, {
+            const submitResponse = await ReadingAPI.submitQuiz(readingId, {
                 answers,
                 timeTakenSeconds,
             });
 
             // Setelah submit, langsung fetch hasil lengkap dengan jawaban benar
             try {
-                const fullResult = await ReadingAPI.getQuizResult(readingId, userId);
+                const fullResult = await ReadingAPI.getQuizResult(readingId);
                 setResult(fullResult);
             } catch {
                 // Fallback: konversi submitResponse ke format QuizResult minimal

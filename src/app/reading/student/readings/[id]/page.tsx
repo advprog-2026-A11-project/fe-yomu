@@ -35,13 +35,10 @@ export default function ReadingViewStudent() {
     const [showResultModal, setShowResultModal] = useState(false);
     const [loadingResult, setLoadingResult] = useState(false);
 
-    // TODO: ganti dengan userId dari auth context/provider
-    const userId = "user123";
-
     useEffect(() => {
         const fetchDetail = async () => {
             try {
-                const data = await ReadingAPI.getStudentReadingById(id as string, userId);
+                const data = await ReadingAPI.getStudentReadingById(id as string);
                 setReading(data);
             } catch (err) {
                 console.error(err);
@@ -50,12 +47,10 @@ export default function ReadingViewStudent() {
 
         const checkQuizStatus = async () => {
             try {
-                // Coba ambil hasil quiz — jika berhasil, berarti sudah dikerjakan
-                const result = await ReadingAPI.getQuizResult(id as string, userId);
+                const result = await ReadingAPI.getQuizResult(id as string);
                 setQuizResult(result);
                 setIsQuizCompleted(true);
             } catch {
-                // Jika gagal (belum dikerjakan), biarkan isQuizCompleted = false
                 setIsQuizCompleted(false);
             }
         };
@@ -69,10 +64,9 @@ export default function ReadingViewStudent() {
             setShowResultModal(true);
             return;
         }
-        // Fallback: fetch ulang jika belum ada di state
         try {
             setLoadingResult(true);
-            const result = await ReadingAPI.getQuizResult(id as string, userId);
+            const result = await ReadingAPI.getQuizResult(id as string);
             setQuizResult(result);
             setShowResultModal(true);
         } catch (err) {
@@ -97,7 +91,6 @@ export default function ReadingViewStudent() {
                 />
             </ReadingLayout>
 
-            {/* Modal Hasil Quiz */}
             {showResultModal && quizResult && (
                 <QuizResultModal
                     result={quizResult}
@@ -236,7 +229,6 @@ function QuestionReviewCard({
                     : "border-rose-200 bg-rose-50"
             }`}
         >
-            {/* Question header */}
             <div className="flex items-start gap-3 mb-4">
                 <div
                     className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
@@ -268,9 +260,7 @@ function QuestionReviewCard({
                 </div>
             </div>
 
-            {/* Answer comparison */}
             <div className="space-y-2 pl-11">
-                {/* Options for multiple choice / true-false */}
                 {detail.options && detail.options.length > 0 && (
                     <div className="flex flex-wrap gap-2 mb-3">
                         {detail.options.map((opt) => {

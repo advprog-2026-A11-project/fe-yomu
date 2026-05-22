@@ -8,10 +8,12 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/ui/LoadingState";
+import { useAuth } from "@/components/providers/auth-provider";
 
 const API_ADMIN = "/api/reading-admin";
 
 export default function CreateEditReading() {
+  const { session } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("id");
@@ -31,7 +33,9 @@ export default function CreateEditReading() {
       const fetchOldData = async () => {
         try {
           setFetchingOld(true);
-          const response = await fetch(`${API_ADMIN}/${editId}`);
+          const response = await fetch(`${API_ADMIN}/${editId}`, {
+            headers: { ...(session?.profile?.id && { userId: session?.profile?.id }) },
+          });
           if (response.ok) {
             const data = await response.json();
             setFormData({
@@ -61,7 +65,10 @@ export default function CreateEditReading() {
     try {
       const response = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(session?.profile?.id && { userId: session.profile.id }),
+        },
         body: JSON.stringify(formData),
       });
 
